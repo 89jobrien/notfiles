@@ -1,10 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::config::{Config, Method};
+use notcore::{Config, Method, expand_tilde};
 use crate::linker::State;
 use crate::package::collect_files;
-use crate::paths::expand_tilde;
 
 #[derive(Debug, PartialEq)]
 pub enum FileStatus {

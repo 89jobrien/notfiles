@@ -4,10 +4,8 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{Config, Method};
-use crate::error::NotfilesError;
+use notcore::{Config, Method, NotfilesError, expand_tilde};
 use crate::package::collect_files;
-use crate::paths::expand_tilde;
 
 const STATE_FILE: &str = ".notfiles-state.toml";
 
@@ -132,15 +130,13 @@ pub fn link_package(
         }
 
         // Create parent directories
-        if let Some(parent) = target.parent() {
-            if !parent.exists() {
-                if opts.dry_run {
-                    if opts.verbose {
-                        println!("  \x1b[90mwould create dir\x1b[0m {}", parent.display());
-                    }
-                } else {
-                    fs::create_dir_all(parent)?;
+        if let Some(parent) = target.parent().filter(|p| !p.exists()) {
+            if opts.dry_run {
+                if opts.verbose {
+                    println!("  \x1b[90mwould create dir\x1b[0m {}", parent.display());
                 }
+            } else {
+                fs::create_dir_all(parent)?;
             }
         }
 

@@ -2,3 +2,26 @@
 name    = "notfiles"
 version = "0.1.0"
 edition = "2024"
+description = "A modern dotfiles manager — pure Rust alternative to GNU Stow"
+
+[[bin]]
+name = "notfiles"
+path = "src/main.rs"
+
+[lib]
+name = "notfiles"
+path = "src/lib.rs"
+
+[dependencies]
+notcore  = { workspace = true }
+clap     = { workspace = true }
+globset  = { workspace = true }
+chrono   = { workspace = true }
+serde    = { workspace = true }
+toml     = { workspace = true }
+anyhow   = { workspace = true }
+dirs     = { workspace = true }
+
+[dev-dependencies]
+tempfile  = { workspace = true }
+assert_fs = { workspace = true }

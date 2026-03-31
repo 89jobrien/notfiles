@@ -1,8 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::config::Config;
-use crate::error::NotfilesError;
+use notcore::{Config, NotfilesError};
 use crate::ignore::IgnoreMatcher;
 
 /// Discover available packages (subdirectories of the dotfiles dir).

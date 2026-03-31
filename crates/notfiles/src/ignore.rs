@@ -1,7 +1,7 @@
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::Path;
 
-use crate::error::NotfilesError;
+use notcore::NotfilesError;
 
 pub struct IgnoreMatcher {
     globset: GlobSet,
@@ -17,6 +17,7 @@ impl IgnoreMatcher {
                 .map_err(|e| NotfilesError::Other(format!("invalid ignore pattern '{pattern}': {e}")))?;
             builder.add(glob);
             // Also add a recursive variant so "foo" matches "a/foo" etc.
+            #[allow(clippy::collapsible_if)]
             if !pattern.contains('/') && !pattern.starts_with("**/") {
                 if let Ok(g) = Glob::new(&format!("**/{pattern}")) {
                     builder.add(g);
