@@ -25,3 +25,8 @@ notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
 notsecrets  = { path = "crates/notsecrets" }
 nothooks    = { path = "crates/nothooks" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
