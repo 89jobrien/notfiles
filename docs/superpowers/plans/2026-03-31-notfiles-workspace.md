@@ -8,6 +8,8 @@
 
 **Tech Stack:** Rust 2024 edition, Cargo workspace, `clap` (derive), `serde`/`toml`, `thiserror`, `anyhow`, `globset`, `dirs`, `rpassword`, `which`, `tempfile`/`assert_fs` (tests)
 
+> **Convention:** All hook scripts are Nushell (`.nu`). No `.sh` scripts. `nothooks` executes hooks via `nu <script>`, not `sh -c`.
+
 ---
 
 ## File Map
@@ -1092,13 +1094,8 @@ use nothooks::{HookRunner, HookResult};
 use notcore::{HookPhase, HookSpec};
 
 fn make_hook_script(dir: &TempDir, name: &str, content: &str) -> HookSpec {
-    let path = dir.path().join(format!("{name}.sh"));
-    fs::write(&path, format!("#!/bin/sh\n{content}")).unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
-    }
+    let path = dir.path().join(format!("{name}.nu"));
+    fs::write(&path, content).unwrap();
     HookSpec {
         name: name.to_string(),
         script: path.to_str().unwrap().to_string(),
@@ -1109,7 +1106,7 @@ fn make_hook_script(dir: &TempDir, name: &str, content: &str) -> HookSpec {
 #[test]
 fn test_hook_success() {
     let dir = TempDir::new().unwrap();
-    let spec = make_hook_script(&dir, "ok-hook", "echo hello");
+    let spec = make_hook_script(&dir, "ok-hook", "print hello");
     let runner = HookRunner::new(dir.path().to_path_buf());
     let result = runner.run_hook(&spec);
     assert!(matches!(result, HookResult::Ok));
@@ -1118,7 +1115,7 @@ fn test_hook_success() {
 #[test]
 fn test_hook_failure() {
     let dir = TempDir::new().unwrap();
-    let spec = make_hook_script(&dir, "fail-hook", "exit 1");
+    let spec = make_hook_script(&dir, "fail-hook", "exit 1\n");
     let runner = HookRunner::new(dir.path().to_path_buf());
     let result = runner.run_hook(&spec);
     assert!(matches!(result, HookResult::Failed(_)));
@@ -1127,7 +1124,7 @@ fn test_hook_failure() {
 #[test]
 fn test_setup_hook_skipped_on_rerun() {
     let dir = TempDir::new().unwrap();
-    let mut spec = make_hook_script(&dir, "setup-hook", "echo ran");
+    let mut spec = make_hook_script(&dir, "setup-hook", "print ran");
     spec.phase = notcore::HookPhase::Setup;
 
     let runner = HookRunner::new(dir.path().to_path_buf());
@@ -1142,7 +1139,7 @@ fn test_setup_hook_skipped_on_rerun() {
 #[test]
 fn test_setup_hook_force_reruns() {
     let dir = TempDir::new().unwrap();
-    let mut spec = make_hook_script(&dir, "force-hook", "echo ran");
+    let mut spec = make_hook_script(&dir, "force-hook", "print ran");
     spec.phase = notcore::HookPhase::Setup;
 
     let runner = HookRunner::new(dir.path().to_path_buf());
@@ -1261,8 +1258,7 @@ impl HookRunner {
             return HookResult::Skipped;
         }
 
-        let result = Command::new("sh")
-            .arg("-c")
+        let result = Command::new("nu")
             .arg(&spec.script)
             .status();
 
@@ -1453,6 +1449,7 @@ pub struct Prereq {
 }
 
 const PREREQS: &[Prereq] = &[
+    Prereq { cmd: "nu",   install_hint: "brew install nushell  OR  nix-env -iA nixpkgs.nushell" },
     Prereq { cmd: "sops", install_hint: "brew install sops  OR  nix-env -iA nixpkgs.sops" },
     Prereq { cmd: "age",  install_hint: "brew install age   OR  nix-env -iA nixpkgs.age" },
 ];
