@@ -2,3 +2,21 @@
 name    = "nothooks"
 version = "0.1.0"
 edition = "2024"
+
+[[bin]]
+name = "nothooks"
+path = "src/main.rs"
+
+[lib]
+name = "nothooks"
+path = "src/lib.rs"
+
+[dependencies]
+notcore  = { workspace = true }
+anyhow   = { workspace = true }
+serde    = { workspace = true }
+toml     = { workspace = true }
+clap     = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
