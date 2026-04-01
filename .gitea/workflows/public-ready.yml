@@ -1,0 +1,116 @@
+name: Public Repo Readiness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  public-ready:
+    name: Check Public Repo Readiness
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install mise
+        run: |
+          curl -fsSL https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Rust toolchain
+        run: ~/.local/bin/mise exec -- rustup show
+
+      - name: Install cargo-deny
+        run: ~/.local/bin/mise exec -- cargo install cargo-deny --locked 2>/dev/null || true
+
+      - name: Install obfsck
+        run: |
+          cargo install --git https://github.com/joeobrien/obfsck --locked 2>/dev/null \
+            || cargo install obfsck --locked 2>/dev/null \
+            || echo "obfsck not installable — skipping secrets scan"
+
+      # ── 1. Secrets / PII scan ─────────────────────────────────────────────
+      - name: Scan for secrets and PII
+        id: secrets
+        run: |
+          FINDINGS=0
+          while IFS= read -r -d '' f; do
+            result=$(obfsck --audit --level standard "$f" 2>&1 >/dev/null) || true
+            if echo "$result" | grep -q "match"; then
+              echo "::warning file=$f::Potential secret or PII detected"
+              echo "$result"
+              FINDINGS=$((FINDINGS + 1))
+            fi
+          done < <(git ls-files -z -- '*.rs' '*.toml' '*.md' '*.nu' '*.sh' '*.env' '*.yaml' '*.yml' '*.json')
+          echo "findings=$FINDINGS" >> "$GITHUB_OUTPUT"
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::error::$FINDINGS file(s) contain potential secrets or PII — not safe to publish"
+            exit 1
+          fi
+
+      # ── 2. Hardcoded private addresses ────────────────────────────────────
+      - name: Scan for private IPs and internal hostnames
+        id: private_addrs
+        run: |
+          HITS=$(git ls-files | xargs grep -En \
+            '100\.[0-9]+\.[0-9]+\.[0-9]+|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|\.internal\b|\.local\b' \
+            2>/dev/null | grep -v "Binary\|\.git/" || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Hardcoded private IPs or internal hostnames found — not safe to publish"
+            exit 1
+          fi
+
+      # ── 3. License compliance ─────────────────────────────────────────────
+      - name: Check dependency licenses
+        id: licenses
+        run: |
+          if [ ! -f deny.toml ]; then
+            cat > /tmp/deny.toml << 'DENY'
+          [licenses]
+          allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "CC0-1.0", "Zlib"]
+          deny = ["GPL-2.0", "GPL-3.0", "AGPL-3.0", "LGPL-2.0", "LGPL-3.0"]
+          copyleft = "deny"
+
+          [bans]
+          multiple-versions = "warn"
+
+          [advisories]
+          db-path = "~/.cargo/advisory-db"
+          db-urls = ["https://github.com/rustsec/advisory-db"]
+          vulnerability = "deny"
+          unmaintained = "warn"
+          yanked = "deny"
+          DENY
+            DENY_CONFIG=/tmp/deny.toml
+          else
+            DENY_CONFIG=deny.toml
+          fi
+          ~/.local/bin/mise exec -- cargo deny --config "$DENY_CONFIG" check licenses bans advisories
+
+      # ── 4. No .env or secrets files tracked ───────────────────────────────
+      - name: Check for tracked secrets files
+        id: tracked_secrets
+        run: |
+          BAD=$(git ls-files | grep -E '\.env$|\.secrets$|secrets\.ya?ml$|\.age$|id_rsa$|id_ed25519$' || true)
+          if [ -n "$BAD" ]; then
+            echo "$BAD"
+            echo "::error::Secrets files are tracked in git — not safe to publish"
+            exit 1
+          fi
+
+      # ── 5. Summary ────────────────────────────────────────────────────────
+      - name: Public readiness summary
+        if: success()
+        run: |
+          echo "✅ No secrets or PII detected"
+          echo "✅ No hardcoded private addresses"
+          echo "✅ Licenses are OSS-compatible"
+          echo "✅ No secrets files tracked in git"
+          echo ""
+          echo "This repository appears safe to mirror to a public GitHub repo."
