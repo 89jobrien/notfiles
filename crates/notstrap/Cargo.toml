@@ -2,6 +2,7 @@
 name    = "notstrap"
 version = "0.1.0"
 edition = "2024"
+license.workspace = true
 description = "New-machine bootstrap orchestrator"
 
 [[bin]]

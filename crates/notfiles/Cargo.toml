@@ -2,6 +2,7 @@
 name    = "notfiles"
 version = "0.1.0"
 edition = "2024"
+license.workspace = true
 description = "A modern dotfiles manager — pure Rust alternative to GNU Stow"
 
 [[bin]]
