@@ -41,6 +41,7 @@ fn default_ignore() -> Vec<String> {
         "LICENSE".to_string(),
         "notfiles.toml".to_string(),
         ".notfiles-state.toml".to_string(),
+        ".nothooks-state.toml".to_string(),
     ]
 }
 
@@ -111,7 +112,7 @@ impl Config {
 pub fn starter_toml() -> &'static str {
     r#"[defaults]
 target = "~"
-ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml"]
+ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml", ".nothooks-state.toml"]
 
 # [packages.ssh]
 # method = "copy"
