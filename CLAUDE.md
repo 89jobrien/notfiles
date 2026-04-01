@@ -71,3 +71,18 @@ Rust edition 2024. All hook scripts are Nushell (`.nu`) — no `.sh` scripts.
 
 Workflows live in `.gitea/workflows/` — mirrors `.github/workflows/` for GitHub.
 The `public-ready.yml` workflow checks secrets, private IPs, licenses, and tracked secrets files on every push to main.
+
+## GitHub / Publishing
+
+GitHub account: `89jobrien`. Create public repos with:
+`gh repo create 89jobrien/<name> --public --description "..."`
+Add as second remote: `git remote add github https://github.com/89jobrien/<name>.git`
+
+For dual MIT/Apache-2.0 licensing:
+- Use `[workspace.package] license = "MIT OR Apache-2.0"` + `license.workspace = true` in each crate
+- Do NOT use curl for Apache license text — RTK truncates it. Write the full text directly.
+- Copyright name: Joseph O'Brien
+
+## Identity
+
+Full name for copyright/license attribution: Joseph O'Brien
