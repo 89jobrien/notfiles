@@ -6,15 +6,15 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 struct TestEnv {
-    dotfiles: TempDir,
+    dotfiles: TempDir, // kept alive to prevent early drop of temp directory
     home: TempDir,
     config: PathBuf,
     key_file: PathBuf,
 }
 
 fn make_test_env() -> TestEnv {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("failed to create temp dotfiles dir");
+    let home = TempDir::new().expect("failed to create temp home dir");
     let d = dotfiles.path();
 
     // age key file (content doesn't matter — FileSource reads it verbatim)
@@ -128,6 +128,7 @@ fn test_full_bootstrap_dot_hooks_only() {
 /// first run and by calling nothooks::run_phase directly after the second run.
 #[test]
 fn test_setup_hooks_skipped_on_rerun() {
+    const HOOK_NAME: &str = "install-tools";
     let env = make_test_env();
     let d = env.dotfiles.path();
 
@@ -139,7 +140,7 @@ fn test_setup_hooks_skipped_on_rerun() {
          dotfiles_repo = \"https://example.com/fake.git\"\n\
          dotfiles_dir = \"{dotfiles}\"\n\n\
          [[hooks]]\n\
-         name = \"install-tools\"\n\
+         name = \"{HOOK_NAME}\"\n\
          script = \"{script}\"\n\
          phase = \"setup\"\n",
         dotfiles = d.display(),
@@ -163,8 +164,8 @@ fn test_setup_hooks_skipped_on_rerun() {
     );
     let state_content = fs::read_to_string(&state_file).unwrap();
     assert!(
-        state_content.contains("install-tools"),
-        "state file should record install-tools as done, got: {state_content}"
+        state_content.contains(HOOK_NAME),
+        "state file should record {HOOK_NAME} as done, got: {state_content}"
     );
 
     // ── Second run ─────────────────────────────────────────────────────────
@@ -178,7 +179,7 @@ fn test_setup_hooks_skipped_on_rerun() {
     // Verify skip behaviour directly via nothooks — HookRunner should skip
     // the setup hook because state file already marks it done.
     let hook_spec = HookSpec {
-        name: "install-tools".to_string(),
+        name: HOOK_NAME.to_string(),
         script: script.to_str().unwrap().to_string(),
         phase: HookPhase::Setup,
     };
@@ -187,12 +188,12 @@ fn test_setup_hooks_skipped_on_rerun() {
     let step = phase_report
         .steps
         .iter()
-        .find(|s| s.name == "install-tools")
+        .find(|s| s.name == HOOK_NAME)
         .expect("install-tools step should be in phase report");
     assert_eq!(
         step.status,
         StepStatus::Skipped,
-        "install-tools should be skipped on second run"
+        "{HOOK_NAME} should be skipped on second run"
     );
 }
 
@@ -214,7 +215,7 @@ fn test_bootstrap_fails_fast_on_bad_key() {
         env_injector: None,
     };
 
-    let report = run(opts).unwrap();
+    let report = run(opts).expect("run() should return Ok even when a step fails");
 
     // age key step must fail
     let key_step = report
