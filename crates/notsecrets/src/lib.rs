@@ -32,7 +32,7 @@ pub fn install_age_key(key: &str) -> Result<PathBuf> {
     let path = dirs::home_dir()
         .context("cannot find home directory")?
         .join(".config/sops/age/keys.txt");
-    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::create_dir_all(path.parent().with_context(|| "age keys.txt path has no parent directory")?)?;
     std::fs::write(&path, key)?;
     #[cfg(unix)]
     {
@@ -45,7 +45,7 @@ pub fn install_age_key(key: &str) -> Result<PathBuf> {
 /// Run `sops --decrypt <sops_file>` and return the decrypted content.
 pub fn decrypt_sops(sops_file: &Path) -> Result<String> {
     let output = Command::new("sops")
-        .args(["--decrypt", sops_file.to_str().unwrap()])
+        .args(["--decrypt", sops_file.to_str().ok_or_else(|| anyhow::anyhow!("sops path is not valid UTF-8"))?])
         .output()
         .context("failed to run sops")?;
 

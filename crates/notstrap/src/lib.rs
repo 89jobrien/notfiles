@@ -108,7 +108,10 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
                         let k = k.trim();
                         let v = v.trim().trim_matches('"');
                         if !k.is_empty() && !k.starts_with('#') {
-                            // Safety: single-threaded bootstrap, no concurrent env readers
+                            // SAFETY: `notstrap` is a single-threaded bootstrap binary. No other threads
+                            // are spawned before this point, and `env_injector` is called before any
+                            // `Command::spawn` calls in this `run()` invocation. Callers that use
+                            // `env_injector: None` (e.g. tests) never reach this block.
                             unsafe { std::env::set_var(k, v); }
                         }
                     }
