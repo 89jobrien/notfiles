@@ -6,8 +6,8 @@ license.workspace = true
 publish = false
 
 [[test]]
-name = "placeholder"
-path = "tests/placeholder.rs"
+name = "bootstrap"
+path = "tests/bootstrap.rs"
 
 [dev-dependencies]
 notstrap  = { path = "../../crates/notstrap" }
