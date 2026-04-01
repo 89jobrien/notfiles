@@ -19,7 +19,7 @@ fn test_nothooks_notsecrets_independent() {
     fs::write(&key_path, "AGE-SECRET-KEY-1CROSSCRATE\n").unwrap();
 
     let sources: Vec<Box<dyn AgeKeySource>> = vec![Box::new(FileSource::new(key_path))];
-    let key = resolve_age_key(sources).unwrap();
+    let key = resolve_age_key(sources).expect("resolve_age_key failed");
     assert!(
         key.trim().starts_with("AGE-SECRET-KEY-"),
         "expected age key prefix, got: {key:?}"
@@ -70,7 +70,7 @@ fn test_notfiles_respects_default_ignore() {
     fs::write(pkg.join(".nothooks-state.toml"), "# state\n").unwrap();
 
     let opts = LinkOptions { force: false, no_backup: false, dry_run: false, verbose: false };
-    let state = link(d, &[], &opts).unwrap();
+    let state = link(d, &[], &opts).expect("link() failed");
 
     // foo.txt linked
     assert!(
@@ -102,11 +102,11 @@ fn test_notfiles_respects_default_ignore() {
         })
         .collect();
     assert!(
-        !names.contains(&".notfiles-state.toml".to_string()),
+        !names.iter().any(|n| n == ".notfiles-state.toml"),
         ".notfiles-state.toml must not be in state entries"
     );
     assert!(
-        !names.contains(&".nothooks-state.toml".to_string()),
+        !names.iter().any(|n| n == ".nothooks-state.toml"),
         ".nothooks-state.toml must not be in state entries"
     );
 }
