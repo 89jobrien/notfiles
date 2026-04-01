@@ -7,7 +7,9 @@ pub fn clone_if_missing(url: &str, dest: &Path) -> Result<bool> {
         return Ok(false);
     }
     let status = Command::new("git")
-        .args(["clone", url, dest.to_str().unwrap()])
+        .arg("clone")
+        .arg(url)
+        .arg(dest)
         .status()
         .context("failed to run git clone")?;
     if !status.success() {

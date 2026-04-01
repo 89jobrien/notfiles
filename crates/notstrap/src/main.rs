@@ -40,7 +40,7 @@ fn main() -> Result<()> {
         key_file,
         dotfiles,
         check_prereqs: Some(Box::new(prereqs::check_prerequisites)),
-        env_injector: Some(Box::new(|p| notsecrets::decrypt_sops(p))),
+        env_injector: Some(Box::new(notsecrets::decrypt_sops)),
     };
     let report = run(opts)?;
     report.print();

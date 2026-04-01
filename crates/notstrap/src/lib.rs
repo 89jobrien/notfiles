@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 pub mod prereqs;
 pub mod repo;
 
+type EnvInjector = Box<dyn Fn(&Path) -> Result<String>>;
+
 #[derive(Deserialize)]
 pub struct NotstrapConfig {
     pub bootstrap: BootstrapSection,
@@ -26,8 +28,8 @@ pub struct BootstrapSection {
     pub sops_file: String,
 }
 
-pub fn default_bw_item() -> String { "age-key-dotfiles".to_string() }
-pub fn default_sops_file() -> String { "secrets/bootstrap.sops.env".to_string() }
+pub(crate) fn default_bw_item() -> String { "age-key-dotfiles".to_string() }
+pub(crate) fn default_sops_file() -> String { "secrets/bootstrap.sops.env".to_string() }
 
 pub struct BootstrapOptions {
     pub config: PathBuf,
@@ -37,7 +39,7 @@ pub struct BootstrapOptions {
     /// None = skip prereq check (tests). Some(f) = run f().
     pub check_prereqs: Option<Box<dyn Fn() -> Result<()>>>,
     /// None = skip env injection (tests). Some(f) = decrypt sops at path and inject.
-    pub env_injector: Option<Box<dyn Fn(&Path) -> Result<String>>>,
+    pub env_injector: Option<EnvInjector>,
 }
 
 pub fn run(opts: BootstrapOptions) -> Result<Report> {
@@ -59,9 +61,11 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         .with_context(|| format!("cannot read {}", opts.config.display()))?;
     let cfg: NotstrapConfig = toml::from_str(&config_content)?;
 
-    let dotfiles_dir = opts.dotfiles.unwrap_or_else(|| {
-        notcore::expand_tilde(&cfg.bootstrap.dotfiles_dir).unwrap()
-    });
+    let dotfiles_dir = match opts.dotfiles {
+        Some(d) => d,
+        None => notcore::expand_tilde(&cfg.bootstrap.dotfiles_dir)
+            .with_context(|| format!("cannot expand dotfiles_dir: {}", cfg.bootstrap.dotfiles_dir))?,
+    };
 
     // 3. Clone dotfiles if missing
     match repo::clone_if_missing(&cfg.bootstrap.dotfiles_repo, &dotfiles_dir) {
