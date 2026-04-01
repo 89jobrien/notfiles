@@ -9,6 +9,10 @@ publish = false
 name = "bootstrap"
 path = "tests/bootstrap.rs"
 
+[[test]]
+name = "cross_crate"
+path = "tests/cross_crate.rs"
+
 [dev-dependencies]
 notstrap  = { path = "../../crates/notstrap" }
 notfiles  = { path = "../../crates/notfiles" }
