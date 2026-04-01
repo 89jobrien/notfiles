@@ -8,6 +8,7 @@ members = [
     "crates/notsecrets",
     "crates/nothooks",
     "crates/notstrap",
+    "tests/integration",
 ]
 resolver = "2"
 

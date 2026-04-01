@@ -1,0 +1,20 @@
+[package]
+name = "integration"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+
+[[test]]
+name = "placeholder"
+path = "tests/placeholder.rs"
+
+[dev-dependencies]
+notstrap  = { path = "../../crates/notstrap" }
+notfiles  = { path = "../../crates/notfiles" }
+nothooks  = { path = "../../crates/nothooks" }
+notsecrets = { path = "../../crates/notsecrets" }
+notcore   = { path = "../../crates/notcore" }
+tempfile  = { workspace = true }
+assert_fs = { workspace = true }
+anyhow    = { workspace = true }
