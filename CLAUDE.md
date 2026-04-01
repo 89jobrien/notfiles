@@ -66,3 +66,8 @@ Orchestrates in order: prereqs check → load config → clone dotfiles → age 
 ## Edition
 
 Rust edition 2024. All hook scripts are Nushell (`.nu`) — no `.sh` scripts.
+
+## CI / Gitea Actions
+
+Workflows live in `.gitea/workflows/` — mirrors `.github/workflows/` for GitHub.
+The `public-ready.yml` workflow checks secrets, private IPs, licenses, and tracked secrets files on every push to main.
