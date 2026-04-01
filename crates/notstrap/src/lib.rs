@@ -104,15 +104,18 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         match injector(&sops_path) {
             Ok(env_content) => {
                 for line in env_content.lines() {
-                    if let Some((k, v)) = line.split_once('=') {
-                        let k = k.trim();
-                        let v = v.trim().trim_matches('"');
-                        if !k.is_empty() && !k.starts_with('#') {
-                            // SAFETY: `notstrap` is a single-threaded bootstrap binary. No other threads
-                            // are spawned before this point, and `env_injector` is called before any
-                            // `Command::spawn` calls in this `run()` invocation. Callers that use
-                            // `env_injector: None` (e.g. tests) never reach this block.
-                            unsafe { std::env::set_var(k, v); }
+                    match parse_env_line(line) {
+                        Ok(Some((k, v))) => {
+                            // SAFETY: `notstrap` is a single-threaded bootstrap binary; no other
+                            // threads exist. Subsequent Command::spawn calls (git, hooks) will
+                            // inherit these vars — keys are validated by parse_env_line before
+                            // reaching this point (null bytes and dangerous keys are rejected).
+                            unsafe { std::env::set_var(&k, &v); }
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            report.add("decrypt secrets", StepStatus::Failed(e.to_string()));
+                            return Ok(report);
                         }
                     }
                 }
@@ -158,4 +161,109 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     Ok(report)
+}
+
+/// Parse and validate a single env line (`KEY=value`), returning `(key, value)` if safe to inject.
+/// Returns `Ok(None)` for blank lines and comments.
+/// Returns `Err` for null bytes or dangerous keys.
+pub fn parse_env_line(line: &str) -> Result<Option<(String, String)>> {
+    let Some((k, v)) = line.split_once('=') else {
+        return Ok(None);
+    };
+    let k = k.trim().to_string();
+    let v = v.trim().trim_matches('"').to_string();
+
+    if k.is_empty() || k.starts_with('#') {
+        return Ok(None);
+    }
+
+    // Issue #4: reject null bytes
+    if k.contains('\0') || v.contains('\0') {
+        anyhow::bail!("env key or value contains null byte: {:?}", k);
+    }
+
+    // Issue #5: block dangerous keys that affect dynamic linker / shell
+    const BLOCKED: &[&str] = &[
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "IFS",
+        "PATH",
+    ];
+    if BLOCKED.contains(&k.as_str()) {
+        anyhow::bail!("refusing to inject sensitive env key: {k}");
+    }
+
+    Ok(Some((k, v)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Issue #4: null byte in key must be rejected.
+    #[test]
+    fn parse_env_line_rejects_null_in_key() {
+        let result = parse_env_line("KEY\0EVIL=value");
+        assert!(result.is_err(), "expected error for null byte in key");
+        assert!(result.unwrap_err().to_string().contains("null byte"));
+    }
+
+    /// Issue #4: null byte in value must be rejected.
+    #[test]
+    fn parse_env_line_rejects_null_in_value() {
+        let result = parse_env_line("KEY=val\0ue");
+        assert!(result.is_err(), "expected error for null byte in value");
+        assert!(result.unwrap_err().to_string().contains("null byte"));
+    }
+
+    /// Issue #5: LD_PRELOAD must be blocked.
+    #[test]
+    fn parse_env_line_blocks_ld_preload() {
+        let result = parse_env_line("LD_PRELOAD=/evil/lib.so");
+        assert!(result.is_err(), "expected error for LD_PRELOAD");
+        assert!(result.unwrap_err().to_string().contains("sensitive env key"));
+    }
+
+    /// Issue #5: PATH must be blocked.
+    #[test]
+    fn parse_env_line_blocks_path() {
+        let result = parse_env_line("PATH=/attacker/bin:/usr/bin");
+        assert!(result.is_err(), "expected error for PATH");
+    }
+
+    /// Issue #5: DYLD_INSERT_LIBRARIES must be blocked.
+    #[test]
+    fn parse_env_line_blocks_dyld_insert_libraries() {
+        let result = parse_env_line("DYLD_INSERT_LIBRARIES=/evil/lib.dylib");
+        assert!(result.is_err(), "expected error for DYLD_INSERT_LIBRARIES");
+    }
+
+    /// Normal env lines must pass through unchanged.
+    #[test]
+    fn parse_env_line_accepts_normal_keys() {
+        let result = parse_env_line("MY_TOKEN=abc123").unwrap();
+        assert_eq!(result, Some(("MY_TOKEN".to_string(), "abc123".to_string())));
+    }
+
+    /// Blank lines return None.
+    #[test]
+    fn parse_env_line_ignores_blank() {
+        assert_eq!(parse_env_line("").unwrap(), None);
+        assert_eq!(parse_env_line("   ").unwrap(), None);
+    }
+
+    /// Comment lines return None.
+    #[test]
+    fn parse_env_line_ignores_comments() {
+        assert_eq!(parse_env_line("# THIS_IS_A_COMMENT=value").unwrap(), None);
+    }
+
+    /// Quoted values are unquoted.
+    #[test]
+    fn parse_env_line_strips_quotes() {
+        let result = parse_env_line(r#"API_KEY="secret""#).unwrap();
+        assert_eq!(result, Some(("API_KEY".to_string(), "secret".to_string())));
+    }
 }
