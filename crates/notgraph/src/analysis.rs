@@ -22,9 +22,12 @@ pub fn detect_cycles(nodes: &[String], edges: &[(String, String)]) -> Vec<Vec<St
     let mut in_degree: HashMap<&str, usize> = nodes.iter().map(|n| (n.as_str(), 0)).collect();
     let mut adj: HashMap<&str, Vec<&str>> = nodes.iter().map(|n| (n.as_str(), vec![])).collect();
 
+    let node_set: std::collections::HashSet<&str> = nodes.iter().map(|n| n.as_str()).collect();
     for (from, to) in edges {
-        *in_degree.entry(to.as_str()).or_insert(0) += 1;
-        adj.entry(from.as_str()).or_default().push(to.as_str());
+        if node_set.contains(from.as_str()) && node_set.contains(to.as_str()) {
+            *in_degree.entry(to.as_str()).or_insert(0) += 1;
+            adj.entry(from.as_str()).or_default().push(to.as_str());
+        }
     }
 
     let mut queue: VecDeque<&str> = in_degree.iter()

@@ -96,3 +96,19 @@ pub struct GraphStats {
     pub hotspots:      Vec<Hotspot>,
     pub cycles:        Vec<Vec<ModPath>>,
 }
+
+/// Convert a source file path (relative to src/) to a Rust module path like `crate::foo::bar`.
+pub fn path_to_mod(krate: &str, rel: &std::path::Path) -> ModPath {
+    let mut parts: Vec<String> = vec![krate.to_string()];
+    for component in rel.components() {
+        let s = component.as_os_str().to_string_lossy();
+        if s == "lib.rs" || s == "main.rs" {
+            break;
+        }
+        let s = s.trim_end_matches(".rs").to_string();
+        if s != "mod" {
+            parts.push(s);
+        }
+    }
+    parts.join("::")
+}

@@ -33,20 +33,6 @@ impl<'ast> Visit<'ast> for ModCollector {
     }
 }
 
-fn path_to_mod(krate: &str, rel: &Path) -> ModPath {
-    let mut parts: Vec<String> = vec![krate.to_string()];
-    for component in rel.components() {
-        let s = component.as_os_str().to_string_lossy();
-        if s == "lib.rs" || s == "main.rs" {
-            break;
-        }
-        let s = s.trim_end_matches(".rs").to_string();
-        if s != "mod" {
-            parts.push(s);
-        }
-    }
-    parts.join("::")
-}
 
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
     let mut all_nodes: Vec<ModPath> = Vec::new();
@@ -61,7 +47,7 @@ pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
         let content = std::fs::read_to_string(path)?;
         let file = syn::parse_file(&content)?;
         let rel = path.strip_prefix(src_dir)?;
-        let mod_path = path_to_mod(&krate, rel);
+        let mod_path = crate::types::path_to_mod(&krate, rel);
 
         let mut collector = ModCollector::new(mod_path);
         collector.visit_file(&file);

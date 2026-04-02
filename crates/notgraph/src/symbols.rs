@@ -42,22 +42,14 @@ impl<'ast> Visit<'ast> for SymbolCollector {
     fn visit_item_const(&mut self, node: &'ast syn::ItemConst) {
         self.push(SymbolKind::Const, node.ident.to_string(), Self::is_pub(&node.vis));
     }
+    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        let child_path = format!("{}::{}", self.mod_path, node.ident);
+        let parent = std::mem::replace(&mut self.mod_path, child_path);
+        syn::visit::visit_item_mod(self, node);
+        self.mod_path = parent;
+    }
 }
 
-fn path_to_mod(krate: &str, rel: &Path) -> ModPath {
-    let mut parts: Vec<String> = vec![krate.to_string()];
-    for component in rel.components() {
-        let s = component.as_os_str().to_string_lossy();
-        if s == "lib.rs" || s == "main.rs" {
-            break;
-        }
-        let s = s.trim_end_matches(".rs").to_string();
-        if s != "mod" {
-            parts.push(s);
-        }
-    }
-    parts.join("::")
-}
 
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<SymbolTable> {
     let mut symbols: Vec<Symbol> = Vec::new();
@@ -70,7 +62,7 @@ pub fn build(krate: CrateName, src_dir: &Path) -> Result<SymbolTable> {
         let content = std::fs::read_to_string(path)?;
         let file = syn::parse_file(&content)?;
         let rel = path.strip_prefix(src_dir)?;
-        let mod_path = path_to_mod(&krate, rel);
+        let mod_path = crate::types::path_to_mod(&krate, rel);
         let mut collector = SymbolCollector::new(mod_path);
         collector.visit_file(&file);
         symbols.extend(collector.symbols);
