@@ -19,26 +19,18 @@ fn clean_fixture_has_no_cycles() {
 }
 
 #[test]
-fn cyclic_fixture_detects_module_references() {
-    // The "cyclic" fixture demonstrates a case where foo and bar mutually
-    // reference each other's names through mod declarations. While Rust's
-    // module system itself is acyclic (hierarchical), this tests that
-    // module_graph properly captures all module declarations.
-    let mg = module_graph::build("cyclic".to_string(), &fixtures("cyclic")).unwrap();
-
-    // Should find nodes for both foo and bar at top level
-    assert!(mg.nodes.contains(&"cyclic::foo".to_string()));
-    assert!(mg.nodes.contains(&"cyclic::bar".to_string()));
-
-    // Should find the nested modules they declare
-    assert!(mg.nodes.contains(&"cyclic::foo::bar".to_string()));
-    assert!(mg.nodes.contains(&"cyclic::bar::foo".to_string()));
-
-    // Should have edges for all declarations
-    assert!(mg.edges.contains(&("cyclic".to_string(), "cyclic::foo".to_string())));
-    assert!(mg.edges.contains(&("cyclic".to_string(), "cyclic::bar".to_string())));
-    assert!(mg.edges.contains(&("cyclic::foo".to_string(), "cyclic::foo::bar".to_string())));
-    assert!(mg.edges.contains(&("cyclic::bar".to_string(), "cyclic::bar::foo".to_string())));
+fn detect_cycles_finds_cycles_in_synthetic_graph() {
+    let nodes = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+    let edges = vec![
+        ("a".to_string(), "b".to_string()),
+        ("b".to_string(), "c".to_string()),
+        ("c".to_string(), "a".to_string()), // creates a->b->c->a cycle
+    ];
+    let cycles = analysis::detect_cycles(&nodes, &edges);
+    assert!(
+        !cycles.is_empty(),
+        "expected detect_cycles to find the a->b->c->a cycle, got empty"
+    );
 }
 
 #[test]
