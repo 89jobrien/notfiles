@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use crate::_legacy::AgeKeySource;
 use anyhow::Result;
-use crate::AgeKeySource;
+use std::path::PathBuf;
 
 pub struct FileSource {
     path: PathBuf,
@@ -13,7 +13,9 @@ impl FileSource {
 }
 
 impl AgeKeySource for FileSource {
-    fn name(&self) -> &str { "file" }
+    fn name(&self) -> &str {
+        "file"
+    }
 
     fn retrieve(&self) -> Result<String> {
         std::fs::read_to_string(&self.path)

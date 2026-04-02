@@ -1,7 +1,6 @@
-use anyhow::{bail, Result};
+use crate::_legacy::AgeKeySource;
+use anyhow::{Result, bail};
 use std::process::Command;
-use which::which;
-use crate::AgeKeySource;
 
 pub struct BitwardenSource {
     pub item_name: String,
@@ -9,15 +8,24 @@ pub struct BitwardenSource {
 
 impl BitwardenSource {
     pub fn new(item_name: impl Into<String>) -> Self {
-        Self { item_name: item_name.into() }
+        Self {
+            item_name: item_name.into(),
+        }
     }
 }
 
 impl AgeKeySource for BitwardenSource {
-    fn name(&self) -> &str { "bitwarden" }
+    fn name(&self) -> &str {
+        "bitwarden"
+    }
 
     fn retrieve(&self) -> Result<String> {
-        if which("bw").is_err() {
+        let bw_available = Command::new("sh")
+            .args(["-c", "command -v bw"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !bw_available {
             bail!("bw CLI not found in PATH");
         }
 
@@ -29,7 +37,10 @@ impl AgeKeySource for BitwardenSource {
                 .args(["unlock", "--raw", &password])
                 .output()?;
             if !output.status.success() {
-                bail!("bw unlock failed: {}", String::from_utf8_lossy(&output.stderr));
+                bail!(
+                    "bw unlock failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
             String::from_utf8(output.stdout)?.trim().to_string()
         } else {

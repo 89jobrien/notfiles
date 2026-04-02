@@ -1,6 +1,6 @@
+use notsecrets::{AgeKeySource, FileSource, resolve_age_key};
 use std::fs;
 use tempfile::TempDir;
-use notsecrets::{resolve_age_key, AgeKeySource, FileSource};
 
 #[test]
 fn test_file_source_reads_key() {
@@ -26,17 +26,14 @@ fn test_resolve_age_key_uses_file_fallback() {
     let key_file = dir.path().join("age.key");
     fs::write(&key_file, "AGE-SECRET-KEY-1TEST\n").unwrap();
 
-    let sources: Vec<Box<dyn AgeKeySource>> = vec![
-        Box::new(FileSource::new(key_file)),
-    ];
+    let sources: Vec<Box<dyn AgeKeySource>> = vec![Box::new(FileSource::new(key_file))];
     let key = resolve_age_key(sources).unwrap();
     assert_eq!(key.trim(), "AGE-SECRET-KEY-1TEST");
 }
 
 #[test]
 fn test_resolve_age_key_all_fail_returns_err() {
-    let sources: Vec<Box<dyn AgeKeySource>> = vec![
-        Box::new(FileSource::new("/nonexistent".into())),
-    ];
+    let sources: Vec<Box<dyn AgeKeySource>> =
+        vec![Box::new(FileSource::new("/nonexistent".into()))];
     assert!(resolve_age_key(sources).is_err());
 }
