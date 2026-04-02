@@ -1,4 +1,5 @@
 pub mod error;
+pub mod format;
 pub mod identities;
 pub mod recipients;
 pub mod sources;
