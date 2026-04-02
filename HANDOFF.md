@@ -4,7 +4,7 @@ State of the `notfiles` repo as of 2026-04-01.
 
 ## What Was Done
 
-### Previous session (2026-03-31)
+### Session 1 (2026-03-31)
 
 Restructured from a flat `src/` layout into a Cargo workspace of 5 crates:
 - `notcore` — shared library (types, config, paths, errors)
@@ -13,15 +13,11 @@ Restructured from a flat `src/` layout into a Cargo workspace of 5 crates:
 - `nothooks` — Nushell hook runner with phase/state tracking
 - `notstrap` — new-machine bootstrap orchestrator
 
-### This session (2026-04-01)
+### Session 2 (2026-04-01)
 
-Began age-native redesign of `notsecrets` — replacing sops shell-out and Bitwarden CLI dependency with a self-contained age encryption/decryption library implemented in pure Rust (modeled after rage, no dependency on it).
+Completed the age-native redesign of `notsecrets` — all 12 tasks done.
 
-**Spec and plan written:**
-- `docs/superpowers/specs/2026-04-01-notsecrets-age-redesign.md`
-- `docs/superpowers/plans/2026-04-01-notsecrets-age-redesign.md`
-
-**Implementation progress (Tasks 1–7 of 12 complete):**
+**All tasks complete:**
 
 | Task | Status | Commit |
 |------|--------|--------|
@@ -31,31 +27,28 @@ Began age-native redesign of `notsecrets` — replacing sops shell-out and Bitwa
 | 4: Scrypt identity + recipient | ✅ | `b899198` |
 | 5: SSH Ed25519 identity + recipient | ✅ | `566501c` |
 | 6: SSH RSA identity + recipient | ✅ | `a0fe6f7` |
-| 7: EncryptedIdentity (stub, real impl needs Decryptor) | ✅ | `545a45b` |
-| 8: Encryptor | ⏳ not started |  |
-| 9: Decryptor + wire EncryptedIdentity | ⏳ not started |  |
-| 10: sources/ migration (IdentitySource trait) | ⏳ not started |  |
-| 11: resolve_identities() public API | ⏳ not started |  |
-| 12: notstrap migration + cargo check --workspace | ⏳ not started |  |
+| 7: EncryptedIdentity (passphrase-protected identity file) | ✅ | `545a45b` |
+| 8: Encryptor — multi-recipient age encryption | ✅ | `9863af6` |
+| 9: Decryptor + wire EncryptedIdentity | ✅ | `e388d75` |
+| 10+11: sources/ migration + resolve_identities() | ✅ | `f80ea02` |
+| 12: notstrap migration, remove sops shell-out | ✅ | `58de007` |
 
 **Current state:**
-- `notsecrets` compiles and passes all existing tests
-- Legacy API (`AgeKeySource`, `resolve_age_key`, `install_age_key`, `decrypt_sops`) preserved in `_legacy.rs` — `notstrap` still works
-- `EncryptedIdentity::unwrap_file_key` is a stub returning an error until `Decryptor` is wired in Task 9
+- 80 tests pass, 0 clippy warnings, `cargo check --workspace` clean
+- `_legacy.rs` deleted; all deprecated shims removed
+- `notsecrets` is now a self-contained age encryption/decryption library
+- `notstrap` uses `resolve_identities` + `Decryptor` directly; no sops shell-out
+- `EnvInjector` changed to `FnOnce`; `main.rs` sets `env_injector: None`
+- Example at `crates/notsecrets/examples/age_smoke.rs` demonstrates round-trip encrypt/decrypt
 
-## Resuming
+Also done this session (outside notfiles):
+- Fixed `~/.config/sops/age/keys.txt` — was `AGE-SECRET-KEY-1TESTKEY` placeholder, now real key from 1Password item `age-key-dotfiles` (UUID `6meypnchchq3tsb32mdnzxtlia`)
+- `env.nu` now self-heals `keys.txt` from 1Password on fresh login if missing/placeholder
+- Expanded `~/.secrets` to cover 18 keys (AWS, Docker, GitHub, Slack, ElevenLabs, Groq, Mistral, LangChain/Smith, SerpAPI, Twilio, Tavily, Context7) — all via `op://` UUID refs, resolved by `op inject` at shell startup
+- Removed duplicate `op read` calls for OPENAI/ANTHROPIC from `env.nu`
+- Cleaned up `~/.config/dev-bootstrap/secrets.env` — removed TAVILY/CONTEXT7 (now in `~/.secrets`), kept non-secret MCP config vars
 
-To continue the age-native redesign, pick up at Task 8 (Encryptor). The plan is at:
-`docs/superpowers/plans/2026-04-01-notsecrets-age-redesign.md`
-
-Tasks 8–12 need to be executed in order (each depends on the previous). Use the subagent-driven-development skill to dispatch implementer subagents per task.
-
-Key context for resuming:
-- `EncryptedIdentity` stub in `src/identities/encrypted.rs` must have its `unwrap_file_key` body replaced after `Decryptor` exists (end of Task 9)
-- The `EnvInjector` type in `notstrap` changes from `Box<dyn Fn>` to `Box<dyn FnOnce>` in Task 12
-- `_legacy.rs` is deleted in Task 10
-
-## Pending Issues (carried from previous session)
+## Pending Issues
 
 ### 1. Push to remote
 Several commits ahead of `gitea/main`. Push when ready.
@@ -71,3 +64,9 @@ Several commits ahead of `gitea/main`. Push when ready.
 
 ### 5. notstrap sops_file path footgun
 If `sops_file` in `notstrap.toml` is an absolute path, the `join` will silently override the base. Low priority.
+
+### 6. HuggingFace token not in ~/.secrets
+No API token found in 1Password — only login credentials. Add token manually if needed.
+
+### 7. notsecrets is not wire-compatible with standard age
+The Encryptor/Decryptor use single-block ChaCha20-Poly1305 rather than the STREAM construction. Files encrypted by `notsecrets` cannot be decrypted by `rage`/`age` CLI and vice versa. This is intentional per the spec but worth documenting.
