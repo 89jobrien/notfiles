@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs;
 
+use notcore::Config;
 use notfiles::cli::{Cli, Command};
 use notfiles::linker::{LinkOptions, State};
 use notfiles::package::resolve_packages;
 use notfiles::{linker, status};
-use notcore::Config;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -46,7 +46,10 @@ fn main() -> Result<()> {
 
             if !cli.dry_run {
                 state.save(&dotfiles_dir)?;
-                let count: usize = pkgs.iter().map(|p| state.entries_for_package(p).len()).sum();
+                let count: usize = pkgs
+                    .iter()
+                    .map(|p| state.entries_for_package(p).len())
+                    .sum();
                 println!(
                     "\x1b[32mLinked {count} file{} across {} package{}.\x1b[0m",
                     if count == 1 { "" } else { "s" },

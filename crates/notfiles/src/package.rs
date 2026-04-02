@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use notcore::{Config, NotfilesError};
 use crate::ignore::IgnoreMatcher;
+use notcore::{Config, NotfilesError};
 
 /// Discover available packages (subdirectories of the dotfiles dir).
 pub fn discover_packages(dotfiles_dir: &Path) -> Result<Vec<String>, NotfilesError> {

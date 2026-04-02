@@ -3,9 +3,9 @@ use std::path::Path;
 use tempfile::TempDir;
 
 use notcore::{HookPhase, HookSpec};
+use notfiles::{LinkOptions, link};
 use nothooks::{HookResult, HookRunner};
-use notsecrets::{resolve_age_key, AgeKeySource, FileSource};
-use notfiles::{link, LinkOptions};
+use notsecrets::{AgeKeySource, FileSource, resolve_age_key};
 
 /// Test that notsecrets and nothooks can each be used independently
 /// in the same integration boundary — resolving an age key from a file
@@ -69,7 +69,12 @@ fn test_notfiles_respects_default_ignore() {
     fs::write(pkg.join(".notfiles-state.toml"), "# state\n").unwrap();
     fs::write(pkg.join(".nothooks-state.toml"), "# state\n").unwrap();
 
-    let opts = LinkOptions { force: false, no_backup: false, dry_run: false, verbose: false };
+    let opts = LinkOptions {
+        force: false,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
     let state = link(d, &[], &opts).expect("link() failed");
 
     // foo.txt linked

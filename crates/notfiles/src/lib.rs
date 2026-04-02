@@ -10,11 +10,7 @@ use std::path::Path;
 pub use linker::{LinkOptions, State};
 pub use package::resolve_packages;
 
-pub fn link(
-    dotfiles_dir: &Path,
-    packages: &[String],
-    opts: &LinkOptions,
-) -> Result<State> {
+pub fn link(dotfiles_dir: &Path, packages: &[String], opts: &LinkOptions) -> Result<State> {
     let config = notcore::Config::load(dotfiles_dir)?;
     let mut state = State::load(dotfiles_dir)?;
     let pkgs = resolve_packages(dotfiles_dir, packages)?;

@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use std::path::Path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::path::Path;
 
 const STATE_FILE: &str = ".nothooks-state.toml";
 

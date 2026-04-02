@@ -77,10 +77,12 @@ impl Config {
         if !config_path.exists() {
             return Ok(Config::default());
         }
-        let content = std::fs::read_to_string(&config_path)
-            .map_err(|e| NotfilesError::Config(format!("reading {}: {e}", config_path.display())))?;
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| NotfilesError::Config(format!("parsing {}: {e}", config_path.display())))?;
+        let content = std::fs::read_to_string(&config_path).map_err(|e| {
+            NotfilesError::Config(format!("reading {}: {e}", config_path.display()))
+        })?;
+        let config: Config = toml::from_str(&content).map_err(|e| {
+            NotfilesError::Config(format!("parsing {}: {e}", config_path.display()))
+        })?;
         Ok(config)
     }
 

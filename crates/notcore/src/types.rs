@@ -48,7 +48,10 @@ pub struct Report {
 
 impl Report {
     pub fn add(&mut self, name: impl Into<String>, status: StepStatus) {
-        self.steps.push(Step { name: name.into(), status });
+        self.steps.push(Step {
+            name: name.into(),
+            status,
+        });
     }
 
     pub fn print(&self) {
@@ -67,7 +70,9 @@ impl Report {
     }
 
     pub fn has_failures(&self) -> bool {
-        self.steps.iter().any(|s| matches!(s.status, StepStatus::Failed(_)))
+        self.steps
+            .iter()
+            .any(|s| matches!(s.status, StepStatus::Failed(_)))
     }
 }
 

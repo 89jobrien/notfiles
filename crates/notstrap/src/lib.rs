@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
-use notfiles::{link, LinkOptions};
-use nothooks::{run_phase, HookRunner};
-use notsecrets::{install_age_key, resolve_age_key, BitwardenSource, FileSource, PromptSource};
+use notfiles::{LinkOptions, link};
+use nothooks::{HookRunner, run_phase};
+use notsecrets::{BitwardenSource, FileSource, PromptSource, install_age_key, resolve_age_key};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -28,8 +28,12 @@ pub struct BootstrapSection {
     pub sops_file: String,
 }
 
-pub(crate) fn default_bw_item() -> String { "age-key-dotfiles".to_string() }
-pub(crate) fn default_sops_file() -> String { "secrets/bootstrap.sops.env".to_string() }
+pub(crate) fn default_bw_item() -> String {
+    "age-key-dotfiles".to_string()
+}
+pub(crate) fn default_sops_file() -> String {
+    "secrets/bootstrap.sops.env".to_string()
+}
 
 pub struct BootstrapOptions {
     pub config: PathBuf,
@@ -48,7 +52,9 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     // 1. Prerequisites
     if let Some(check) = opts.check_prereqs {
         match check() {
-            Ok(_) => { report.add("prerequisites", StepStatus::Ok); }
+            Ok(_) => {
+                report.add("prerequisites", StepStatus::Ok);
+            }
             Err(e) => {
                 report.add("prerequisites", StepStatus::Failed(e.to_string()));
                 return Ok(report);
@@ -63,15 +69,20 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
 
     let dotfiles_dir = match opts.dotfiles {
         Some(d) => d,
-        None => notcore::expand_tilde(&cfg.bootstrap.dotfiles_dir)
-            .with_context(|| format!("cannot expand dotfiles_dir: {}", cfg.bootstrap.dotfiles_dir))?,
+        None => notcore::expand_tilde(&cfg.bootstrap.dotfiles_dir).with_context(|| {
+            format!("cannot expand dotfiles_dir: {}", cfg.bootstrap.dotfiles_dir)
+        })?,
     };
 
     // 3. Clone dotfiles if missing
     match repo::clone_if_missing(&cfg.bootstrap.dotfiles_repo, &dotfiles_dir) {
-        Ok(true)  => { report.add("clone dotfiles", StepStatus::Ok); }
-        Ok(false) => { report.add("clone dotfiles", StepStatus::Skipped); }
-        Err(e)    => {
+        Ok(true) => {
+            report.add("clone dotfiles", StepStatus::Ok);
+        }
+        Ok(false) => {
+            report.add("clone dotfiles", StepStatus::Skipped);
+        }
+        Err(e) => {
             report.add("clone dotfiles", StepStatus::Failed(e.to_string()));
             return Ok(report);
         }
@@ -110,7 +121,9 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
                             // threads exist. Subsequent Command::spawn calls (git, hooks) will
                             // inherit these vars — keys are validated by parse_env_line before
                             // reaching this point (null bytes and dangerous keys are rejected).
-                            unsafe { std::env::set_var(&k, &v); }
+                            unsafe {
+                                std::env::set_var(&k, &v);
+                            }
                         }
                         Ok(None) => {}
                         Err(e) => {
@@ -129,7 +142,12 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     // 6. Link dotfiles
-    let link_opts = LinkOptions { force: opts.force, no_backup: false, dry_run: false, verbose: false };
+    let link_opts = LinkOptions {
+        force: opts.force,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
     match link(&dotfiles_dir, &[], &link_opts) {
         Ok(state) => {
             let count = state.entries.len();
@@ -147,9 +165,14 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         HookRunner::new(dotfiles_dir.clone())
     };
 
-    for (phase, label) in [(HookPhase::Dot, "dot hooks"), (HookPhase::Setup, "setup hooks")] {
+    for (phase, label) in [
+        (HookPhase::Dot, "dot hooks"),
+        (HookPhase::Setup, "setup hooks"),
+    ] {
         let phase_report = run_phase(&cfg.hooks, &phase, &runner);
-        let failed = phase_report.steps.iter()
+        let failed = phase_report
+            .steps
+            .iter()
             .filter(|s| matches!(s.status, notcore::StepStatus::Failed(_)))
             .count();
         let summary = if failed > 0 {
@@ -223,7 +246,12 @@ mod tests {
     fn parse_env_line_blocks_ld_preload() {
         let result = parse_env_line("LD_PRELOAD=/evil/lib.so");
         assert!(result.is_err(), "expected error for LD_PRELOAD");
-        assert!(result.unwrap_err().to_string().contains("sensitive env key"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("sensitive env key")
+        );
     }
 
     /// Issue #5: PATH must be blocked.

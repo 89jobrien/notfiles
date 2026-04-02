@@ -7,9 +7,18 @@ pub struct Prereq {
 }
 
 const PREREQS: &[Prereq] = &[
-    Prereq { cmd: "nu",   install_hint: "brew install nushell  OR  nix-env -iA nixpkgs.nushell" },
-    Prereq { cmd: "sops", install_hint: "brew install sops  OR  nix-env -iA nixpkgs.sops" },
-    Prereq { cmd: "age",  install_hint: "brew install age   OR  nix-env -iA nixpkgs.age" },
+    Prereq {
+        cmd: "nu",
+        install_hint: "brew install nushell  OR  nix-env -iA nixpkgs.nushell",
+    },
+    Prereq {
+        cmd: "sops",
+        install_hint: "brew install sops  OR  nix-env -iA nixpkgs.sops",
+    },
+    Prereq {
+        cmd: "age",
+        install_hint: "brew install age   OR  nix-env -iA nixpkgs.age",
+    },
 ];
 
 pub fn check_prerequisites() -> Result<()> {

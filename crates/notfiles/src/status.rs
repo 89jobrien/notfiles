@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use notcore::{Config, Method, expand_tilde};
 use crate::linker::State;
 use crate::package::collect_files;
+use notcore::{Config, Method, expand_tilde};
 
 #[derive(Debug, PartialEq)]
 pub enum FileStatus {
@@ -69,8 +69,7 @@ pub fn package_status(
                 }
                 Method::Copy => {
                     let has_state = state.entries.iter().any(|e| {
-                        e.package == package
-                            && e.target == target.to_string_lossy().as_ref()
+                        e.package == package && e.target == target.to_string_lossy().as_ref()
                     });
                     if has_state && target.exists() {
                         FileStatus::Copied
@@ -122,6 +121,11 @@ pub fn print_status(package: &str, entries: &[StatusEntry]) {
     }
     println!("  \x1b[1m{package}\x1b[0m:");
     for entry in entries {
-        println!("    {} {} -> {}", entry.status, entry.source_display, entry.target.display());
+        println!(
+            "    {} {} -> {}",
+            entry.status,
+            entry.source_display,
+            entry.target.display()
+        );
     }
 }

@@ -1,7 +1,7 @@
+use notcore::{HookPhase, HookSpec};
+use nothooks::{HookResult, HookRunner};
 use std::fs;
 use tempfile::TempDir;
-use nothooks::{HookResult, HookRunner};
-use notcore::{HookPhase, HookSpec};
 
 fn make_hook_script(dir: &TempDir, name: &str, content: &str) -> HookSpec {
     let path = dir.path().join(format!("{name}.nu"));

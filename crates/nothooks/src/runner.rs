@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use std::process::Command;
-use notcore::{HookPhase, HookSpec};
 use crate::HookResult;
 use crate::state::HookState;
+use notcore::{HookPhase, HookSpec};
+use std::path::PathBuf;
+use std::process::Command;
 
 pub struct HookRunner {
     state_dir: PathBuf,
@@ -11,11 +11,17 @@ pub struct HookRunner {
 
 impl HookRunner {
     pub fn new(state_dir: PathBuf) -> Self {
-        Self { state_dir, force: false }
+        Self {
+            state_dir,
+            force: false,
+        }
     }
 
     pub fn with_force(state_dir: PathBuf) -> Self {
-        Self { state_dir, force: true }
+        Self {
+            state_dir,
+            force: true,
+        }
     }
 
     pub fn run_hook(&self, spec: &HookSpec) -> HookResult {
@@ -25,9 +31,8 @@ impl HookRunner {
             return HookResult::Skipped;
         }
 
-        let result = Command::new("nu")
-            .arg(&spec.script)
-            .status();
+        // TODO: support other shells
+        let result = Command::new("nu").arg(&spec.script).status();
 
         match result {
             Ok(status) if status.success() => {

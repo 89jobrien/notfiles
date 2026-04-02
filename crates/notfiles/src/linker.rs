@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use notcore::{Config, Method, NotfilesError, expand_tilde};
 use crate::package::collect_files;
+use notcore::{Config, Method, NotfilesError, expand_tilde};
 
 const STATE_FILE: &str = ".notfiles-state.toml";
 
@@ -46,7 +46,10 @@ impl State {
     }
 
     pub fn entries_for_package(&self, package: &str) -> Vec<&StateEntry> {
-        self.entries.iter().filter(|e| e.package == package).collect()
+        self.entries
+            .iter()
+            .filter(|e| e.package == package)
+            .collect()
     }
 
     pub fn remove_package(&mut self, package: &str) {
@@ -55,7 +58,8 @@ impl State {
 
     pub fn add_entry(&mut self, entry: StateEntry) {
         // Remove existing entry for same source+target, then add new
-        self.entries.retain(|e| !(e.source == entry.source && e.target == entry.target));
+        self.entries
+            .retain(|e| !(e.source == entry.source && e.target == entry.target));
         self.entries.push(entry);
     }
 }
@@ -113,10 +117,18 @@ pub fn link_package(
             if !opts.no_backup {
                 let backup = backup_path(&target);
                 if opts.dry_run {
-                    println!("  \x1b[33mwould backup\x1b[0m {} -> {}", target.display(), backup.display());
+                    println!(
+                        "  \x1b[33mwould backup\x1b[0m {} -> {}",
+                        target.display(),
+                        backup.display()
+                    );
                 } else {
                     if opts.verbose {
-                        println!("  \x1b[33mbackup\x1b[0m {} -> {}", target.display(), backup.display());
+                        println!(
+                            "  \x1b[33mbackup\x1b[0m {} -> {}",
+                            target.display(),
+                            backup.display()
+                        );
                     }
                     fs::rename(&target, &backup)?;
                 }
@@ -147,7 +159,10 @@ pub fn link_package(
         };
 
         if opts.dry_run {
-            println!("  \x1b[36mwould {action_word}\x1b[0m {source_display} -> {}", target.display());
+            println!(
+                "  \x1b[36mwould {action_word}\x1b[0m {source_display} -> {}",
+                target.display()
+            );
         } else {
             match method {
                 Method::Symlink => {
@@ -161,7 +176,10 @@ pub fn link_package(
                 }
             }
             if opts.verbose {
-                println!("  \x1b[32m{action_word}\x1b[0m {source_display} -> {}", target.display());
+                println!(
+                    "  \x1b[32m{action_word}\x1b[0m {source_display} -> {}",
+                    target.display()
+                );
             }
 
             state.add_entry(StateEntry {
@@ -183,7 +201,11 @@ pub fn unlink_package(
     package: &str,
     opts: &LinkOptions,
 ) -> Result<(), NotfilesError> {
-    let entries: Vec<StateEntry> = state.entries_for_package(package).into_iter().cloned().collect();
+    let entries: Vec<StateEntry> = state
+        .entries_for_package(package)
+        .into_iter()
+        .cloned()
+        .collect();
 
     if entries.is_empty() {
         if opts.verbose {
@@ -278,7 +300,10 @@ fn cleanup_empty_parents(path: &Path) {
         if Some(parent.to_path_buf()) == dirs::home_dir() || parent == Path::new("/") {
             break;
         }
-        if fs::read_dir(parent).map(|mut d| d.next().is_none()).unwrap_or(false) {
+        if fs::read_dir(parent)
+            .map(|mut d| d.next().is_none())
+            .unwrap_or(false)
+        {
             let _ = fs::remove_dir(parent);
             dir = parent.parent();
         } else {

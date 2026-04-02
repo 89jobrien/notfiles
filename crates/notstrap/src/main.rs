@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use notstrap::{prereqs, run, BootstrapOptions};
+use notstrap::{BootstrapOptions, prereqs, run};
 
 #[derive(Parser)]
 #[command(name = "notstrap", about = "Bootstrap a new machine from dotfiles")]
@@ -33,7 +33,12 @@ enum Cmd {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let Cmd::Run { config, force, key_file, dotfiles } = cli.command;
+    let Cmd::Run {
+        config,
+        force,
+        key_file,
+        dotfiles,
+    } = cli.command;
     let opts = BootstrapOptions {
         config,
         force,

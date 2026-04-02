@@ -94,7 +94,13 @@ fn test_link_and_status() {
 
     let gitconfig = target.join(".gitconfig");
     assert!(gitconfig.exists());
-    assert!(gitconfig.symlink_metadata().unwrap().file_type().is_symlink());
+    assert!(
+        gitconfig
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
 
     // State file should exist
     assert!(dotfiles.join(".notfiles-state.toml").exists());
@@ -199,7 +205,14 @@ fn test_force_with_backup() {
     assert!(ok);
 
     // The link should now exist
-    assert!(target.join(".gitconfig").symlink_metadata().unwrap().file_type().is_symlink());
+    assert!(
+        target
+            .join(".gitconfig")
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
 
     // A backup should exist
     let backups: Vec<_> = fs::read_dir(&target)
@@ -232,11 +245,7 @@ fn test_force_no_backup() {
     let backups: Vec<_> = fs::read_dir(&target)
         .unwrap()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .contains("notfiles-backup")
-        })
+        .filter(|e| e.file_name().to_string_lossy().contains("notfiles-backup"))
         .collect();
     assert_eq!(backups.len(), 0);
 }
@@ -272,8 +281,17 @@ method = "copy"
     let ssh_config = target.join(".ssh/config");
     assert!(ssh_config.exists());
     // Should NOT be a symlink
-    assert!(!ssh_config.symlink_metadata().unwrap().file_type().is_symlink());
-    assert_eq!(fs::read_to_string(&ssh_config).unwrap(), "Host *\n  AddKeysToAgent yes");
+    assert!(
+        !ssh_config
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(
+        fs::read_to_string(&ssh_config).unwrap(),
+        "Host *\n  AddKeysToAgent yes"
+    );
 
     // Status should show "copied"
     let (stdout, _, _) = run(&dotfiles, &["status", "ssh"]);

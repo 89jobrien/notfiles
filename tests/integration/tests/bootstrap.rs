@@ -1,6 +1,6 @@
 use notcore::{HookPhase, HookSpec, StepStatus};
-use nothooks::{run_phase, HookRunner};
-use notstrap::{run, BootstrapOptions};
+use nothooks::{HookRunner, run_phase};
+use notstrap::{BootstrapOptions, run};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;

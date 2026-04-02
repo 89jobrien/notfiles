@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use nothooks::{run_phase, HookRunner};
 use notcore::{HookPhase, HookSpec};
+use nothooks::{HookRunner, run_phase};
 use std::path::PathBuf;
 
 #[derive(Parser)]
