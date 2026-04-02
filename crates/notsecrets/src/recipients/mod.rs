@@ -1,6 +1,9 @@
 use crate::error::AgeError;
 use crate::identities::{FileKey, Stanza};
 
+pub mod x25519;
+pub use x25519::X25519Recipient;
+
 /// Domain port: a recipient that can wrap a file key into a stanza.
 pub trait Recipient {
     fn wrap_file_key(&self, file_key: &FileKey) -> Result<Stanza, AgeError>;

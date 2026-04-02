@@ -1,5 +1,8 @@
 use crate::error::AgeError;
 
+pub mod x25519;
+pub use x25519::X25519Identity;
+
 /// The symmetric file encryption key — 16 random bytes.
 #[derive(Clone)]
 pub struct FileKey([u8; 16]);

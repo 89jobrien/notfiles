@@ -6,8 +6,8 @@ pub mod sources;
 pub mod _legacy;
 
 pub use error::AgeError;
-pub use identities::{FileKey, Header, Identity, Stanza};
-pub use recipients::Recipient;
+pub use identities::{FileKey, Header, Identity, Stanza, X25519Identity};
+pub use recipients::{Recipient, X25519Recipient};
 pub use sources::{BitwardenSource, FileSource, PromptSource};
 
 // Legacy API — kept for notstrap compatibility until Task 12.
