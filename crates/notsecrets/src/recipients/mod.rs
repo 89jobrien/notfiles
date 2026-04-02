@@ -4,6 +4,9 @@ use crate::identities::{FileKey, Stanza};
 pub mod x25519;
 pub use x25519::X25519Recipient;
 
+pub mod ssh_ed25519;
+pub use ssh_ed25519::SshEd25519Recipient;
+
 pub mod scrypt;
 pub use scrypt::ScryptRecipient;
 

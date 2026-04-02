@@ -3,6 +3,9 @@ use crate::error::AgeError;
 pub mod x25519;
 pub use x25519::X25519Identity;
 
+pub mod ssh_ed25519;
+pub use ssh_ed25519::SshEd25519Identity;
+
 pub mod scrypt;
 pub use scrypt::ScryptIdentity;
 
