@@ -6,7 +6,7 @@ pub mod sources;
 pub mod _legacy;
 
 pub use error::AgeError;
-pub use identities::{FileKey, Header, Identity, Stanza, X25519Identity, ScryptIdentity, SshEd25519Identity, SshRsaIdentity};
+pub use identities::{FileKey, Header, Identity, Stanza, X25519Identity, ScryptIdentity, SshEd25519Identity, SshRsaIdentity, EncryptedIdentity};
 pub use recipients::{Recipient, X25519Recipient, ScryptRecipient, SshEd25519Recipient, SshRsaRecipient};
 pub use sources::{BitwardenSource, FileSource, PromptSource};
 
