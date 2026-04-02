@@ -144,8 +144,9 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
         .iter()
         .enumerate()
         .filter_map(|(i, (from, to))| {
-            let from_id = name_to_id.get(from.as_str())?;
-            let to_id = name_to_id.get(to.as_str())?;
+            // Reverse direction: dependency -> dependent ("I am used by")
+            let from_id = name_to_id.get(to.as_str())?;
+            let to_id = name_to_id.get(from.as_str())?;
             Some(format!("{{id:{},from:{},to:{}}}", i, from_id, to_id))
         })
         .collect::<Vec<_>>()
