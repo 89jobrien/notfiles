@@ -117,15 +117,76 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
         .map(|fs| (fs.name.as_str(), (fs.fan_in, fs.fan_out)))
         .collect();
 
+    // Classify nodes into subgraphs by topology:
+    //   leaf    = no outgoing edges to workspace crates (fan-out == 0)
+    //   root    = no incoming edges from workspace crates (fan-in == 0)
+    //   feature = everything else
+    let leaf_nodes: std::collections::HashSet<&str> = stats
+        .crate_graph
+        .iter()
+        .filter(|fs| fs.fan_out == 0)
+        .map(|fs| fs.name.as_str())
+        .collect();
+    let root_nodes: std::collections::HashSet<&str> = stats
+        .crate_graph
+        .iter()
+        .filter(|fs| fs.fan_in == 0)
+        .map(|fs| fs.name.as_str())
+        .collect();
+
+    let mut leaves: Vec<&str> = crate_graph.nodes.iter()
+        .map(|n| n.as_str())
+        .filter(|n| leaf_nodes.contains(n) && !root_nodes.contains(n))
+        .collect();
+    let mut roots: Vec<&str> = crate_graph.nodes.iter()
+        .map(|n| n.as_str())
+        .filter(|n| root_nodes.contains(n) && !leaf_nodes.contains(n))
+        .collect();
+    let mut features: Vec<&str> = crate_graph.nodes.iter()
+        .map(|n| n.as_str())
+        .filter(|n| !leaf_nodes.contains(n) && !root_nodes.contains(n))
+        .collect();
+    // Nodes that are both leaf and root (isolated, e.g. notgraph) go into roots
+    let mut isolated: Vec<&str> = crate_graph.nodes.iter()
+        .map(|n| n.as_str())
+        .filter(|n| leaf_nodes.contains(n) && root_nodes.contains(n))
+        .collect();
+    leaves.sort();
+    roots.sort();
+    features.sort();
+    isolated.sort();
+    roots.extend(isolated);
+
+    let node_label = |n: &str| -> String {
+        let (fi, fo) = fan_map.get(n).copied().unwrap_or((0, 0));
+        format!("{}[\"{}<br/>in:{} out:{}\"]", n, n, fi, fo)
+    };
+
     // Mermaid flowchart: dependency -> dependent (LR)
     let mut mermaid = String::from("flowchart LR\n");
-    for node in &crate_graph.nodes {
-        let (fi, fo) = fan_map.get(node.as_str()).copied().unwrap_or((0, 0));
-        mermaid.push_str(&format!(
-            "  {}[\"{}<br/>in:{} out:{}\"]\n",
-            node, node, fi, fo
-        ));
+
+    if !leaves.is_empty() {
+        mermaid.push_str("  subgraph Core\n    direction TB\n");
+        for n in &leaves {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
+        mermaid.push_str("  end\n");
     }
+    if !features.is_empty() {
+        mermaid.push_str("  subgraph Features\n    direction TB\n");
+        for n in &features {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
+        mermaid.push_str("  end\n");
+    }
+    if !roots.is_empty() {
+        mermaid.push_str("  subgraph Tools\n    direction TB\n");
+        for n in &roots {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
+        mermaid.push_str("  end\n");
+    }
+
     for (from, to) in &crate_graph.edges {
         // dependency -> dependent
         mermaid.push_str(&format!("  {} --> {}\n", to, from));
