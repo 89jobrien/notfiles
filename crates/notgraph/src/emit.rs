@@ -111,46 +111,26 @@ fn write_markdown(dir: &Path, stats: &GraphStats, symbol_tables: &[SymbolTable])
 }
 
 fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Result<()> {
-    // Build node id map from name -> index
-    let name_to_id: std::collections::HashMap<&str, usize> = crate_graph
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(i, n)| (n.as_str(), i))
-        .collect();
-
     let fan_map: std::collections::HashMap<&str, (usize, usize)> = stats
         .crate_graph
         .iter()
         .map(|fs| (fs.name.as_str(), (fs.fan_in, fs.fan_out)))
         .collect();
 
-    let nodes_js: String = crate_graph
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(i, n)| {
-            let (fi, fo) = fan_map.get(n.as_str()).copied().unwrap_or((0, 0));
-            format!(
-                "{{id:{},label:{:?},title:'fan-in:{} fan-out:{}'}}",
-                i, n, fi, fo
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-
-    let edges_js: String = crate_graph
-        .edges
-        .iter()
-        .enumerate()
-        .filter_map(|(i, (from, to))| {
-            // Reverse direction: dependency -> dependent ("I am used by")
-            let from_id = name_to_id.get(to.as_str())?;
-            let to_id = name_to_id.get(from.as_str())?;
-            Some(format!("{{id:{},from:{},to:{}}}", i, from_id, to_id))
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    // Mermaid flowchart: dependency -> dependent (LR)
+    let mut mermaid = String::from("flowchart LR\n");
+    for node in &crate_graph.nodes {
+        let (fi, fo) = fan_map.get(node.as_str()).copied().unwrap_or((0, 0));
+        mermaid.push_str(&format!(
+            "  {}[\"{}<br/>in:{} out:{}\"]\n",
+            node, node, fi, fo
+        ));
+    }
+    for (from, to) in &crate_graph.edges {
+        // dependency -> dependent
+        mermaid.push_str(&format!("  {} --> {}\n", to, from));
+    }
+    let graph_diagram = mermaid;
 
     let cycle_html = if stats.cycles.is_empty() {
         "<p>No cycles detected.</p>".to_string()
@@ -177,8 +157,7 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
 
     let html = format!(
         include_str!("../templates/report.html.template"),
-        nodes_js = nodes_js,
-        edges_js = edges_js,
+        graph_diagram = graph_diagram,
         hotspot_rows = hotspot_rows,
         cycle_html = cycle_html,
     );
