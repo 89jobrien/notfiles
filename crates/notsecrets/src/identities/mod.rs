@@ -9,6 +9,9 @@ pub use ssh_ed25519::SshEd25519Identity;
 pub mod scrypt;
 pub use scrypt::ScryptIdentity;
 
+pub mod ssh_rsa;
+pub use ssh_rsa::SshRsaIdentity;
+
 /// The symmetric file encryption key — 16 random bytes.
 #[derive(Clone, Debug)]
 pub struct FileKey([u8; 16]);

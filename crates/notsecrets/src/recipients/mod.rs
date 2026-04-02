@@ -10,6 +10,9 @@ pub use ssh_ed25519::SshEd25519Recipient;
 pub mod scrypt;
 pub use scrypt::ScryptRecipient;
 
+pub mod ssh_rsa;
+pub use ssh_rsa::SshRsaRecipient;
+
 /// Domain port: a recipient that can wrap a file key into a stanza.
 pub trait Recipient {
     fn wrap_file_key(&self, file_key: &FileKey) -> Result<Stanza, AgeError>;
