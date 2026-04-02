@@ -55,7 +55,7 @@ pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
     for entry in WalkDir::new(src_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |x| x == "rs"))
+        .filter(|e| e.path().extension().is_some_and(|x| x == "rs"))
     {
         let path = entry.path();
         let content = std::fs::read_to_string(path)?;
