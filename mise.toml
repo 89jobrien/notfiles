@@ -44,6 +44,8 @@ echo "── clippy ────────────────────
 cargo clippy --workspace -- -D warnings
 echo "── dep-boundaries ───────────────────"
 python3 scripts/check-dep-boundaries.py
+echo "── graph-check ──────────────────────"
+cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles
 echo "── test ─────────────────────────────"
 cargo nextest run --workspace --cargo-profile release
 echo "✓ all gates passed"
@@ -64,6 +66,14 @@ echo "✓ CI setup complete"
 [tasks."all:dep-boundaries"]
 description = "Enforce crate dependency boundary rules"
 run = "python3 scripts/check-dep-boundaries.py"
+
+[tasks."all:graph"]
+description = "Generate module graph reports (docs/graph/)"
+run = "cargo run -p notgraph --release -- --output docs/graph"
+
+[tasks."all:graph-check"]
+description = "CI: fail if module cycles detected"
+run = "cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles"
 
 [tasks."all:deny"]
 description = "Run cargo-deny license/security checks"
