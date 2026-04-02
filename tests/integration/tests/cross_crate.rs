@@ -5,7 +5,8 @@ use tempfile::TempDir;
 use notcore::{HookPhase, HookSpec};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookResult, HookRunner};
-use notsecrets::{AgeKeySource, FileSource, resolve_age_key};
+use notsecrets::{FileSource, resolve_identities};
+use notsecrets::sources::IdentitySource;
 
 /// Test that notsecrets and nothooks can each be used independently
 /// in the same integration boundary — resolving an age key from a file
@@ -16,14 +17,15 @@ fn test_nothooks_notsecrets_independent() {
 
     // Write a fake age key via FileSource
     let key_path = dir.path().join("age.key");
-    fs::write(&key_path, "AGE-SECRET-KEY-1CROSSCRATE\n").unwrap();
+    fs::write(
+        &key_path,
+        "AGE-SECRET-KEY-1X3QKFQ4MZQM7LTJ3AX0N3EM63RGRV4J6N5ZDWPVKCEUCZKJWJSUSU6GYN6\n",
+    )
+    .unwrap();
 
-    let sources: Vec<Box<dyn AgeKeySource>> = vec![Box::new(FileSource::new(key_path))];
-    let key = resolve_age_key(sources).expect("resolve_age_key failed");
-    assert!(
-        key.trim().starts_with("AGE-SECRET-KEY-"),
-        "expected age key prefix, got: {key:?}"
-    );
+    let sources: Vec<Box<dyn IdentitySource>> = vec![Box::new(FileSource::new(key_path))];
+    let identities = resolve_identities(sources).expect("resolve_identities failed");
+    assert!(!identities.is_empty(), "expected at least one identity");
 
     // Write a hook that just prints
     let script = dir.path().join("chain.nu");

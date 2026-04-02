@@ -19,7 +19,11 @@ fn make_test_env() -> TestEnv {
 
     // age key file (content doesn't matter — FileSource reads it verbatim)
     let key_file = d.join("age.key");
-    fs::write(&key_file, "AGE-SECRET-KEY-1TESTKEY\n").unwrap();
+    fs::write(
+        &key_file,
+        "AGE-SECRET-KEY-1X3QKFQ4MZQM7LTJ3AX0N3EM63RGRV4J6N5ZDWPVKCEUCZKJWJSUSU6GYN6\n",
+    )
+    .unwrap();
 
     // notfiles.toml — one package "shell" targeting home tempdir
     fs::write(

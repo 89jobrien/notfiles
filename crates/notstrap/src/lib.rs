@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookRunner, run_phase};
-use notsecrets::{BitwardenSource, FileSource, PromptSource, install_age_key, resolve_age_key};
+use notsecrets::{BitwardenSource, FileSource, PromptSource, resolve_identities};
+use notsecrets::sources::IdentitySource;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -88,8 +89,8 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     }
 
-    // 4. Retrieve age key and install
-    let sources: Vec<Box<dyn notsecrets::AgeKeySource>> = if let Some(kf) = opts.key_file {
+    // 4. Resolve age identities
+    let sources: Vec<Box<dyn IdentitySource>> = if let Some(kf) = opts.key_file {
         vec![Box::new(FileSource::new(kf))]
     } else {
         vec![
@@ -98,9 +99,8 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         ]
     };
 
-    match resolve_age_key(sources) {
-        Ok(key) => {
-            install_age_key(&key)?;
+    match resolve_identities(sources) {
+        Ok(_identities) => {
             report.add("age key", StepStatus::Ok);
         }
         Err(e) => {
