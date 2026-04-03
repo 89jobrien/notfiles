@@ -292,7 +292,7 @@ fn write_html(
         }
 
         module_diagrams.push_str(&format!(
-            "<h3>{}</h3>\n<div class=\"graph-wrap\"><pre class=\"mermaid\">\n%%{{init: {{\"theme\":\"dark\"}}}}\n{}</pre></div>\n",
+            "<h3>{}</h3>\n<div class=\"graph-wrap\"><pre class=\"mermaid\">\n%%{{init: {{\"theme\":\"dark\"}}}}%%\n{}</pre></div>\n",
             mg.krate, d
         ));
     }
