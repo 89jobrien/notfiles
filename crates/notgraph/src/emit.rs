@@ -194,12 +194,15 @@ fn write_html(
     isolated.sort();
     roots.extend(isolated);
 
+    // Sanitize crate name for use as a Mermaid node ID (hyphens are not valid)
+    let mermaid_id = |n: &str| n.replace('-', "_");
+
     let node_label = |n: &str| -> String {
         let (fi, fo) = fan_map.get(n).copied().unwrap_or((0, 0));
         let syms = sym_count.get(n).copied().unwrap_or(0);
         format!(
             "{}[\"{}<br/>in:{} out:{} | {} pub\"]",
-            n, n, fi, fo, syms
+            mermaid_id(n), n, fi, fo, syms
         )
     };
 
@@ -223,7 +226,7 @@ fn write_html(
     }
 
     for (from, to) in &crate_graph.edges {
-        mermaid.push_str(&format!("  {} --> {}\n", to, from));
+        mermaid.push_str(&format!("  {} --> {}\n", mermaid_id(to), mermaid_id(from)));
     }
 
     // Heatmap styles
@@ -231,7 +234,7 @@ fn write_html(
         let color = heatmap_color(fs.fan_in);
         mermaid.push_str(&format!(
             "  style {} fill:{},stroke:#4a9eff,color:#e0e0e0\n",
-            fs.name, color
+            mermaid_id(&fs.name), color
         ));
     }
 
@@ -239,7 +242,7 @@ fn write_html(
     for n in &cycle_nodes {
         mermaid.push_str(&format!(
             "  style {} fill:#7a1a1a,stroke:#f44336,color:#ffffff\n",
-            n
+            mermaid_id(n)
         ));
     }
 
@@ -263,7 +266,7 @@ fn write_html(
             .flat_map(|c| c.iter().map(|n| n.as_str()))
             .collect();
 
-        let mut d = format!("flowchart TD\n");
+        let mut d = "flowchart TD\n".to_string();
 
         // Nodes: strip crate prefix for readable labels, skip ::tests modules
         for node in &mg.nodes {

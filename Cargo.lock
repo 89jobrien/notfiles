@@ -803,6 +803,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
+ "tempfile",
  "walkdir",
 ]
 

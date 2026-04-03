@@ -12,6 +12,9 @@ path = "src/lib.rs"
 name = "notgraph"
 path = "src/main.rs"
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [dependencies]
 anyhow         = { workspace = true }
 clap           = { workspace = true }
