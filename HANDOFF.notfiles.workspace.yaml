@@ -5,30 +5,38 @@ branch: main
 state:
   tests: 103 passing
   build: clean
-  notes: notgraph fully implemented and integrated; public-ready CI workflow has an unstaged change
+  notes: null
 items:
 - id: notfile-1
-  doob_uuid: acfba94e-3b82-4946-8514-95dcec61348e
+  doob_uuid: 3b583219-a4f5-4895-bc89-91afcd456046
   name: public-ready-workflow-fix
   priority: P1
-  status: open
+  status: done
   title: Investigate unstaged change in .gitea/workflows/public-ready.yml
   description: |
     `git status` shows `M .gitea/workflows/public-ready.yml` — a modification is uncommitted. Needs inspection to determine if it's intentional or leftover from a prior session.
   files:
   - .gitea/workflows/public-ready.yml
-  extra: []
+  extra:
+  - date: 2026-04-03
+    type: note
+    note: emoji → [OK] formatting change; committed in style commit
+  completed: 2026-04-03
 - id: notfile-2
-  doob_uuid: 12ba3ac5-b348-4a9f-a148-23f617539924
+  doob_uuid: 5fa25a3f-8c47-49ba-ac95-58ea683a9dab
   name: notgraph-integration-test-fix
   priority: P1
-  status: open
+  status: done
   title: Investigate unstaged change in crates/notgraph/tests/integration.rs
   description: |
     `git status` shows ` M crates/notgraph/tests/integration.rs` — an unstaged modification. Needs inspection; may be a leftover tweak or a pending improvement.
   files:
   - crates/notgraph/tests/integration.rs
-  extra: []
+  extra:
+  - date: 2026-04-03
+    type: note
+    note: cargo fmt reformatted long emit::write_all calls; committed in style commit
+  completed: 2026-04-03
 - id: notfile-3
   doob_uuid: 49346e3f-0119-4e1f-9234-c59f14499aea
   name: notgraph-plan-remaining-steps
@@ -41,6 +49,10 @@ items:
   - docs/superpowers/plans/2026-04-01-notgraph.md
   extra: []
 log:
+- date: 2026-04-03
+  summary: 'Resolved both P1 items: formatting-only changes, committed style cleanup'
+  commits:
+  - style commit
 - date: 2026-04-03
   summary: Created initial HANDOFF.yaml; notgraph crate fully implemented across 20+ commits
 - date: 2026-04-01
