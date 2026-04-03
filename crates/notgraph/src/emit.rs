@@ -271,8 +271,10 @@ fn write_html(
                 .strip_prefix(&format!("{}::", mg.krate))
                 .unwrap_or(node.as_str());
             // Sanitize id for Mermaid (replace :: with __)
+            // Also sanitize label — :: inside quotes triggers a Mermaid parse error
             let id = node.replace("::", "__");
-            d.push_str(&format!("  {}[\"{}\"]\n", id, short));
+            let label = short.replace("::", "/");
+            d.push_str(&format!("  {}[\"{}\"]\n", id, label));
         }
 
         // Edges
