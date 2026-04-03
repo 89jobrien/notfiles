@@ -71,7 +71,14 @@ fn write_all_creates_expected_files() {
     let stats = analysis::analyse(&crate_graph, &module_graphs, 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
-    emit::write_all(out.path(), &crate_graph, &module_graphs, &stats, &symbol_tables).unwrap();
+    emit::write_all(
+        out.path(),
+        &crate_graph,
+        &module_graphs,
+        &stats,
+        &symbol_tables,
+    )
+    .unwrap();
 
     assert!(
         out.path().join("report.html").exists(),
@@ -99,7 +106,14 @@ fn write_all_sanitizes_hyphenated_crate_names() {
     let stats = analysis::analyse(&crate_graph, &module_graphs, 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
-    emit::write_all(out.path(), &crate_graph, &module_graphs, &stats, &symbol_tables).unwrap();
+    emit::write_all(
+        out.path(),
+        &crate_graph,
+        &module_graphs,
+        &stats,
+        &symbol_tables,
+    )
+    .unwrap();
 
     let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
     // Raw hyphenated names must not appear as unquoted node IDs
@@ -128,7 +142,14 @@ fn write_all_heatmap_does_not_panic_for_single_crate() {
     let stats = analysis::analyse(&crate_graph, &module_graphs, 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
-    emit::write_all(out.path(), &crate_graph, &module_graphs, &stats, &symbol_tables).unwrap();
+    emit::write_all(
+        out.path(),
+        &crate_graph,
+        &module_graphs,
+        &stats,
+        &symbol_tables,
+    )
+    .unwrap();
 
     let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
     assert!(
@@ -184,7 +205,14 @@ fn write_all_cycle_callout_appears_in_html() {
     let stats = analysis::analyse(&crate_graph, &module_graphs, 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
-    emit::write_all(out.path(), &crate_graph, &module_graphs, &stats, &symbol_tables).unwrap();
+    emit::write_all(
+        out.path(),
+        &crate_graph,
+        &module_graphs,
+        &stats,
+        &symbol_tables,
+    )
+    .unwrap();
 
     let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
     assert!(
