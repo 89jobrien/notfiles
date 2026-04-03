@@ -8,7 +8,7 @@ state:
   notes: null
 items:
 - id: notfile-1
-  doob_uuid: 3b583219-a4f5-4895-bc89-91afcd456046
+  doob_uuid: 6d9780fe-d6d9-4316-90b5-6de44f06e96e
   name: public-ready-workflow-fix
   priority: P1
   status: done
@@ -23,7 +23,7 @@ items:
     note: emoji → [OK] formatting change; committed in style commit
   completed: 2026-04-03
 - id: notfile-2
-  doob_uuid: 5fa25a3f-8c47-49ba-ac95-58ea683a9dab
+  doob_uuid: a7ff6a74-a664-4a0e-9a13-3e3884e5d492
   name: notgraph-integration-test-fix
   priority: P1
   status: done
@@ -41,14 +41,20 @@ items:
   doob_uuid: 49346e3f-0119-4e1f-9234-c59f14499aea
   name: notgraph-plan-remaining-steps
   priority: P2
-  status: open
+  status: done
   title: Review notgraph implementation plan for any incomplete tasks
   description: |
     Plan at docs/superpowers/plans/2026-04-01-notgraph.md may still have unchecked steps. Most functionality appears shipped (all pipeline stages, HTML/MD/JSON emit, Mermaid graphs, heatmap, cycle detection, CI integration). Verify checklist is fully marked done or remaining items are intentionally parked.
   files:
   - docs/superpowers/plans/2026-04-01-notgraph.md
-  extra: []
+  extra:
+  - date: 2026-04-03
+    type: note
+    note: All 43 checkboxes marked [x]; implementation confirmed complete via git log
+  completed: 2026-04-03
 log:
+- date: 2026-04-03
+  summary: Marked all 43 notgraph plan checkboxes done; all handoff items resolved
 - date: 2026-04-03
   summary: 'Resolved both P1 items: formatting-only changes, committed style cleanup'
   commits:
