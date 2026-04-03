@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-State of the `notfiles` repo as of 2026-04-01.
+State of the `notfiles` repo as of 2026-04-03.
 
 ## What Was Done
 
@@ -70,3 +70,31 @@ No API token found in 1Password — only login credentials. Add token manually i
 
 ### 7. notsecrets is not wire-compatible with standard age
 The Encryptor/Decryptor use single-block ChaCha20-Poly1305 rather than the STREAM construction. Files encrypted by `notsecrets` cannot be decrypted by `rage`/`age` CLI and vice versa. This is intentional per the spec but worth documenting.
+
+### Session 3 (2026-04-03)
+
+**notgraph** — crate dependency + module graph report landed and polished:
+- Heatmap coloring on crate nodes (fan-in intensity → blue gradient)
+- Per-crate module graphs (Mermaid `flowchart TD`) with `__`-separated node IDs
+- Cycle callouts with `cycle-entry` CSS class
+- Fixed: hyphenated crate names (`my-crate`) were emitted as raw Mermaid IDs (invalid); added `mermaid_id` sanitizer (`-` → `_`) applied to all node IDs, edges, `style` directives, and cycle highlights
+- 6 new integration tests covering: cyclic fixture, output file presence, hyphen sanitization, single-crate heatmap edge case, per-crate module graph rendering, cycle callout presence
+- `notsecrets` refactor confirmed complete — no TODOs, no pending cleanup
+
+**notgraph planned extensions** (not yet implemented — prioritized list):
+
+| Priority | Section | Data source | Visualization |
+|----------|---------|-------------|---------------|
+| 1 | Code coverage heatmap | `cargo llvm-cov --json` | Treemap or per-crate bar |
+| 2 | Cyclomatic complexity | `rust-code-analysis-cli --metrics` | Histogram + top-offenders table |
+| 3 | Lines of code breakdown | `tokei --output json` | Stacked bar (code/comments/blanks) |
+| 4 | Unsafe code audit | `cargo geiger --output-format Json` | Table + traffic-light badges |
+| 5 | Dep freshness + vulns | `cargo outdated --format json` + `cargo audit --json` | Semver-distance dots + advisory cards |
+| 6 | Doc coverage | `cargo doc -Z unstable-options --show-coverage` (nightly) | Horizontal bars per crate |
+| 7 | Commit churn heatmap | `git log --name-only` | Scatter: churn × complexity × LOC × coverage |
+| 8 | API surface area | `cargo rustdoc --output-format json` | Bar by item kind per crate |
+| 9 | Test-to-code ratio | `tokei` + `#[test]` count | Table + stacked bar |
+| 10 | Dep weight/bloat | `cargo metadata` | Stacked bar (direct+transitive) + duplicates |
+
+Easiest to add with no extra tooling: LOC breakdown (tokei), test-to-code ratio, dep weight (cargo metadata always available).
+Coverage + complexity require `cargo-llvm-cov` and `rust-code-analysis-cli` installed.

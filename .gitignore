@@ -3,3 +3,4 @@
 .worktrees/
 .claude.local.md
 docs/graph/
+librust_out.rlib
