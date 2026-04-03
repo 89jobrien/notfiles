@@ -119,7 +119,9 @@ mod tests {
         let recipient = X25519Recipient::from_public_key(public);
         let identity = X25519Identity::from_static_secret(StaticSecret::from(secret_bytes));
         let file_key = FileKey::new([0x42u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).expect("wrap should succeed");
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap should succeed");
         assert_eq!(stanza.tag, "X25519");
         assert_eq!(stanza.args.len(), 1);
         let unwrapped = identity
@@ -148,7 +150,8 @@ mod tests {
         let public = PublicKey::from(&secret);
         let recipient_str = X25519Recipient::from_public_key(public).to_bech32();
         assert!(recipient_str.starts_with("age1"));
-        let identity_str = X25519Identity::from_static_secret(StaticSecret::from(secret_bytes)).to_bech32();
+        let identity_str =
+            X25519Identity::from_static_secret(StaticSecret::from(secret_bytes)).to_bech32();
         assert!(identity_str.starts_with("AGE-SECRET-KEY-1"));
     }
 

@@ -63,7 +63,7 @@ fn main() -> Result<()> {
         workspace_root.join(&cli.output)
     };
 
-    emit::write_all(&output_dir, &crate_g, &stats, &symbol_tables)
+    emit::write_all(&output_dir, &crate_g, &module_graphs, &stats, &symbol_tables)
         .context("failed to write reports")?;
 
     println!("notgraph: reports written to {}", output_dir.display());

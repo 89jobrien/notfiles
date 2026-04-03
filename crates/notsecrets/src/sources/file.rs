@@ -1,7 +1,7 @@
 use crate::error::AgeError;
+use crate::identities::Identity;
 use crate::identities::encrypted::EncryptedIdentity;
 use crate::identities::x25519::X25519Identity;
-use crate::identities::Identity;
 use crate::sources::IdentitySource;
 use std::path::PathBuf;
 
@@ -33,19 +33,19 @@ impl IdentitySource for FileSource {
                     source: anyhow::anyhow!("key file UTF-8: {e}"),
                 })?
                 .trim();
-            let identity = X25519Identity::from_bech32(key_str).map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
-                source: anyhow::anyhow!("invalid AGE-SECRET-KEY-1: {e}"),
-            })?;
+            let identity =
+                X25519Identity::from_bech32(key_str).map_err(|e| AgeError::SourceError {
+                    name: self.name().to_string(),
+                    source: anyhow::anyhow!("invalid AGE-SECRET-KEY-1: {e}"),
+                })?;
             Ok(Box::new(identity))
         } else if content.starts_with(b"age-encryption.org/v1") {
-            let passphrase = rpassword::prompt_password(
-                "Enter passphrase for encrypted identity file: ",
-            )
-            .map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
-                source: anyhow::anyhow!("could not read passphrase: {e}"),
-            })?;
+            let passphrase =
+                rpassword::prompt_password("Enter passphrase for encrypted identity file: ")
+                    .map_err(|e| AgeError::SourceError {
+                        name: self.name().to_string(),
+                        source: anyhow::anyhow!("could not read passphrase: {e}"),
+                    })?;
             Ok(Box::new(EncryptedIdentity::new(content, passphrase)))
         } else {
             Err(AgeError::UnsupportedKeyType(format!(

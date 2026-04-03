@@ -5,8 +5,8 @@ use tempfile::TempDir;
 use notcore::{HookPhase, HookSpec};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookResult, HookRunner};
-use notsecrets::{FileSource, resolve_identities};
 use notsecrets::sources::IdentitySource;
+use notsecrets::{FileSource, resolve_identities};
 
 /// Test that notsecrets and nothooks can each be used independently
 /// in the same integration boundary — resolving an age key from a file

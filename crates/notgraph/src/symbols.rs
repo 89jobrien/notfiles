@@ -11,7 +11,10 @@ struct SymbolCollector {
 
 impl SymbolCollector {
     fn new(mod_path: ModPath) -> Self {
-        Self { mod_path, symbols: Vec::new() }
+        Self {
+            mod_path,
+            symbols: Vec::new(),
+        }
     }
 
     fn is_pub(vis: &Visibility) -> bool {
@@ -19,28 +22,57 @@ impl SymbolCollector {
     }
 
     fn push(&mut self, kind: SymbolKind, name: String, is_pub: bool) {
-        self.symbols.push(Symbol { mod_path: self.mod_path.clone(), kind, name, is_pub });
+        self.symbols.push(Symbol {
+            mod_path: self.mod_path.clone(),
+            kind,
+            name,
+            is_pub,
+        });
     }
 }
 
 impl<'ast> Visit<'ast> for SymbolCollector {
     fn visit_item_struct(&mut self, node: &'ast syn::ItemStruct) {
-        self.push(SymbolKind::Struct, node.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Struct,
+            node.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_enum(&mut self, node: &'ast syn::ItemEnum) {
-        self.push(SymbolKind::Enum, node.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Enum,
+            node.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
-        self.push(SymbolKind::Trait, node.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Trait,
+            node.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
-        self.push(SymbolKind::Fn, node.sig.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Fn,
+            node.sig.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_type(&mut self, node: &'ast syn::ItemType) {
-        self.push(SymbolKind::Type, node.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Type,
+            node.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_const(&mut self, node: &'ast syn::ItemConst) {
-        self.push(SymbolKind::Const, node.ident.to_string(), Self::is_pub(&node.vis));
+        self.push(
+            SymbolKind::Const,
+            node.ident.to_string(),
+            Self::is_pub(&node.vis),
+        );
     }
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         let child_path = format!("{}::{}", self.mod_path, node.ident);
@@ -49,7 +81,6 @@ impl<'ast> Visit<'ast> for SymbolCollector {
         self.mod_path = parent;
     }
 }
-
 
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<SymbolTable> {
     let mut symbols: Vec<Symbol> = Vec::new();
@@ -75,45 +106,69 @@ mod tests {
     use super::*;
 
     fn fixture_table() -> SymbolTable {
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/symbols/src");
+        let fixture =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/symbols/src");
         build("symbols".to_string(), &fixture).unwrap()
     }
 
     #[test]
     fn detects_pub_struct() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "Foo" && s.kind == SymbolKind::Struct && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "Foo" && s.kind == SymbolKind::Struct && s.is_pub)
+        );
     }
 
     #[test]
     fn detects_pub_enum() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "Bar" && s.kind == SymbolKind::Enum && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "Bar" && s.kind == SymbolKind::Enum && s.is_pub)
+        );
     }
 
     #[test]
     fn detects_pub_trait() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "Baz" && s.kind == SymbolKind::Trait && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "Baz" && s.kind == SymbolKind::Trait && s.is_pub)
+        );
     }
 
     #[test]
     fn detects_pub_fn() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "qux" && s.kind == SymbolKind::Fn && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "qux" && s.kind == SymbolKind::Fn && s.is_pub)
+        );
     }
 
     #[test]
     fn detects_pub_type_alias() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "Alias" && s.kind == SymbolKind::Type && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "Alias" && s.kind == SymbolKind::Type && s.is_pub)
+        );
     }
 
     #[test]
     fn detects_pub_const() {
         let t = fixture_table();
-        assert!(t.symbols.iter().any(|s| s.name == "VALUE" && s.kind == SymbolKind::Const && s.is_pub));
+        assert!(
+            t.symbols
+                .iter()
+                .any(|s| s.name == "VALUE" && s.kind == SymbolKind::Const && s.is_pub)
+        );
     }
 
     #[test]

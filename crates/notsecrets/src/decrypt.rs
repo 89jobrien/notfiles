@@ -1,10 +1,7 @@
 use crate::error::AgeError;
 use crate::format::{header_bytes_up_to_footer, parse_header};
 use crate::identities::{FileKey, Identity};
-use chacha20poly1305::{
-    aead::Aead,
-    ChaCha20Poly1305, Key, KeyInit, Nonce,
-};
+use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -86,9 +83,9 @@ fn derive_payload_key(file_key: &FileKey, nonce: &[u8; 16]) -> Result<[u8; 32], 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Encryptor;
     use crate::identities::x25519::X25519Identity;
     use crate::recipients::x25519::X25519Recipient;
-    use crate::Encryptor;
     use rand::rngs::OsRng;
     use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -116,11 +113,8 @@ mod tests {
     fn decryptor_roundtrip_multiple_recipients() {
         let (identity1, recipient1) = make_x25519_pair();
         let (identity2, recipient2) = make_x25519_pair();
-        let encryptor = Encryptor::with_recipients(vec![
-            Box::new(recipient1),
-            Box::new(recipient2),
-        ])
-        .unwrap();
+        let encryptor =
+            Encryptor::with_recipients(vec![Box::new(recipient1), Box::new(recipient2)]).unwrap();
         let plaintext = b"multi-recipient test";
         let ciphertext = encryptor.encrypt(plaintext).unwrap();
         let decryptor1 = Decryptor::with_identities(vec![Box::new(identity1)]);

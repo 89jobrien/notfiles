@@ -63,8 +63,8 @@ pub(crate) fn derive_scrypt_key(
 mod tests {
     use super::*;
     use crate::identities::FileKey;
-    use crate::recipients::scrypt::ScryptRecipient;
     use crate::recipients::Recipient;
+    use crate::recipients::scrypt::ScryptRecipient;
 
     #[test]
     fn scrypt_wrap_unwrap_roundtrip() {
@@ -73,7 +73,9 @@ mod tests {
         let identity = ScryptIdentity::new(passphrase);
 
         let file_key = FileKey::new([0x11u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).expect("wrap should succeed");
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap should succeed");
         assert_eq!(stanza.tag, "scrypt");
         assert_eq!(stanza.args.len(), 2);
 

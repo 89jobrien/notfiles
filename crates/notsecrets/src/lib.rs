@@ -90,10 +90,8 @@ mod tests {
 
     #[test]
     fn resolve_identities_partial_success_returns_loaded() {
-        let sources: Vec<Box<dyn IdentitySource>> = vec![
-            Box::new(AlwaysFailSource),
-            Box::new(StaticX25519Source),
-        ];
+        let sources: Vec<Box<dyn IdentitySource>> =
+            vec![Box::new(AlwaysFailSource), Box::new(StaticX25519Source)];
         let ids = resolve_identities(sources).expect("at least one source succeeded");
         assert_eq!(ids.len(), 1);
     }

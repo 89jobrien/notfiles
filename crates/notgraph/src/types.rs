@@ -38,11 +38,11 @@ impl std::fmt::Display for SymbolKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SymbolKind::Struct => write!(f, "struct"),
-            SymbolKind::Enum   => write!(f, "enum"),
-            SymbolKind::Trait  => write!(f, "trait"),
-            SymbolKind::Fn     => write!(f, "fn"),
-            SymbolKind::Type   => write!(f, "type"),
-            SymbolKind::Const  => write!(f, "const"),
+            SymbolKind::Enum => write!(f, "enum"),
+            SymbolKind::Trait => write!(f, "trait"),
+            SymbolKind::Fn => write!(f, "fn"),
+            SymbolKind::Type => write!(f, "type"),
+            SymbolKind::Const => write!(f, "const"),
         }
     }
 }
@@ -76,7 +76,7 @@ pub enum HotspotKind {
 impl std::fmt::Display for HotspotKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            HotspotKind::FanIn  => write!(f, "fan-in"),
+            HotspotKind::FanIn => write!(f, "fan-in"),
             HotspotKind::FanOut => write!(f, "fan-out"),
         }
     }
@@ -91,10 +91,10 @@ pub struct Hotspot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphStats {
-    pub crate_graph:   Vec<FanStats>,
+    pub crate_graph: Vec<FanStats>,
     pub module_graphs: Vec<ModStats>,
-    pub hotspots:      Vec<Hotspot>,
-    pub cycles:        Vec<Vec<ModPath>>,
+    pub hotspots: Vec<Hotspot>,
+    pub cycles: Vec<Vec<ModPath>>,
 }
 
 /// Convert a source file path (relative to src/) to a Rust module path like `crate::foo::bar`.

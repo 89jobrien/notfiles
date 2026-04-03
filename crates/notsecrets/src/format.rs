@@ -11,9 +11,7 @@ const FOOTER_PREFIX: &[u8] = b"--- ";
 /// index into `input` where the payload (nonce + ciphertext) begins.
 pub fn parse_header(input: &[u8]) -> Result<(Header, usize), AgeError> {
     if !input.starts_with(VERSION_LINE) {
-        return Err(AgeError::ParseError(
-            "missing age version line".to_string(),
-        ));
+        return Err(AgeError::ParseError("missing age version line".to_string()));
     }
 
     let mut pos = VERSION_LINE.len();
@@ -176,11 +174,15 @@ mod tests {
         assert_eq!(header.recipients[0].args.len(), 1);
         assert!(header.recipients[0].body.is_empty());
         // payload offset should point to the 32 bytes at the end
-        assert_eq!(&input[payload_offset..], {
-            let mut v = vec![0x01u8; 16];
-            v.extend_from_slice(&[0x02u8; 16]);
-            v
-        }.as_slice());
+        assert_eq!(
+            &input[payload_offset..],
+            {
+                let mut v = vec![0x01u8; 16];
+                v.extend_from_slice(&[0x02u8; 16]);
+                v
+            }
+            .as_slice()
+        );
     }
 
     #[test]
@@ -208,7 +210,10 @@ mod tests {
     fn parse_missing_version_line_returns_error() {
         let input = b"not-age-encryption\n-> X25519 arg\n\n--- AAAA\n";
         let result = parse_header(input);
-        assert!(result.is_err(), "expected ParseError for missing version line");
+        assert!(
+            result.is_err(),
+            "expected ParseError for missing version line"
+        );
     }
 
     #[test]
@@ -233,7 +238,10 @@ mod tests {
             args: vec!["salt".to_string(), "18".to_string()],
             body: body.clone(),
         };
-        let header = Header { recipients: vec![stanza], mac: vec![0u8; 32] };
+        let header = Header {
+            recipients: vec![stanza],
+            mac: vec![0u8; 32],
+        };
         let serialized = serialize_header(&header);
         let mut with_payload = serialized;
         with_payload.extend_from_slice(&[0u8; 32]);

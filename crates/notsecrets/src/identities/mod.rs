@@ -39,9 +39,9 @@ impl FileKey {
 impl TryFrom<&[u8]> for FileKey {
     type Error = AgeError;
     fn try_from(b: &[u8]) -> Result<Self, AgeError> {
-        b.try_into()
-            .map(Self)
-            .map_err(|_| AgeError::ParseError(format!("file key must be 16 bytes, got {}", b.len())))
+        b.try_into().map(Self).map_err(|_| {
+            AgeError::ParseError(format!("file key must be 16 bytes, got {}", b.len()))
+        })
     }
 }
 

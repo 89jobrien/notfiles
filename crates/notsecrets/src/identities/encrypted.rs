@@ -36,7 +36,7 @@ impl Identity for EncryptedIdentity {
             Err(_) => {
                 return Some(Err(AgeError::ParseError(
                     "decrypted identity file is not valid UTF-8".to_string(),
-                )))
+                )));
             }
         };
         // Parse inner identity — only X25519 supported for now

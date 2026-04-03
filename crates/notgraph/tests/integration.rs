@@ -14,7 +14,8 @@ fn clean_fixture_has_no_cycles() {
     assert!(
         analysis::detect_cycles(&mg.nodes, &mg.edges).is_empty(),
         "expected no cycles; nodes={:?} edges={:?}",
-        mg.nodes, mg.edges
+        mg.nodes,
+        mg.edges
     );
 }
 
@@ -38,8 +39,14 @@ fn symbols_fixture_has_six_public_symbols() {
     let table = symbols::build("symbols".to_string(), &fixtures("symbols")).unwrap();
     let pub_count = table.symbols.iter().filter(|s| s.is_pub).count();
     assert_eq!(
-        pub_count, 6,
+        pub_count,
+        6,
         "expected 6 public symbols (Foo, Bar, Baz, qux, Alias, VALUE), got: {:?}",
-        table.symbols.iter().filter(|s| s.is_pub).map(|s| &s.name).collect::<Vec<_>>()
+        table
+            .symbols
+            .iter()
+            .filter(|s| s.is_pub)
+            .map(|s| &s.name)
+            .collect::<Vec<_>>()
     );
 }

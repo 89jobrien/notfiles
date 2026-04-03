@@ -1,6 +1,6 @@
 use crate::error::AgeError;
-use crate::identities::{FileKey, Stanza};
 use crate::identities::scrypt::derive_scrypt_key;
+use crate::identities::{FileKey, Stanza};
 use crate::recipients::Recipient;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
@@ -17,7 +17,10 @@ pub struct ScryptRecipient {
 impl ScryptRecipient {
     /// `work_factor` is log2(N). Use 18 in production, 14 in tests.
     pub fn new(passphrase: String, work_factor: u8) -> Self {
-        Self { passphrase, work_factor }
+        Self {
+            passphrase,
+            work_factor,
+        }
     }
 }
 
@@ -35,10 +38,7 @@ impl Recipient for ScryptRecipient {
 
         Ok(Stanza {
             tag: TAG.to_string(),
-            args: vec![
-                STANDARD_NO_PAD.encode(salt),
-                self.work_factor.to_string(),
-            ],
+            args: vec![STANDARD_NO_PAD.encode(salt), self.work_factor.to_string()],
             body: wrapped,
         })
     }

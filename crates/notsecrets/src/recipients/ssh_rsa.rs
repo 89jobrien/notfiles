@@ -1,6 +1,6 @@
 use crate::error::AgeError;
-use crate::identities::{FileKey, Stanza};
 use crate::identities::ssh_rsa::rsa_pubkey_fingerprint;
+use crate::identities::{FileKey, Stanza};
 use crate::recipients::Recipient;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use rsa::{Oaep, RsaPublicKey};

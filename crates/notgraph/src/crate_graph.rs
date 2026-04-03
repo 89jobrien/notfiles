@@ -17,7 +17,11 @@ pub fn build(manifest_path: &std::path::Path) -> Result<CrateGraph> {
     let nodes: Vec<CrateName> = workspace_members.iter().cloned().collect();
 
     let mut edges: Vec<(CrateName, CrateName)> = Vec::new();
-    for pkg in meta.packages.iter().filter(|p| workspace_members.contains(&p.name)) {
+    for pkg in meta
+        .packages
+        .iter()
+        .filter(|p| workspace_members.contains(&p.name))
+    {
         for dep in &pkg.dependencies {
             if workspace_members.contains(&dep.name) {
                 edges.push((pkg.name.clone(), dep.name.clone()));
@@ -35,15 +39,21 @@ mod tests {
     #[test]
     fn builds_crate_graph_for_workspace() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent().unwrap()
-            .parent().unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
             .join("Cargo.toml");
 
         let graph = build(&manifest).unwrap();
 
         assert!(graph.nodes.contains(&"notgraph".to_string()));
         assert!(graph.nodes.contains(&"notcore".to_string()));
-        assert!(graph.edges.contains(&("notstrap".to_string(), "notfiles".to_string())));
+        assert!(
+            graph
+                .edges
+                .contains(&("notstrap".to_string(), "notfiles".to_string()))
+        );
         assert!(!graph.edges.iter().any(|(from, _)| from == "notcore"));
     }
 }

@@ -46,7 +46,11 @@ impl Identity for SshEd25519Identity {
         }
         let fp_bytes = match STANDARD_NO_PAD.decode(&stanza.args[0]) {
             Ok(b) => b,
-            Err(e) => return Some(Err(AgeError::ParseError(format!("fingerprint base64: {e}")))),
+            Err(e) => {
+                return Some(Err(AgeError::ParseError(format!(
+                    "fingerprint base64: {e}"
+                ))));
+            }
         };
         if fp_bytes.as_slice() != self.fingerprint() {
             return None;
@@ -68,8 +72,11 @@ fn unwrap(stanza: &Stanza, identity: &SshEd25519Identity) -> Result<FileKey, Age
     let shared = x25519_secret.diffie_hellman(&ephemeral_pub);
     let x25519_pub = X25519PublicKey::from(&x25519_secret);
 
-    let wrap_key =
-        derive_wrap_key(shared.as_bytes(), ephemeral_pub.as_bytes(), x25519_pub.as_bytes())?;
+    let wrap_key = derive_wrap_key(
+        shared.as_bytes(),
+        ephemeral_pub.as_bytes(),
+        x25519_pub.as_bytes(),
+    )?;
 
     let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrap_key));
     let nonce = Nonce::default();
@@ -104,8 +111,8 @@ pub(crate) fn derive_wrap_key(
 mod tests {
     use super::*;
     use crate::identities::FileKey;
-    use crate::recipients::ssh_ed25519::SshEd25519Recipient;
     use crate::recipients::Recipient;
+    use crate::recipients::ssh_ed25519::SshEd25519Recipient;
 
     fn test_signing_key() -> SigningKey {
         use rand::rngs::OsRng;
@@ -123,7 +130,9 @@ mod tests {
         let identity = SshEd25519Identity::from_signing_key(signing_key);
 
         let file_key = FileKey::new([0x33u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).expect("wrap should succeed");
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap should succeed");
         assert_eq!(stanza.tag, "ssh-ed25519");
         assert_eq!(stanza.args.len(), 2);
 

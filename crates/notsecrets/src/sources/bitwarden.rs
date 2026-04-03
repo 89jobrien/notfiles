@@ -10,7 +10,9 @@ pub struct BitwardenSource {
 
 impl BitwardenSource {
     pub fn new(item_name: impl Into<String>) -> Self {
-        Self { item_name: item_name.into() }
+        Self {
+            item_name: item_name.into(),
+        }
     }
 
     fn retrieve_key(&self) -> Result<String, AgeError> {
@@ -28,10 +30,12 @@ impl BitwardenSource {
 
         let session = std::env::var("BW_SESSION").unwrap_or_default();
         let session = if session.is_empty() {
-            let password = rpassword::prompt_password("Bitwarden master password: ")
-                .map_err(|e| AgeError::SourceError {
-                    name: self.name().to_string(),
-                    source: anyhow::anyhow!("could not read password: {e}"),
+            let password =
+                rpassword::prompt_password("Bitwarden master password: ").map_err(|e| {
+                    AgeError::SourceError {
+                        name: self.name().to_string(),
+                        source: anyhow::anyhow!("could not read password: {e}"),
+                    }
                 })?;
             let output = Command::new("bw")
                 .args(["unlock", "--raw", &password])
@@ -101,10 +105,11 @@ impl IdentitySource for BitwardenSource {
 
     fn load(&self) -> Result<Box<dyn Identity>, AgeError> {
         let key = self.retrieve_key()?;
-        let identity = X25519Identity::from_bech32(key.trim()).map_err(|e| AgeError::SourceError {
-            name: self.name().to_string(),
-            source: anyhow::anyhow!("key is not a valid AGE-SECRET-KEY-1: {e}"),
-        })?;
+        let identity =
+            X25519Identity::from_bech32(key.trim()).map_err(|e| AgeError::SourceError {
+                name: self.name().to_string(),
+                source: anyhow::anyhow!("key is not a valid AGE-SECRET-KEY-1: {e}"),
+            })?;
         Ok(Box::new(identity))
     }
 }

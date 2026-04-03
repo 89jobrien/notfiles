@@ -1,6 +1,4 @@
-use crate::types::{
-    CrateGraph, FanStats, GraphStats, Hotspot, HotspotKind, ModStats, ModuleGraph,
-};
+use crate::types::{CrateGraph, FanStats, GraphStats, Hotspot, HotspotKind, ModStats, ModuleGraph};
 use std::collections::{HashMap, VecDeque};
 
 pub fn fan_stats(nodes: &[String], edges: &[(String, String)]) -> Vec<FanStats> {
@@ -10,11 +8,14 @@ pub fn fan_stats(nodes: &[String], edges: &[(String, String)]) -> Vec<FanStats> 
         *fan_out.entry(from.as_str()).or_insert(0) += 1;
         *fan_in.entry(to.as_str()).or_insert(0) += 1;
     }
-    nodes.iter().map(|n| FanStats {
-        name: n.clone(),
-        fan_in: *fan_in.get(n.as_str()).unwrap_or(&0),
-        fan_out: *fan_out.get(n.as_str()).unwrap_or(&0),
-    }).collect()
+    nodes
+        .iter()
+        .map(|n| FanStats {
+            name: n.clone(),
+            fan_in: *fan_in.get(n.as_str()).unwrap_or(&0),
+            fan_out: *fan_out.get(n.as_str()).unwrap_or(&0),
+        })
+        .collect()
 }
 
 /// Kahn's algorithm. Returns cycle participants if graph is not a DAG.
@@ -30,7 +31,8 @@ pub fn detect_cycles(nodes: &[String], edges: &[(String, String)]) -> Vec<Vec<St
         }
     }
 
-    let mut queue: VecDeque<&str> = in_degree.iter()
+    let mut queue: VecDeque<&str> = in_degree
+        .iter()
         .filter(|&(_, &d)| d == 0)
         .map(|(n, _)| *n)
         .collect();
@@ -51,7 +53,8 @@ pub fn detect_cycles(nodes: &[String], edges: &[(String, String)]) -> Vec<Vec<St
         return vec![];
     }
 
-    let cycle_nodes: Vec<String> = in_degree.iter()
+    let cycle_nodes: Vec<String> = in_degree
+        .iter()
         .filter(|&(_, &d)| d > 0)
         .map(|(n, _)| n.to_string())
         .collect();
@@ -66,7 +69,11 @@ pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     by_fan_in.sort_by(|a, b| b.fan_in.cmp(&a.fan_in));
     for s in by_fan_in.iter().take(top_n) {
         if s.fan_in > 0 {
-            result.push(Hotspot { name: s.name.clone(), kind: HotspotKind::FanIn, score: s.fan_in });
+            result.push(Hotspot {
+                name: s.name.clone(),
+                kind: HotspotKind::FanIn,
+                score: s.fan_in,
+            });
         }
     }
 
@@ -74,14 +81,22 @@ pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     by_fan_out.sort_by(|a, b| b.fan_out.cmp(&a.fan_out));
     for s in by_fan_out.iter().take(top_n) {
         if s.fan_out > 0 {
-            result.push(Hotspot { name: s.name.clone(), kind: HotspotKind::FanOut, score: s.fan_out });
+            result.push(Hotspot {
+                name: s.name.clone(),
+                kind: HotspotKind::FanOut,
+                score: s.fan_out,
+            });
         }
     }
 
     result
 }
 
-pub fn analyse(crate_graph: &CrateGraph, module_graphs: &[ModuleGraph], top_n: usize) -> GraphStats {
+pub fn analyse(
+    crate_graph: &CrateGraph,
+    module_graphs: &[ModuleGraph],
+    top_n: usize,
+) -> GraphStats {
     let crate_stats = fan_stats(&crate_graph.nodes, &crate_graph.edges);
     let crate_hotspots = hotspots(&crate_stats, top_n);
 
@@ -92,10 +107,15 @@ pub fn analyse(crate_graph: &CrateGraph, module_graphs: &[ModuleGraph], top_n: u
         let node_stats = fan_stats(&mg.nodes, &mg.edges);
         let cycles = detect_cycles(&mg.nodes, &mg.edges);
         all_cycles.extend(cycles.clone());
-        mod_stats_list.push(ModStats { krate: mg.krate.clone(), nodes: node_stats, cycles });
+        mod_stats_list.push(ModStats {
+            krate: mg.krate.clone(),
+            nodes: node_stats,
+            cycles,
+        });
     }
 
-    let all_mod_fan: Vec<FanStats> = mod_stats_list.iter()
+    let all_mod_fan: Vec<FanStats> = mod_stats_list
+        .iter()
         .flat_map(|ms| ms.nodes.iter().cloned())
         .collect();
     let mod_hotspots = hotspots(&all_mod_fan, top_n);
@@ -156,13 +176,28 @@ mod tests {
     #[test]
     fn hotspots_picks_top_n_by_fan_in_and_fan_out() {
         let stats = vec![
-            FanStats { name: "a".to_string(), fan_in: 5, fan_out: 1 },
-            FanStats { name: "b".to_string(), fan_in: 3, fan_out: 2 },
-            FanStats { name: "c".to_string(), fan_in: 1, fan_out: 4 },
+            FanStats {
+                name: "a".to_string(),
+                fan_in: 5,
+                fan_out: 1,
+            },
+            FanStats {
+                name: "b".to_string(),
+                fan_in: 3,
+                fan_out: 2,
+            },
+            FanStats {
+                name: "c".to_string(),
+                fan_in: 1,
+                fan_out: 4,
+            },
         ];
         let spots = hotspots(&stats, 1);
         let fi = spots.iter().find(|h| h.kind == HotspotKind::FanIn).unwrap();
-        let fo = spots.iter().find(|h| h.kind == HotspotKind::FanOut).unwrap();
+        let fo = spots
+            .iter()
+            .find(|h| h.kind == HotspotKind::FanOut)
+            .unwrap();
         assert_eq!(fi.name, "a");
         assert_eq!(fo.name, "c");
     }

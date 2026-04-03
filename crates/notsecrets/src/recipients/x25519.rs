@@ -1,6 +1,6 @@
 use crate::error::AgeError;
-use crate::identities::{FileKey, Stanza};
 use crate::identities::x25519::derive_wrap_key;
+use crate::identities::{FileKey, Stanza};
 use crate::recipients::Recipient;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use bech32::{Bech32, Hrp};

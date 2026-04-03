@@ -2,10 +2,7 @@ use crate::error::AgeError;
 use crate::format::serialize_header;
 use crate::identities::{FileKey, Header};
 use crate::recipients::Recipient;
-use chacha20poly1305::{
-    aead::Aead,
-    ChaCha20Poly1305, Key, KeyInit, Nonce,
-};
+use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use rand::RngCore;
@@ -129,7 +126,9 @@ mod tests {
             Box::new(X25519Recipient::from_public_key(public));
         let encryptor = Encryptor::with_recipients(vec![recipient]).unwrap();
         let plaintext = b"hello, age!";
-        let ciphertext = encryptor.encrypt(plaintext).expect("encrypt should succeed");
+        let ciphertext = encryptor
+            .encrypt(plaintext)
+            .expect("encrypt should succeed");
         assert!(
             ciphertext.starts_with(b"age-encryption.org/v1\n"),
             "output must start with age version line"

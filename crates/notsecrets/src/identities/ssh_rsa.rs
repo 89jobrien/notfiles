@@ -32,7 +32,11 @@ impl Identity for SshRsaIdentity {
         }
         let fp = match STANDARD_NO_PAD.decode(&stanza.args[0]) {
             Ok(b) => b,
-            Err(e) => return Some(Err(AgeError::ParseError(format!("fingerprint base64: {e}")))),
+            Err(e) => {
+                return Some(Err(AgeError::ParseError(format!(
+                    "fingerprint base64: {e}"
+                ))));
+            }
         };
         if fp.as_slice() != self.fingerprint() {
             return None;
@@ -62,8 +66,8 @@ pub(crate) fn rsa_pubkey_fingerprint(public_key: &RsaPublicKey) -> [u8; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recipients::ssh_rsa::SshRsaRecipient;
     use crate::recipients::Recipient;
+    use crate::recipients::ssh_rsa::SshRsaRecipient;
     use rand::rngs::OsRng;
 
     fn test_rsa_keypair() -> (RsaPrivateKey, RsaPublicKey) {
@@ -79,7 +83,9 @@ mod tests {
         let identity = SshRsaIdentity::from_private_key(private_key);
 
         let file_key = FileKey::new([0x55u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).expect("wrap should succeed");
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap should succeed");
         assert_eq!(stanza.tag, "ssh-rsa");
         assert_eq!(stanza.args.len(), 1);
 

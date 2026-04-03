@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookRunner, run_phase};
-use notsecrets::{BitwardenSource, FileSource, PromptSource, resolve_identities};
 use notsecrets::sources::IdentitySource;
+use notsecrets::{BitwardenSource, FileSource, PromptSource, resolve_identities};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 

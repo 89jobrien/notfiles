@@ -1,17 +1,18 @@
-use crate::types::{CrateGraph, GraphStats, HotspotKind, SymbolKind, SymbolTable};
+use crate::types::{CrateGraph, GraphStats, HotspotKind, ModuleGraph, SymbolKind, SymbolTable};
 use anyhow::Result;
 use std::path::Path;
 
 pub fn write_all(
     output_dir: &Path,
     crate_graph: &CrateGraph,
+    module_graphs: &[ModuleGraph],
     stats: &GraphStats,
     symbol_tables: &[SymbolTable],
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir)?;
     write_json(output_dir, stats)?;
     write_markdown(output_dir, stats, symbol_tables)?;
-    write_html(output_dir, crate_graph, stats)?;
+    write_html(output_dir, crate_graph, module_graphs, stats, symbol_tables)?;
     Ok(())
 }
 
@@ -110,17 +111,54 @@ fn write_markdown(dir: &Path, stats: &GraphStats, symbol_tables: &[SymbolTable])
     Ok(())
 }
 
-fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Result<()> {
+fn write_html(
+    dir: &Path,
+    crate_graph: &CrateGraph,
+    module_graphs: &[ModuleGraph],
+    stats: &GraphStats,
+    symbol_tables: &[SymbolTable],
+) -> Result<()> {
     let fan_map: std::collections::HashMap<&str, (usize, usize)> = stats
         .crate_graph
         .iter()
         .map(|fs| (fs.name.as_str(), (fs.fan_in, fs.fan_out)))
         .collect();
 
-    // Classify nodes into subgraphs by topology:
-    //   leaf    = no outgoing edges to workspace crates (fan-out == 0)
-    //   root    = no incoming edges from workspace crates (fan-in == 0)
-    //   feature = everything else
+    // Symbol counts per crate
+    let sym_count: std::collections::HashMap<&str, usize> = symbol_tables
+        .iter()
+        .map(|t| {
+            let count = t.symbols.iter().filter(|s| s.is_pub).count();
+            (t.krate.as_str(), count)
+        })
+        .collect();
+
+    // Nodes involved in any cycle (for red highlighting)
+    let cycle_nodes: std::collections::HashSet<&str> = stats
+        .cycles
+        .iter()
+        .flat_map(|c| c.iter().map(|n| n.as_str()))
+        .collect();
+
+    // Max fan-in for heatmap normalisation
+    let max_fan_in = stats
+        .crate_graph
+        .iter()
+        .map(|fs| fs.fan_in)
+        .max()
+        .unwrap_or(1)
+        .max(1);
+
+    // Heatmap: interpolate between dim blue and bright blue based on fan-in
+    let heatmap_color = |fan_in: usize| -> String {
+        let t = fan_in as f32 / max_fan_in as f32;
+        let r = (30.0 + t * 20.0) as u8;
+        let g = (58.0 + t * 80.0) as u8;
+        let b = (95.0 + t * 160.0) as u8;
+        format!("#{:02x}{:02x}{:02x}", r, g, b)
+    };
+
+    // Classify nodes into subgraphs by topology
     let leaf_nodes: std::collections::HashSet<&str> = stats
         .crate_graph
         .iter()
@@ -146,7 +184,6 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
         .map(|n| n.as_str())
         .filter(|n| !leaf_nodes.contains(n) && !root_nodes.contains(n))
         .collect();
-    // Nodes that are both leaf and root (isolated, e.g. notgraph) go into roots
     let mut isolated: Vec<&str> = crate_graph.nodes.iter()
         .map(|n| n.as_str())
         .filter(|n| leaf_nodes.contains(n) && root_nodes.contains(n))
@@ -159,39 +196,106 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
 
     let node_label = |n: &str| -> String {
         let (fi, fo) = fan_map.get(n).copied().unwrap_or((0, 0));
-        format!("{}[\"{}<br/>in:{} out:{}\"]", n, n, fi, fo)
+        let syms = sym_count.get(n).copied().unwrap_or(0);
+        format!(
+            "{}[\"{}<br/>in:{} out:{} | {} pub\"]",
+            n, n, fi, fo, syms
+        )
     };
 
-    // Mermaid flowchart: dependency -> dependent (LR)
+    // ── Crate dependency graph ──────────────────────────────────────────────
     let mut mermaid = String::from("flowchart LR\n");
 
     if !leaves.is_empty() {
         mermaid.push_str("  subgraph Core\n    direction TB\n");
-        for n in &leaves {
-            mermaid.push_str(&format!("    {}\n", node_label(n)));
-        }
+        for n in &leaves { mermaid.push_str(&format!("    {}\n", node_label(n))); }
         mermaid.push_str("  end\n");
     }
     if !features.is_empty() {
         mermaid.push_str("  subgraph Features\n    direction TB\n");
-        for n in &features {
-            mermaid.push_str(&format!("    {}\n", node_label(n)));
-        }
+        for n in &features { mermaid.push_str(&format!("    {}\n", node_label(n))); }
         mermaid.push_str("  end\n");
     }
     if !roots.is_empty() {
         mermaid.push_str("  subgraph Tools\n    direction TB\n");
-        for n in &roots {
-            mermaid.push_str(&format!("    {}\n", node_label(n)));
-        }
+        for n in &roots { mermaid.push_str(&format!("    {}\n", node_label(n))); }
         mermaid.push_str("  end\n");
     }
 
     for (from, to) in &crate_graph.edges {
-        // dependency -> dependent
         mermaid.push_str(&format!("  {} --> {}\n", to, from));
     }
+
+    // Heatmap styles
+    for fs in &stats.crate_graph {
+        let color = heatmap_color(fs.fan_in);
+        mermaid.push_str(&format!(
+            "  style {} fill:{},stroke:#4a9eff,color:#e0e0e0\n",
+            fs.name, color
+        ));
+    }
+
+    // Cycle highlights (override heatmap)
+    for n in &cycle_nodes {
+        mermaid.push_str(&format!(
+            "  style {} fill:#7a1a1a,stroke:#f44336,color:#ffffff\n",
+            n
+        ));
+    }
+
     let graph_diagram = mermaid;
+
+    // Build cycle lookup from stats (ModuleGraph itself has no cycle data)
+    let mod_cycles: std::collections::HashMap<&str, &Vec<Vec<String>>> = stats
+        .module_graphs
+        .iter()
+        .map(|ms| (ms.krate.as_str(), &ms.cycles))
+        .collect();
+
+    // ── Per-crate module graphs ─────────────────────────────────────────────
+    let mut module_diagrams = String::new();
+    for mg in module_graphs {
+        // Collect cycle nodes for this crate
+        let empty: Vec<Vec<String>> = Vec::new();
+        let cycles = mod_cycles.get(mg.krate.as_str()).copied().unwrap_or(&empty);
+        let crate_cycle_nodes: std::collections::HashSet<&str> = cycles
+            .iter()
+            .flat_map(|c| c.iter().map(|n| n.as_str()))
+            .collect();
+
+        let mut d = format!("flowchart TD\n");
+
+        // Nodes: strip crate prefix for readable labels, skip ::tests modules
+        for node in &mg.nodes {
+            let short = node
+                .strip_prefix(&format!("{}::", mg.krate))
+                .unwrap_or(node.as_str());
+            // Sanitize id for Mermaid (replace :: with __)
+            let id = node.replace("::", "__");
+            d.push_str(&format!("  {}[\"{}\"]\n", id, short));
+        }
+
+        // Edges
+        for (from, to) in &mg.edges {
+            let from_id = from.replace("::", "__");
+            let to_id = to.replace("::", "__");
+            d.push_str(&format!("  {} --> {}\n", from_id, to_id));
+        }
+
+        // Cycle highlights
+        for n in &crate_cycle_nodes {
+            let id = n.replace("::", "__");
+            d.push_str(&format!(
+                "  style {} fill:#7a1a1a,stroke:#f44336,color:#ffffff\n",
+                id
+            ));
+        }
+
+        module_diagrams.push_str(&format!(
+            "<h3>{}</h3>\n<div class=\"graph-wrap\"><pre class=\"mermaid\">\n%%{{init: {{\"theme\":\"dark\"}}}}\n{}</pre></div>\n",
+            mg.krate, d
+        ));
+    }
 
     let cycle_html = if stats.cycles.is_empty() {
         "<p>No cycles detected.</p>".to_string()
@@ -199,7 +303,7 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
         stats
             .cycles
             .iter()
-            .map(|c| format!("<p>CYCLE: {}</p>", c.join(" -&gt; ")))
+            .map(|c| format!("<p class=\"cycle-entry\">CYCLE: {}</p>", c.join(" &rarr; ")))
             .collect::<Vec<_>>()
             .join("\n")
     };
@@ -207,18 +311,17 @@ fn write_html(dir: &Path, crate_graph: &CrateGraph, stats: &GraphStats) -> Resul
     let hotspot_rows: String = stats
         .hotspots
         .iter()
-        .map(|h| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-                h.name, h.kind, h.score
-            )
-        })
+        .map(|h| format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+            h.name, h.kind, h.score
+        ))
         .collect::<Vec<_>>()
         .join("\n");
 
     let html = format!(
         include_str!("../templates/report.html.template"),
         graph_diagram = graph_diagram,
+        module_diagrams = module_diagrams,
         hotspot_rows = hotspot_rows,
         cycle_html = cycle_html,
     );

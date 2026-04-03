@@ -33,7 +33,6 @@ impl<'ast> Visit<'ast> for ModCollector {
     }
 }
 
-
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
     let mut all_nodes: Vec<ModPath> = Vec::new();
     let mut all_edges: Vec<(ModPath, ModPath)> = Vec::new();
@@ -63,7 +62,11 @@ pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
     all_edges.sort();
     all_edges.dedup();
 
-    Ok(ModuleGraph { krate, nodes: all_nodes, edges: all_edges })
+    Ok(ModuleGraph {
+        krate,
+        nodes: all_nodes,
+        edges: all_edges,
+    })
 }
 
 #[cfg(test)]
@@ -72,8 +75,8 @@ mod tests {
 
     #[test]
     fn clean_fixture_has_expected_nodes() {
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/clean/src");
+        let fixture =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clean/src");
         let graph = build("clean".to_string(), &fixture).unwrap();
         assert!(graph.nodes.contains(&"clean".to_string()));
         assert!(graph.nodes.contains(&"clean::alpha".to_string()));
@@ -82,10 +85,18 @@ mod tests {
 
     #[test]
     fn clean_fixture_has_edges_from_lib() {
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/clean/src");
+        let fixture =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clean/src");
         let graph = build("clean".to_string(), &fixture).unwrap();
-        assert!(graph.edges.contains(&("clean".to_string(), "clean::alpha".to_string())));
-        assert!(graph.edges.contains(&("clean".to_string(), "clean::beta".to_string())));
+        assert!(
+            graph
+                .edges
+                .contains(&("clean".to_string(), "clean::alpha".to_string()))
+        );
+        assert!(
+            graph
+                .edges
+                .contains(&("clean".to_string(), "clean::beta".to_string()))
+        );
     }
 }
