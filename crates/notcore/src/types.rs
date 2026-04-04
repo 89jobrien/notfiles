@@ -21,6 +21,8 @@ pub struct HookSpec {
     pub name: String,
     pub script: String,
     pub phase: HookPhase,
+    #[serde(default)]
+    pub interpreter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

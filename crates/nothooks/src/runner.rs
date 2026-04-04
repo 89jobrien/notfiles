@@ -4,6 +4,28 @@ use notcore::{HookPhase, HookSpec};
 use std::path::PathBuf;
 use std::process::Command;
 
+fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
+    if let Some(interp) = &spec.interpreter {
+        return Ok(interp.clone());
+    }
+    let ext = std::path::Path::new(&spec.script)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    match ext {
+        "nu" => Ok("nu".into()),
+        "sh" => Ok("sh".into()),
+        "bash" => Ok("bash".into()),
+        "zsh" => Ok("zsh".into()),
+        "py" => Ok("python3".into()),
+        "rb" => Ok("ruby".into()),
+        _ => Err(format!(
+            "cannot infer interpreter: no interpreter set and unknown extension {:?}",
+            ext
+        )),
+    }
+}
+
 pub struct HookRunner {
     state_dir: PathBuf,
     force: bool,
@@ -31,8 +53,11 @@ impl HookRunner {
             return HookResult::Skipped;
         }
 
-        // TODO: support other shells
-        let result = Command::new("nu").arg(&spec.script).status();
+        let interp = match resolve_interpreter(spec) {
+            Ok(i) => i,
+            Err(msg) => return HookResult::Failed(msg),
+        };
+        let result = Command::new(&interp).arg(&spec.script).status();
 
         match result {
             Ok(status) if status.success() => {

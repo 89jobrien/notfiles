@@ -186,6 +186,7 @@ fn test_setup_hooks_skipped_on_rerun() {
         name: HOOK_NAME.to_string(),
         script: script.to_str().unwrap().to_string(),
         phase: HookPhase::Setup,
+        interpreter: None,
     };
     let runner = HookRunner::new(d.to_path_buf());
     let phase_report = run_phase(&[hook_spec], &HookPhase::Setup, &runner);

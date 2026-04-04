@@ -35,6 +35,7 @@ fn test_nothooks_notsecrets_independent() {
         name: "chain".to_string(),
         script: script.to_str().unwrap().to_string(),
         phase: HookPhase::Dot,
+        interpreter: None,
     };
 
     let runner = HookRunner::new(dir.path().to_path_buf());

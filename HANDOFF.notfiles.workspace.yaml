@@ -8,7 +8,7 @@ state:
   notes: null
 items:
 - id: notfile-1
-  doob_uuid: 6d9780fe-d6d9-4316-90b5-6de44f06e96e
+  doob_uuid: d1c0adc2-028a-4a12-be84-0698587f6f35
   name: public-ready-workflow-fix
   priority: P1
   status: done
@@ -23,7 +23,7 @@ items:
     note: emoji → [OK] formatting change; committed in style commit
   completed: 2026-04-03
 - id: notfile-2
-  doob_uuid: a7ff6a74-a664-4a0e-9a13-3e3884e5d492
+  doob_uuid: b88a6135-3ecb-419e-aaac-22cb87595f90
   name: notgraph-integration-test-fix
   priority: P1
   status: done
@@ -38,7 +38,7 @@ items:
     note: cargo fmt reformatted long emit::write_all calls; committed in style commit
   completed: 2026-04-03
 - id: notfile-3
-  doob_uuid: 49346e3f-0119-4e1f-9234-c59f14499aea
+  doob_uuid: 615051dd-d22c-4d50-ad70-15497780726b
   name: notgraph-plan-remaining-steps
   priority: P2
   status: done
