@@ -24,13 +24,14 @@ cargo fmt --check                  # check formatting
 
 This is a Cargo workspace with 5 crates under `crates/`:
 
-| Crate | Purpose |
-|-------|---------|
-| `notcore` | Shared types: `Config`, `NotfilesError`, `expand_tilde`, `HookPhase`, `HookSpec`, `Report`, `StepStatus` |
-| `notfiles` | Dotfiles linker — lib + `notfiles` binary (symlink/copy, init, status) |
-| `notsecrets` | Age key retrieval via Bitwarden, file, or prompt; SOPS decryption |
-| `nothooks` | Nushell hook runner with dot/setup phases and state persistence |
-| `notstrap` | New-machine bootstrap orchestrator — ties all crates together |
+| Crate        | Purpose                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------- |
+| `notcore`    | Shared types: `Config`, `NotfilesError`, `expand_tilde`, `HookPhase`, `HookSpec`, `Report`, `StepStatus` |
+| `notfiles`   | Dotfiles linker — lib + `notfiles` binary (symlink/copy, init, status)                                   |
+| `notsecrets` | Age key retrieval via Bitwarden, file, or prompt; SOPS decryption                                        |
+| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence                                          |
+| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together                                            |
+| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output, heatmap, cycle detection           |
 
 ## Architecture
 
@@ -41,6 +42,7 @@ Four subcommands: `init`, `link`, `unlink`, `status`. CLI parsing in `crates/not
 **Core flow for `link`:** `main` → `resolve_packages` → `collect_files` (recursive walk with ignore filtering) → `linker::link_package` (create symlinks or copies, record in state).
 
 Key modules in `crates/notfiles/src/`:
+
 - **linker** — Creates/removes symlinks or copies. Manages `State` (`.notfiles-state.toml`) tracking every linked file. Handles conflict detection, `--force` backups, empty-parent cleanup on unlink.
 - **config** — Parses `notfiles.toml`. Per-package overrides for method, target, ignore. Falls back to `[defaults]`.
 - **package** — Discovers packages (non-hidden subdirs) and recursively collects files via `IgnoreMatcher`.
