@@ -172,19 +172,27 @@ fn write_html(
         .map(|fs| fs.name.as_str())
         .collect();
 
-    let mut leaves: Vec<&str> = crate_graph.nodes.iter()
+    let mut leaves: Vec<&str> = crate_graph
+        .nodes
+        .iter()
         .map(|n| n.as_str())
         .filter(|n| leaf_nodes.contains(n) && !root_nodes.contains(n))
         .collect();
-    let mut roots: Vec<&str> = crate_graph.nodes.iter()
+    let mut roots: Vec<&str> = crate_graph
+        .nodes
+        .iter()
         .map(|n| n.as_str())
         .filter(|n| root_nodes.contains(n) && !leaf_nodes.contains(n))
         .collect();
-    let mut features: Vec<&str> = crate_graph.nodes.iter()
+    let mut features: Vec<&str> = crate_graph
+        .nodes
+        .iter()
         .map(|n| n.as_str())
         .filter(|n| !leaf_nodes.contains(n) && !root_nodes.contains(n))
         .collect();
-    let mut isolated: Vec<&str> = crate_graph.nodes.iter()
+    let mut isolated: Vec<&str> = crate_graph
+        .nodes
+        .iter()
         .map(|n| n.as_str())
         .filter(|n| leaf_nodes.contains(n) && root_nodes.contains(n))
         .collect();
@@ -202,7 +210,11 @@ fn write_html(
         let syms = sym_count.get(n).copied().unwrap_or(0);
         format!(
             "{}[\"{}<br/>in:{} out:{} | {} pub\"]",
-            mermaid_id(n), n, fi, fo, syms
+            mermaid_id(n),
+            n,
+            fi,
+            fo,
+            syms
         )
     };
 
@@ -211,17 +223,23 @@ fn write_html(
 
     if !leaves.is_empty() {
         mermaid.push_str("  subgraph Core\n    direction TB\n");
-        for n in &leaves { mermaid.push_str(&format!("    {}\n", node_label(n))); }
+        for n in &leaves {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
         mermaid.push_str("  end\n");
     }
     if !features.is_empty() {
         mermaid.push_str("  subgraph Features\n    direction TB\n");
-        for n in &features { mermaid.push_str(&format!("    {}\n", node_label(n))); }
+        for n in &features {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
         mermaid.push_str("  end\n");
     }
     if !roots.is_empty() {
         mermaid.push_str("  subgraph Tools\n    direction TB\n");
-        for n in &roots { mermaid.push_str(&format!("    {}\n", node_label(n))); }
+        for n in &roots {
+            mermaid.push_str(&format!("    {}\n", node_label(n)));
+        }
         mermaid.push_str("  end\n");
     }
 
@@ -234,7 +252,8 @@ fn write_html(
         let color = heatmap_color(fs.fan_in);
         mermaid.push_str(&format!(
             "  style {} fill:{},stroke:#4a9eff,color:#e0e0e0\n",
-            mermaid_id(&fs.name), color
+            mermaid_id(&fs.name),
+            color
         ));
     }
 
@@ -316,10 +335,12 @@ fn write_html(
     let hotspot_rows: String = stats
         .hotspots
         .iter()
-        .map(|h| format!(
-            "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-            h.name, h.kind, h.score
-        ))
+        .map(|h| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                h.name, h.kind, h.score
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
 

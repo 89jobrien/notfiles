@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookRunner, run_phase};
+use notsecrets::identities::Identity;
 use notsecrets::sources::IdentitySource;
 use notsecrets::{BitwardenSource, FileSource, PromptSource, resolve_identities};
 use serde::Deserialize;
@@ -10,7 +11,7 @@ use std::path::{Path, PathBuf};
 pub mod prereqs;
 pub mod repo;
 
-type EnvInjector = Box<dyn Fn(&Path) -> Result<String>>;
+type EnvInjector = Box<dyn Fn(&Path, Vec<Box<dyn Identity>>) -> Result<String>>;
 
 #[derive(Deserialize)]
 pub struct NotstrapConfig {

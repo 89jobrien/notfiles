@@ -95,7 +95,7 @@ pub fn link_package(
         let target = target_base.join(relative);
         let source_display = format!("{package}/{}", relative.display());
 
-        // Check if already correctly linked
+        // Check if already correctly linked / copied
         if is_already_linked(&source, &target, method) {
             if opts.verbose {
                 println!("  \x1b[90mskip\x1b[0m {source_display} (already linked)");
@@ -103,15 +103,26 @@ pub fn link_package(
             continue;
         }
 
+        // Helper: save partial state then return an error.
+        let save_and_return = |state: &mut State, e: NotfilesError| -> Result<(), NotfilesError> {
+            if !opts.dry_run {
+                let _ = state.save(dotfiles_dir);
+            }
+            Err(e)
+        };
+
         // Conflict detection
         if target.exists() || target.symlink_metadata().is_ok() {
             if !opts.force {
-                return Err(NotfilesError::Conflict {
-                    path: target.clone(),
-                    reason: format!(
-                        "already exists (use --force to overwrite); source: {source_display}"
-                    ),
-                });
+                return save_and_return(
+                    state,
+                    NotfilesError::Conflict {
+                        path: target.clone(),
+                        reason: format!(
+                            "already exists (use --force to overwrite); source: {source_display}"
+                        ),
+                    },
+                );
             }
             // Force mode: backup then remove
             if !opts.no_backup {
@@ -130,13 +141,18 @@ pub fn link_package(
                             backup.display()
                         );
                     }
-                    fs::rename(&target, &backup)?;
+                    if let Err(e) = fs::rename(&target, &backup) {
+                        return save_and_return(state, e.into());
+                    }
                 }
             } else if !opts.dry_run {
-                if target.is_dir() {
-                    fs::remove_dir_all(&target)?;
+                let rm_result = if target.is_dir() {
+                    fs::remove_dir_all(&target)
                 } else {
-                    fs::remove_file(&target)?;
+                    fs::remove_file(&target)
+                };
+                if let Err(e) = rm_result {
+                    return save_and_return(state, e.into());
                 }
             }
         }
@@ -147,8 +163,8 @@ pub fn link_package(
                 if opts.verbose {
                     println!("  \x1b[90mwould create dir\x1b[0m {}", parent.display());
                 }
-            } else {
-                fs::create_dir_all(parent)?;
+            } else if let Err(e) = fs::create_dir_all(parent) {
+                return save_and_return(state, e.into());
             }
         }
 
@@ -164,16 +180,21 @@ pub fn link_package(
                 target.display()
             );
         } else {
-            match method {
+            let link_result = match method {
                 Method::Symlink => {
                     #[cfg(unix)]
-                    std::os::unix::fs::symlink(&source, &target)?;
+                    {
+                        std::os::unix::fs::symlink(&source, &target).map(|_| 0u64)
+                    }
                     #[cfg(not(unix))]
-                    fs::copy(&source, &target)?;
+                    {
+                        fs::copy(&source, &target)
+                    }
                 }
-                Method::Copy => {
-                    fs::copy(&source, &target)?;
-                }
+                Method::Copy => fs::copy(&source, &target),
+            };
+            if let Err(e) = link_result {
+                return save_and_return(state, e.into());
             }
             if opts.verbose {
                 println!(
@@ -283,7 +304,15 @@ fn is_already_linked(source: &Path, target: &Path, method: Method) -> bool {
                 false
             }
         }
-        Method::Copy => false, // Always re-copy
+        Method::Copy => {
+            // Skip re-copy if target exists and has the same size and mtime as source.
+            match (fs::metadata(source), fs::metadata(target)) {
+                (Ok(sm), Ok(tm)) => {
+                    sm.len() == tm.len() && sm.modified().ok() == tm.modified().ok()
+                }
+                _ => false,
+            }
+        }
     }
 }
 
