@@ -39,9 +39,13 @@ impl State {
 
     pub fn save(&self, dotfiles_dir: &Path) -> Result<(), NotfilesError> {
         let path = dotfiles_dir.join(STATE_FILE);
+        let tmp_path = dotfiles_dir.join(format!("{STATE_FILE}.tmp"));
         let content = toml::to_string_pretty(self)
             .map_err(|e| NotfilesError::State(format!("serializing state: {e}")))?;
-        fs::write(&path, content)?;
+        fs::write(&tmp_path, content)
+            .map_err(|e| NotfilesError::State(format!("writing temp state: {e}")))?;
+        fs::rename(&tmp_path, &path)
+            .map_err(|e| NotfilesError::State(format!("renaming temp state: {e}")))?;
         Ok(())
     }
 
