@@ -82,7 +82,13 @@ impl Encryptor {
         let payload_key = derive_payload_key(&file_key, &nonce_bytes)?;
 
         let cipher = ChaCha20Poly1305::new(Key::from_slice(&payload_key));
-        let counter_nonce = Nonce::default(); // [0u8; 12]
+        // Use the first 12 bytes of the 16-byte random nonce as the ChaCha nonce.
+        // The payload key is already unique per message (derived via HKDF with the full
+        // 16-byte nonce as salt), so this is safe — but using a non-zero nonce makes
+        // the invariant explicit and removes the latent risk of accidental key reuse.
+        let counter_nonce = Nonce::from(
+            <[u8; 12]>::try_from(&nonce_bytes[..12]).expect("slice is exactly 12 bytes"),
+        );
         let ciphertext = cipher
             .encrypt(&counter_nonce, plaintext)
             .map_err(|_| AgeError::CryptoError("payload encryption failed".to_string()))?;

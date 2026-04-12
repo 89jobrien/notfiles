@@ -55,7 +55,10 @@ impl Decryptor {
 
         let payload_key = derive_payload_key(&file_key, &nonce_bytes)?;
         let cipher = ChaCha20Poly1305::new(Key::from_slice(&payload_key));
-        let counter_nonce = Nonce::default();
+        // Mirror encrypt.rs: use the first 12 bytes of the 16-byte random nonce.
+        let counter_nonce = Nonce::from(
+            <[u8; 12]>::try_from(&nonce_bytes[..12]).expect("slice is exactly 12 bytes"),
+        );
         let plaintext = cipher
             .decrypt(&counter_nonce, payload_ciphertext)
             .map_err(|_| AgeError::CryptoError("payload decryption failed".to_string()))?;

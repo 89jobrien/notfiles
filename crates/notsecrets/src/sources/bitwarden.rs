@@ -2,7 +2,8 @@ use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::identities::x25519::X25519Identity;
 use crate::sources::IdentitySource;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 pub struct BitwardenSource {
     pub item_name: String,
@@ -37,13 +38,27 @@ impl BitwardenSource {
                         source: anyhow::anyhow!("could not read password: {e}"),
                     }
                 })?;
-            let output = Command::new("bw")
-                .args(["unlock", "--raw", &password])
-                .output()
+            // Pass password via stdin to avoid it appearing in the process list.
+            let mut child = Command::new("bw")
+                .args(["unlock", "--raw", "--passwordstdin"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
                 .map_err(|e| AgeError::SourceError {
                     name: self.name().to_string(),
                     source: anyhow::anyhow!("bw unlock spawn: {e}"),
                 })?;
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(password.as_bytes()).map_err(|e| AgeError::SourceError {
+                    name: self.name().to_string(),
+                    source: anyhow::anyhow!("bw unlock stdin write: {e}"),
+                })?;
+            }
+            let output = child.wait_with_output().map_err(|e| AgeError::SourceError {
+                name: self.name().to_string(),
+                source: anyhow::anyhow!("bw unlock wait: {e}"),
+            })?;
             if !output.status.success() {
                 return Err(AgeError::SourceError {
                     name: self.name().to_string(),
