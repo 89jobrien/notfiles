@@ -89,6 +89,10 @@ impl HookRunner {
             Ok(i) => i,
             Err(msg) => return HookResult::Failed(msg),
         };
+        // SAFETY: `interp` is derived from the file extension or an explicit `interpreter` field
+        // in HookSpec (both come from config, not untrusted shell input). `spec.script` is a
+        // filesystem path from config. Both are passed as discrete args with no shell involved,
+        // so argument injection is not possible.
         let result = Command::new(&interp).arg(&spec.script).status();
 
         match result {

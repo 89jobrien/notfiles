@@ -83,6 +83,9 @@ impl BitwardenSource {
             session
         };
 
+        // SAFETY: `item_name` and `session` are user-controlled values (config item name and
+        // BW_SESSION env var / bw-unlock stdout), but are passed as discrete `.args()` elements,
+        // not interpolated into a shell string. No shell is involved, so injection is not possible.
         let output = Command::new("bw")
             .args(["get", "notes", &self.item_name, "--session", &session])
             .output()
