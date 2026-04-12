@@ -217,11 +217,21 @@ pub fn link_package(
 }
 
 pub fn unlink_package(
-    _dotfiles_dir: &Path,
+    dotfiles_dir: &Path,
     state: &mut State,
     package: &str,
     opts: &LinkOptions,
 ) -> Result<(), NotfilesError> {
+    // Validate the package: it must either exist as a directory in dotfiles_dir
+    // or have entries in state.  A name that satisfies neither is a user error.
+    let package_dir = dotfiles_dir.join(package);
+    let has_state_entries = !state.entries_for_package(package).is_empty();
+    if !package_dir.is_dir() && !has_state_entries {
+        return Err(NotfilesError::PackageNotFound {
+            name: package.to_string(),
+        });
+    }
+
     let entries: Vec<StateEntry> = state
         .entries_for_package(package)
         .into_iter()
