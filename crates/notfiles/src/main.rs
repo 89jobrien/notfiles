@@ -6,7 +6,7 @@ use notcore::Config;
 use notfiles::cli::{Cli, Command};
 use notfiles::linker::{LinkOptions, State};
 use notfiles::package::resolve_packages;
-use notfiles::{linker, status};
+use notfiles::{adapters, linker, status};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -23,8 +23,9 @@ fn main() -> Result<()> {
             no_backup,
             packages,
         } => {
+            let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
-            let mut state = State::load(&dotfiles_dir)?;
+            let mut state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages(&dotfiles_dir, &packages)?;
             let opts = LinkOptions {
                 force,
@@ -41,11 +42,11 @@ fn main() -> Result<()> {
                 if cli.verbose || cli.dry_run {
                     println!("Linking {pkg}...");
                 }
-                linker::link_package(&dotfiles_dir, &config, &mut state, pkg, &opts)?;
+                linker::link_package(&dotfiles_dir, &config, &mut state, pkg, &opts, fs)?;
             }
 
             if !cli.dry_run {
-                state.save(&dotfiles_dir)?;
+                state.save(&dotfiles_dir, fs)?;
                 let count: usize = pkgs
                     .iter()
                     .map(|p| state.entries_for_package(p).len())
@@ -59,9 +60,10 @@ fn main() -> Result<()> {
             }
         }
         Command::Unlink { packages } => {
+            let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             let _ = &config; // loaded but not needed for unlink
-            let mut state = State::load(&dotfiles_dir)?;
+            let mut state = State::load(&dotfiles_dir, fs)?;
             let pkgs = if packages.is_empty() {
                 state
                     .entries
@@ -93,11 +95,11 @@ fn main() -> Result<()> {
                 if cli.verbose || cli.dry_run {
                     println!("Unlinking {pkg}...");
                 }
-                linker::unlink_package(&dotfiles_dir, &mut state, pkg, &opts)?;
+                linker::unlink_package(&dotfiles_dir, &mut state, pkg, &opts, fs)?;
             }
 
             if !cli.dry_run {
-                state.save(&dotfiles_dir)?;
+                state.save(&dotfiles_dir, fs)?;
                 println!(
                     "\x1b[32mUnlinked {} package{}.\x1b[0m",
                     pkgs.len(),
@@ -106,8 +108,9 @@ fn main() -> Result<()> {
             }
         }
         Command::Status { packages } => {
+            let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
-            let state = State::load(&dotfiles_dir)?;
+            let state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages(&dotfiles_dir, &packages)?;
 
             for pkg in &pkgs {

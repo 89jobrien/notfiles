@@ -1,7 +1,7 @@
 use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::identities::x25519::X25519Identity;
-use crate::sources::IdentitySource;
+use crate::ports::IdentitySource;
 use std::io::Write;
 use std::process::{Command, Stdio};
 

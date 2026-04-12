@@ -1,7 +1,7 @@
 use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::identities::scrypt::ScryptIdentity;
-use crate::sources::IdentitySource;
+use crate::ports::IdentitySource;
 
 pub struct PromptSource;
 

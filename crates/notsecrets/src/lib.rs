@@ -3,6 +3,7 @@ pub mod encrypt;
 pub mod error;
 pub mod format;
 pub mod identities;
+pub mod ports;
 pub mod recipients;
 pub mod sources;
 
@@ -13,17 +14,18 @@ pub use identities::{
     EncryptedIdentity, FileKey, Header, Identity, ScryptIdentity, SshEd25519Identity,
     SshRsaIdentity, Stanza, X25519Identity,
 };
+pub use ports::IdentitySource;
 pub use recipients::{
     Recipient, ScryptRecipient, SshEd25519Recipient, SshRsaRecipient, X25519Recipient,
 };
-pub use sources::{BitwardenSource, FileSource, IdentitySource, PromptSource};
+pub use sources::{BitwardenSource, FileSource, PromptSource};
 
 /// Try each `IdentitySource` in order; collect all identities that load successfully.
 ///
 /// Returns an error only if all sources fail. Partial success is accepted because
 /// not every source needs to hold the key for the target file.
 pub fn resolve_identities(
-    sources: Vec<Box<dyn sources::IdentitySource>>,
+    sources: Vec<Box<dyn IdentitySource>>,
 ) -> Result<Vec<Box<dyn Identity>>, AgeError> {
     let mut identities: Vec<Box<dyn Identity>> = Vec::new();
     let mut last_err: Option<AgeError> = None;
@@ -51,7 +53,7 @@ pub fn resolve_identities(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sources::IdentitySource;
+    use crate::ports::IdentitySource;
 
     struct AlwaysFailSource;
     impl IdentitySource for AlwaysFailSource {
