@@ -50,15 +50,19 @@ impl BitwardenSource {
                     source: anyhow::anyhow!("bw unlock spawn: {e}"),
                 })?;
             if let Some(mut stdin) = child.stdin.take() {
-                stdin.write_all(password.as_bytes()).map_err(|e| AgeError::SourceError {
-                    name: self.name().to_string(),
-                    source: anyhow::anyhow!("bw unlock stdin write: {e}"),
-                })?;
+                stdin
+                    .write_all(password.as_bytes())
+                    .map_err(|e| AgeError::SourceError {
+                        name: self.name().to_string(),
+                        source: anyhow::anyhow!("bw unlock stdin write: {e}"),
+                    })?;
             }
-            let output = child.wait_with_output().map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
-                source: anyhow::anyhow!("bw unlock wait: {e}"),
-            })?;
+            let output = child
+                .wait_with_output()
+                .map_err(|e| AgeError::SourceError {
+                    name: self.name().to_string(),
+                    source: anyhow::anyhow!("bw unlock wait: {e}"),
+                })?;
             if !output.status.success() {
                 return Err(AgeError::SourceError {
                     name: self.name().to_string(),
