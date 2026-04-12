@@ -100,20 +100,21 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         ]
     };
 
-    match resolve_identities(sources) {
-        Ok(_identities) => {
+    let identities = match resolve_identities(sources) {
+        Ok(ids) => {
             report.add("age key", StepStatus::Ok);
+            ids
         }
         Err(e) => {
             report.add("age key", StepStatus::Failed(e.to_string()));
             return Ok(report);
         }
-    }
+    };
 
     // 5. Decrypt sops secrets (optional)
     if let Some(injector) = opts.env_injector {
         let sops_path = dotfiles_dir.join(&cfg.bootstrap.sops_file);
-        match injector(&sops_path) {
+        match injector(&sops_path, identities) {
             Ok(env_content) => {
                 for line in env_content.lines() {
                     match parse_env_line(line) {
@@ -187,6 +188,44 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     Ok(report)
 }
 
+/// Strip outer quotes from an env value and unescape inner escape sequences.
+///
+/// - `"val\"ue"` → `val"ue`  (double-quoted, with backslash escapes processed)
+/// - `'value'`   → `value`   (single-quoted, no escape processing)
+/// - `value`     → `value`   (unquoted, returned as-is)
+fn unquote_env_value(v: &str) -> String {
+    if v.len() >= 2 {
+        if v.starts_with('"') && v.ends_with('"') {
+            let inner = &v[1..v.len() - 1];
+            // Process backslash escapes within double-quoted strings.
+            let mut result = String::with_capacity(inner.len());
+            let mut chars = inner.chars();
+            while let Some(c) = chars.next() {
+                if c == '\\' {
+                    match chars.next() {
+                        Some('"') => result.push('"'),
+                        Some('\\') => result.push('\\'),
+                        Some('n') => result.push('\n'),
+                        Some('t') => result.push('\t'),
+                        Some(other) => {
+                            result.push('\\');
+                            result.push(other);
+                        }
+                        None => result.push('\\'),
+                    }
+                } else {
+                    result.push(c);
+                }
+            }
+            return result;
+        }
+        if v.starts_with('\'') && v.ends_with('\'') {
+            return v[1..v.len() - 1].to_string();
+        }
+    }
+    v.to_string()
+}
+
 /// Parse and validate a single env line (`KEY=value`), returning `(key, value)` if safe to inject.
 /// Returns `Ok(None)` for blank lines and comments.
 /// Returns `Err` for null bytes or dangerous keys.
@@ -195,7 +234,7 @@ pub fn parse_env_line(line: &str) -> Result<Option<(String, String)>> {
         return Ok(None);
     };
     let k = k.trim().to_string();
-    let v = v.trim().trim_matches('"').to_string();
+    let v = unquote_env_value(v.trim());
 
     if k.is_empty() || k.starts_with('#') {
         return Ok(None);
@@ -289,10 +328,34 @@ mod tests {
         assert_eq!(parse_env_line("# THIS_IS_A_COMMENT=value").unwrap(), None);
     }
 
-    /// Quoted values are unquoted.
+    /// Double-quoted values are unquoted.
     #[test]
-    fn parse_env_line_strips_quotes() {
+    fn parse_env_line_strips_double_quotes() {
         let result = parse_env_line(r#"API_KEY="secret""#).unwrap();
         assert_eq!(result, Some(("API_KEY".to_string(), "secret".to_string())));
+    }
+
+    /// Single-quoted values are unquoted (no escape processing).
+    #[test]
+    fn parse_env_line_strips_single_quotes() {
+        let result = parse_env_line("MY_VAR='hello world'").unwrap();
+        assert_eq!(
+            result,
+            Some(("MY_VAR".to_string(), "hello world".to_string()))
+        );
+    }
+
+    /// Backslash-escaped double-quote within double-quoted value is handled.
+    #[test]
+    fn parse_env_line_unescapes_inner_double_quote() {
+        let result = parse_env_line(r#"MSG="val\"ue""#).unwrap();
+        assert_eq!(result, Some(("MSG".to_string(), r#"val"ue"#.to_string())));
+    }
+
+    /// Unquoted values pass through unchanged.
+    #[test]
+    fn parse_env_line_unquoted_passthrough() {
+        let result = parse_env_line("TOKEN=abc123").unwrap();
+        assert_eq!(result, Some(("TOKEN".to_string(), "abc123".to_string())));
     }
 }
