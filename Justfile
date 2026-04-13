@@ -1,3 +1,7 @@
+# Launch zellij workspace layout
+workspace:
+    zellij --layout notfiles
+
 pre-commit:
     cargo fmt --all --check
     cargo clippy --workspace -- -D warnings
