@@ -233,6 +233,23 @@ Migration is gradual — shell scripts are replaced as Rust equivalents ship:
 
 ---
 
+## Absorbing `pj`
+
+`pj` (89jobrien/pj) was a standalone portable dev-environment bootstrap CLI. Its functionality overlaps directly with this workspace:
+
+| `pj` command | `notfiles` equivalent |
+|---|---|
+| `pj dot` | `notfiles` (symlink engine) |
+| `pj doctor` | `notstrap` prerequisites check |
+| `pj sync` | `notstrap run` |
+| `pj secret` | `notsecrets` |
+| `pj cache` | planned `notcache` or Cargo workspace tooling |
+| `pj tui` | planned TUI layer on `notstrap` |
+
+`pj` is archived. Its remaining functionality (cache management, TUI dashboard, git-config helper) will be folded in as those areas of the workspace mature.
+
+---
+
 ## Development
 
 ```bash
