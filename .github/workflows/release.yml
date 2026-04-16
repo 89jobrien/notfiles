@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to apply to affected crates, without leading v'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: Bump, Tag, and Release
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install tooling
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit,cargo-nextest
+
+      - name: Validate version input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "invalid semver: $VERSION" >&2
+            exit 1
+          fi
+          if git rev-parse "v$VERSION" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "tag v$VERSION already exists" >&2
+            exit 1
+          fi
+
+      - name: Determine affected crates since last release
+        id: affected-crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          if last_tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null); then
+            range="$last_tag..HEAD"
+          else
+            range="HEAD"
+          fi
+
+          if [ "$range" = "HEAD" ]; then
+            git ls-files > changed-files.txt
+          else
+            git diff --name-only "$range" > changed-files.txt
+          fi
+
+          cargo metadata --no-deps --format-version 1 > metadata.json
+
+          python3 <<'PY'
+          import json
+          from collections import defaultdict, deque
+          from pathlib import Path
+
+          changed_files = [line.strip() for line in Path("changed-files.txt").read_text().splitlines() if line.strip()]
+          metadata = json.loads(Path("metadata.json").read_text())
+
+          workspace_ids = set(metadata["workspace_members"])
+          packages = [pkg for pkg in metadata["packages"] if pkg["id"] in workspace_ids]
+
+          package_dirs = {}
+          reverse_deps = defaultdict(set)
+          package_names = set()
+
+          for pkg in packages:
+            name = pkg["name"]
+            package_names.add(name)
+            package_dirs[name] = Path(pkg["manifest_path"]).parent.as_posix()
+
+          for pkg in packages:
+            name = pkg["name"]
+            for dep in pkg.get("dependencies", []):
+              dep_name = dep.get("name")
+              if dep_name in package_names:
+                reverse_deps[dep_name].add(name)
+
+          direct = set()
+          shared_change = False
+
+          for changed in changed_files:
+            matched = False
+            for name, pkg_dir in package_dirs.items():
+              if changed == pkg_dir or changed.startswith(pkg_dir + "/"):
+                direct.add(name)
+                matched = True
+            if not matched and not changed.startswith('.github/workflows/release.yml'):
+              shared_change = True
+
+          if shared_change:
+            direct.update(package_names)
+
+          affected = set(direct)
+          queue = deque(direct)
+          while queue:
+            current = queue.popleft()
+            for dependent in reverse_deps.get(current, ()):
+              if dependent not in affected:
+                affected.add(dependent)
+                queue.append(dependent)
+
+          ignored = {"integration"}
+          affected = sorted(name for name in affected if name not in ignored)
+
+          if not affected:
+            raise SystemExit("No affected crates detected since the last release tag.")
+
+          Path("affected-crates.txt").write_text("\n".join(affected) + "\n")
+          PY
+
+          {
+            echo 'crates<<EOF'
+            cat affected-crates.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo '### Affected crates'
+            sed 's/^/- `/' affected-crates.txt | sed 's/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run release gates
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo nextest run --workspace
+
+      - name: Bump affected crate versions
+        env:
+          VERSION: ${{ inputs.version }}
+          AFFECTED_CRATES: ${{ steps.affected-crates.outputs.crates }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r crate; do
+            [ -n "$crate" ] || continue
+            cargo set-version -p "$crate" "$VERSION"
+          done <<< "$AFFECTED_CRATES"
+
+      - name: Commit version bump and create tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/*/Cargo.toml Cargo.lock
+          git commit -m "release: v$VERSION"
+          git tag "v$VERSION"
+
+      - name: Push commit and tag to GitHub
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git push origin HEAD:main
+          git push origin "v$VERSION"
+
+      - name: Build release binaries
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          cargo build --release -p notfiles -p nothooks -p notstrap -p notgraph
+          mkdir -p dist/notfiles-v$VERSION-linux-x86_64
+          cp target/release/notfiles dist/notfiles-v$VERSION-linux-x86_64/
+          cp target/release/nothooks dist/notfiles-v$VERSION-linux-x86_64/
+          cp target/release/notstrap dist/notfiles-v$VERSION-linux-x86_64/
+          cp target/release/notgraph dist/notfiles-v$VERSION-linux-x86_64/
+          tar -C dist -czf "notfiles-v$VERSION-linux-x86_64.tar.gz" "notfiles-v$VERSION-linux-x86_64"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          target_commitish: main
+          files: notfiles-v${{ inputs.version }}-linux-x86_64.tar.gz
+          generate_release_notes: true
+          fail_on_unmatched_files: true
