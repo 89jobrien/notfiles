@@ -60,7 +60,7 @@ fn cyclic_fixture_module_graph_builds() {
 /// write_all produces report.html, report.md, and report.json in the output dir.
 #[test]
 fn write_all_creates_expected_files() {
-    use types::{CrateGraph, GraphStats, ModuleGraph};
+    use types::{CrateGraph, ModuleGraph};
 
     let out = TempDir::new().unwrap();
     let crate_graph = CrateGraph {
@@ -162,7 +162,7 @@ fn write_all_heatmap_does_not_panic_for_single_crate() {
 /// ModuleGraph entry in the HTML output.
 #[test]
 fn write_all_renders_per_crate_module_graphs() {
-    use types::{CrateGraph, ModuleGraph};
+    use types::CrateGraph;
 
     let out = TempDir::new().unwrap();
     let mg = module_graph::build("clean".to_string(), &fixture_src("clean")).unwrap();
@@ -170,7 +170,7 @@ fn write_all_renders_per_crate_module_graphs() {
         nodes: vec!["clean".to_string()],
         edges: vec![],
     };
-    let stats = analysis::analyse(&crate_graph, &[mg.clone()], 3);
+    let stats = analysis::analyse(&crate_graph, std::slice::from_ref(&mg), 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
     emit::write_all(out.path(), &crate_graph, &[mg], &stats, &symbol_tables).unwrap();

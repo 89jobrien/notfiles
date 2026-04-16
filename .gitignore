@@ -2,6 +2,21 @@
 .envrc
 .worktrees/
 .claude.local.md
-docs/graph/
+docs/
 librust_out.rlib
 .remember/
+!docs/superpowers/
+
+
+# handoff-begin
+.ctx/*
+!.ctx/HANDOFF.*.*.yaml
+.ctx/HANDOFF.integration.notfiles.state.yaml
+.ctx/HANDOFF.notcore.notfiles.state.yaml
+.ctx/HANDOFF.notfiles.notfiles.state.yaml
+.ctx/HANDOFF.notgraph.notfiles.state.yaml
+.ctx/HANDOFF.nothooks.notfiles.state.yaml
+.ctx/HANDOFF.notsecrets.notfiles.state.yaml
+.ctx/HANDOFF.notstrap.notfiles.state.yaml
+.ctx/.initialized
+# handoff-end

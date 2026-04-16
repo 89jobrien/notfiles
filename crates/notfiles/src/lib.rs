@@ -11,14 +11,22 @@ use std::path::Path;
 
 pub use adapters::FileStoreImpl;
 pub use linker::{LinkOptions, State};
-pub use package::resolve_packages;
+pub use package::{resolve_packages, resolve_packages_with_store};
 pub use ports::FileStore;
 
 pub fn link(dotfiles_dir: &Path, packages: &[String], opts: &LinkOptions) -> Result<State> {
-    let fs = &adapters::FileStoreImpl;
+    link_with_store(dotfiles_dir, packages, opts, &adapters::FileStoreImpl)
+}
+
+pub fn link_with_store(
+    dotfiles_dir: &Path,
+    packages: &[String],
+    opts: &LinkOptions,
+    fs: &dyn FileStore,
+) -> Result<State> {
     let config = notcore::Config::load(dotfiles_dir)?;
     let mut state = linker::State::load(dotfiles_dir, fs)?;
-    let pkgs = resolve_packages(dotfiles_dir, packages)?;
+    let pkgs = resolve_packages_with_store(dotfiles_dir, packages, fs)?;
     for pkg in &pkgs {
         linker::link_package(dotfiles_dir, &config, &mut state, pkg, opts, fs)?;
     }
@@ -27,7 +35,15 @@ pub fn link(dotfiles_dir: &Path, packages: &[String], opts: &LinkOptions) -> Res
 }
 
 pub fn unlink(dotfiles_dir: &Path, packages: &[String], opts: &LinkOptions) -> Result<()> {
-    let fs = &adapters::FileStoreImpl;
+    unlink_with_store(dotfiles_dir, packages, opts, &adapters::FileStoreImpl)
+}
+
+pub fn unlink_with_store(
+    dotfiles_dir: &Path,
+    packages: &[String],
+    opts: &LinkOptions,
+    fs: &dyn FileStore,
+) -> Result<()> {
     let mut state = linker::State::load(dotfiles_dir, fs)?;
     let pkgs = if packages.is_empty() {
         state

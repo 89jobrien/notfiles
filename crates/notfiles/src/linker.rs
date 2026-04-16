@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::package::collect_files;
+use crate::package::collect_files_with_store;
 use crate::ports::FileStore;
 use notcore::{Config, Method, NotfilesError, expand_tilde};
 
@@ -61,6 +61,11 @@ impl State {
         self.entries.retain(|e| e.package != package);
     }
 
+    pub fn remove_entry(&mut self, package: &str, source: &str, target: &str) {
+        self.entries
+            .retain(|e| !(e.package == package && e.source == source && e.target == target));
+    }
+
     pub fn add_entry(&mut self, entry: StateEntry) {
         // Remove existing entry for same source+target, then add new
         self.entries
@@ -87,7 +92,7 @@ pub fn link_package(
     let package_dir = dotfiles_dir.join(package);
     let method = config.method_for(package);
     let target_base = expand_tilde(config.target_for(package))?;
-    let files = collect_files(&package_dir, config, package)?;
+    let files = collect_files_with_store(&package_dir, config, package, fs)?;
 
     if files.is_empty() {
         if opts.verbose {
@@ -201,7 +206,7 @@ pub fn link_package(
                     }
                 }
                 Method::Copy => {
-                    let content = std::fs::read(&source)?;
+                    let content = fs.read(&source)?;
                     fs.write(&target, &content).map(|_| content.len() as u64)
                 }
             };
@@ -261,12 +266,18 @@ pub fn unlink_package(
         return Ok(());
     }
 
+    let mut removed_entries = Vec::new();
+
     for entry in &entries {
         let target = PathBuf::from(&entry.target);
+        let source = PathBuf::from(&entry.source);
 
         if !fs.exists(&target) && fs.symlink_metadata(&target).is_err() {
             if opts.verbose {
                 println!("  \x1b[90mskip\x1b[0m {} (already gone)", target.display());
+            }
+            if !opts.dry_run {
+                removed_entries.push((entry.source.clone(), entry.target.clone()));
             }
             continue;
         }
@@ -275,7 +286,6 @@ pub fn unlink_package(
             Method::Symlink => {
                 // Verify it's a symlink pointing to our source
                 if let Ok(link_target) = fs.read_link(&target) {
-                    let source = PathBuf::from(&entry.source);
                     if link_target != source {
                         if opts.verbose {
                             println!(
@@ -292,9 +302,36 @@ pub fn unlink_package(
                     continue;
                 }
             }
-            Method::Copy => {
-                // For copies, trust the state file
-            }
+            Method::Copy => match (fs.read(&source), fs.read(&target)) {
+                (Ok(source_bytes), Ok(target_bytes)) if source_bytes == target_bytes => {}
+                (Ok(_), Ok(_)) => {
+                    if opts.verbose {
+                        println!(
+                            "  \x1b[33mskip\x1b[0m {} (copied file diverged from source)",
+                            target.display()
+                        );
+                    }
+                    continue;
+                }
+                (Err(_), _) => {
+                    if opts.verbose {
+                        println!(
+                            "  \x1b[33mskip\x1b[0m {} (source missing for copied file)",
+                            target.display()
+                        );
+                    }
+                    continue;
+                }
+                (_, Err(_)) => {
+                    if opts.verbose {
+                        println!(
+                            "  \x1b[33mskip\x1b[0m {} (cannot read copied target)",
+                            target.display()
+                        );
+                    }
+                    continue;
+                }
+            },
         }
 
         if opts.dry_run {
@@ -311,11 +348,14 @@ pub fn unlink_package(
 
             // Clean up empty parent dirs
             cleanup_empty_parents(&target, fs);
+            removed_entries.push((entry.source.clone(), entry.target.clone()));
         }
     }
 
     if !opts.dry_run {
-        state.remove_package(package);
+        for (source, target) in removed_entries {
+            state.remove_entry(package, &source, &target);
+        }
         state.save(dotfiles_dir, fs)?;
     }
 
@@ -331,15 +371,10 @@ fn is_already_linked(source: &Path, target: &Path, method: Method, fs: &dyn File
                 false
             }
         }
-        Method::Copy => {
-            // Skip re-copy if target exists and has the same size and mtime as source.
-            match (fs.metadata(source), fs.metadata(target)) {
-                (Ok(sm), Ok(tm)) => {
-                    sm.len() == tm.len() && sm.modified().ok() == tm.modified().ok()
-                }
-                _ => false,
-            }
-        }
+        Method::Copy => match (fs.read(source), fs.read(target)) {
+            (Ok(source_bytes), Ok(target_bytes)) => source_bytes == target_bytes,
+            _ => false,
+        },
     }
 }
 
@@ -349,18 +384,19 @@ fn backup_path(path: &Path) -> PathBuf {
     PathBuf::from(format!("{name}.notfiles-backup-{timestamp}"))
 }
 
-fn cleanup_empty_parents(path: &Path, _fs: &dyn FileStore) {
+fn cleanup_empty_parents(path: &Path, fs: &dyn FileStore) {
     let mut dir = path.parent();
     while let Some(parent) = dir {
         // Stop at home dir or root
         if Some(parent.to_path_buf()) == dirs::home_dir() || parent == Path::new("/") {
             break;
         }
-        if std::fs::read_dir(parent)
-            .map(|mut d| d.next().is_none())
+        if fs
+            .read_dir(parent)
+            .map(|children| children.is_empty())
             .unwrap_or(false)
         {
-            let _ = std::fs::remove_dir(parent);
+            let _ = fs.remove_dir(parent);
             dir = parent.parent();
         } else {
             break;

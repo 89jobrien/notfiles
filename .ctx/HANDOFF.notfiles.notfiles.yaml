@@ -1,0 +1,12 @@
+project: notfiles
+id: notfile
+updated: 2026-04-15
+branch: refactor/formalize-ports
+state:
+  tests: unknown
+  build: unknown
+  notes: Handoff is now ephemeral; track active work via GitHub issues synced through doob.
+items: []
+log:
+- date: 2026-04-15
+  summary: Pruned completed items from handoff; GitHub issues plus doob are now the source of truth for active work

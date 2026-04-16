@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 pub struct FileStoreImpl;
 
 impl FileStore for FileStoreImpl {
+    fn read(&self, path: &Path) -> Result<Vec<u8>, std::io::Error> {
+        std::fs::read(path)
+    }
+
     fn read_to_string(&self, path: &Path) -> Result<String, std::io::Error> {
         std::fs::read_to_string(path)
     }
@@ -25,6 +29,10 @@ impl FileStore for FileStoreImpl {
         std::fs::remove_dir_all(path)
     }
 
+    fn remove_dir(&self, path: &Path) -> Result<(), std::io::Error> {
+        std::fs::remove_dir(path)
+    }
+
     fn read_link(&self, path: &Path) -> Result<PathBuf, std::io::Error> {
         std::fs::read_link(path)
     }
@@ -39,6 +47,12 @@ impl FileStore for FileStoreImpl {
 
     fn create_dir_all(&self, path: &Path) -> Result<(), std::io::Error> {
         std::fs::create_dir_all(path)
+    }
+
+    fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
+        std::fs::read_dir(path)?
+            .map(|entry| entry.map(|entry| entry.path()))
+            .collect()
     }
 
     #[cfg(unix)]

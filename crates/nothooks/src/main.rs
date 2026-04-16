@@ -62,7 +62,7 @@ fn main() -> Result<()> {
         HookRunner::new(state_dir)
     };
 
-    let report = run_phase(&file.hooks, &phase, &runner);
+    let report = run_phase(&file.hooks, &phase, &runner)?;
     report.print();
 
     if report.has_failures() {

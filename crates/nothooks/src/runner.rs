@@ -1,7 +1,8 @@
 use crate::HookResult;
 use crate::state::HookState;
+use anyhow::{Context, Result};
 use notcore::{HookPhase, HookSpec, Report, StepStatus};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
@@ -51,8 +52,9 @@ impl HookRunner {
     /// State is loaded once before iterating and saved once at the end (only if
     /// at least one Setup hook completed successfully), avoiding N file reads
     /// and writes per phase.
-    pub fn run_phase(&self, hooks: &[HookSpec], phase: &HookPhase) -> Report {
-        let mut state = HookState::load(&self.state_dir).unwrap_or_default();
+    pub fn run_phase(&self, hooks: &[HookSpec], phase: &HookPhase) -> Result<Report> {
+        let mut state = HookState::load(&self.state_dir)
+            .with_context(|| format!("loading hook state from {}", self.state_dir.display()))?;
         let mut state_dirty = false;
         let mut report = Report::default();
 
@@ -67,10 +69,12 @@ impl HookRunner {
         }
 
         if state_dirty {
-            let _ = state.save(&self.state_dir);
+            state
+                .save(&self.state_dir)
+                .with_context(|| format!("saving hook state into {}", self.state_dir.display()))?;
         }
 
-        report
+        Ok(report)
     }
 
     /// Execute a single hook, using the caller-owned `state` and `dirty` flag
@@ -89,11 +93,12 @@ impl HookRunner {
             Ok(i) => i,
             Err(msg) => return HookResult::Failed(msg),
         };
+        let script = self.resolve_script_path(&spec.script);
         // SAFETY: `interp` is derived from the file extension or an explicit `interpreter` field
         // in HookSpec (both come from config, not untrusted shell input). `spec.script` is a
         // filesystem path from config. Both are passed as discrete args with no shell involved,
         // so argument injection is not possible.
-        let result = Command::new(&interp).arg(&spec.script).status();
+        let result = Command::new(&interp).arg(&script).status();
 
         match result {
             Ok(status) if status.success() => {
@@ -112,13 +117,25 @@ impl HookRunner {
     ///
     /// Prefer [`HookRunner::run_phase`] when running multiple hooks to avoid
     /// repeated state I/O.
-    pub fn run_hook(&self, spec: &HookSpec) -> HookResult {
-        let mut state = HookState::load(&self.state_dir).unwrap_or_default();
+    pub fn run_hook(&self, spec: &HookSpec) -> Result<HookResult> {
+        let mut state = HookState::load(&self.state_dir)
+            .with_context(|| format!("loading hook state from {}", self.state_dir.display()))?;
         let mut state_dirty = false;
         let result = self.run_hook_with_state(spec, &mut state, &mut state_dirty);
         if state_dirty {
-            let _ = state.save(&self.state_dir);
+            state
+                .save(&self.state_dir)
+                .with_context(|| format!("saving hook state into {}", self.state_dir.display()))?;
         }
-        result
+        Ok(result)
+    }
+
+    fn resolve_script_path(&self, script: &str) -> PathBuf {
+        let script = Path::new(script);
+        if script.is_absolute() {
+            script.to_path_buf()
+        } else {
+            self.state_dir.join(script)
+        }
     }
 }

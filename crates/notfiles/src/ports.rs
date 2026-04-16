@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 /// This trait defines the interface for all file system interactions in the notfiles
 /// linker, enabling testing with mock implementations and potential future backends.
 pub trait FileStore {
+    /// Read entire file to bytes.
+    fn read(&self, path: &Path) -> Result<Vec<u8>, std::io::Error>;
+
     /// Read entire file to string.
     fn read_to_string(&self, path: &Path) -> Result<String, std::io::Error>;
 
@@ -20,6 +23,9 @@ pub trait FileStore {
     /// Recursively remove a directory and all its contents.
     fn remove_dir_all(&self, path: &Path) -> Result<(), std::io::Error>;
 
+    /// Remove an empty directory.
+    fn remove_dir(&self, path: &Path) -> Result<(), std::io::Error>;
+
     /// Read the target of a symbolic link.
     fn read_link(&self, path: &Path) -> Result<PathBuf, std::io::Error>;
 
@@ -31,6 +37,9 @@ pub trait FileStore {
 
     /// Create a directory and all missing parent directories.
     fn create_dir_all(&self, path: &Path) -> Result<(), std::io::Error>;
+
+    /// List direct children of a directory.
+    fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>, std::io::Error>;
 
     /// Create a symbolic link at `link` pointing to `target`.
     ///

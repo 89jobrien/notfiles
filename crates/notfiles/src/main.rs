@@ -5,7 +5,7 @@ use std::fs;
 use notcore::Config;
 use notfiles::cli::{Cli, Command};
 use notfiles::linker::{LinkOptions, State};
-use notfiles::package::resolve_packages;
+use notfiles::package::resolve_packages_with_store;
 use notfiles::{adapters, linker, status};
 
 fn main() -> Result<()> {
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             let mut state = State::load(&dotfiles_dir, fs)?;
-            let pkgs = resolve_packages(&dotfiles_dir, &packages)?;
+            let pkgs = resolve_packages_with_store(&dotfiles_dir, &packages, fs)?;
             let opts = LinkOptions {
                 force,
                 no_backup,
@@ -74,7 +74,7 @@ fn main() -> Result<()> {
                     .collect::<Vec<_>>()
             } else {
                 // Validate requested packages exist in state
-                let _ = resolve_packages(&dotfiles_dir, &packages).or_else(|_| {
+                let _ = resolve_packages_with_store(&dotfiles_dir, &packages, fs).or_else(|_| {
                     // Package dir might be gone but state entries exist — that's fine for unlink
                     Ok::<Vec<String>, anyhow::Error>(packages.clone())
                 });
@@ -111,10 +111,10 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             let state = State::load(&dotfiles_dir, fs)?;
-            let pkgs = resolve_packages(&dotfiles_dir, &packages)?;
+            let pkgs = resolve_packages_with_store(&dotfiles_dir, &packages, fs)?;
 
             for pkg in &pkgs {
-                let entries = status::package_status(&dotfiles_dir, &config, &state, pkg);
+                let entries = status::package_status(&dotfiles_dir, &config, &state, pkg, fs);
                 status::print_status(pkg, &entries);
             }
         }

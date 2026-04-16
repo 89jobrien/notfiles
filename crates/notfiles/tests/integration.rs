@@ -304,6 +304,89 @@ method = "copy"
 }
 
 #[test]
+fn test_status_flags_diverged_copy_as_conflict() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let ssh = dotfiles.join("ssh");
+    fs::create_dir_all(ssh.join(".ssh")).unwrap();
+    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes").unwrap();
+
+    let config = format!(
+        r#"[defaults]
+target = "{}"
+ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml"]
+
+[packages.ssh]
+method = "copy"
+"#,
+        target.display()
+    );
+    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+
+    let (_, _, ok) = run(&dotfiles, &["link", "ssh"]);
+    assert!(ok);
+
+    let ssh_config = target.join(".ssh/config");
+    fs::write(&ssh_config, "Host github.com\n  User joe\n").unwrap();
+
+    let (stdout, _, ok) = run(&dotfiles, &["status", "ssh"]);
+    assert!(ok);
+    assert!(
+        stdout.contains("conflict"),
+        "diverged copy should be reported as conflict, stdout={stdout}"
+    );
+}
+
+#[test]
+fn test_unlink_preserves_diverged_copy_and_state() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let ssh = dotfiles.join("ssh");
+    fs::create_dir_all(ssh.join(".ssh")).unwrap();
+    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes").unwrap();
+
+    let config = format!(
+        r#"[defaults]
+target = "{}"
+ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml"]
+
+[packages.ssh]
+method = "copy"
+"#,
+        target.display()
+    );
+    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+
+    let (_, _, ok) = run(&dotfiles, &["link", "ssh"]);
+    assert!(ok);
+
+    let ssh_config = target.join(".ssh/config");
+    fs::write(&ssh_config, "Host github.com\n  User joe\n").unwrap();
+
+    let (stdout, stderr, ok) = run(&dotfiles, &["unlink", "ssh", "--verbose"]);
+    assert!(
+        ok,
+        "unlink should not fail: stdout={stdout} stderr={stderr}"
+    );
+    assert!(
+        ssh_config.exists(),
+        "diverged copy should not be removed during unlink"
+    );
+
+    let state = fs::read_to_string(dotfiles.join(".notfiles-state.toml")).unwrap();
+    assert!(
+        state.contains(".ssh/config"),
+        "state entry must be retained when unlink skips a diverged copy: {state}"
+    );
+}
+
+#[test]
 fn test_dry_run() {
     let tmp = TempDir::new().unwrap();
     setup_dotfiles(&tmp);

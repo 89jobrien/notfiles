@@ -14,6 +14,10 @@ pub enum HookResult {
 /// Run all hooks matching `phase` and collect into a `Report`.
 ///
 /// State is loaded once and saved once per call — not once per hook.
-pub fn run_phase(hooks: &[HookSpec], phase: &HookPhase, runner: &HookRunner) -> Report {
+pub fn run_phase(
+    hooks: &[HookSpec],
+    phase: &HookPhase,
+    runner: &HookRunner,
+) -> anyhow::Result<Report> {
     runner.run_phase(hooks, phase)
 }

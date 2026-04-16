@@ -157,6 +157,7 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
         Err(e) => {
             report.add("link dotfiles", StepStatus::Failed(e.to_string()));
+            return Ok(report);
         }
     }
 
@@ -171,7 +172,13 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         (HookPhase::Dot, "dot hooks"),
         (HookPhase::Setup, "setup hooks"),
     ] {
-        let phase_report = run_phase(&cfg.hooks, &phase, &runner);
+        let phase_report = match run_phase(&cfg.hooks, &phase, &runner) {
+            Ok(report) => report,
+            Err(e) => {
+                report.add(label, StepStatus::Failed(e.to_string()));
+                return Ok(report);
+            }
+        };
         let failed = phase_report
             .steps
             .iter()
@@ -183,6 +190,9 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
             StepStatus::Ok
         };
         report.add(label, summary);
+        if failed > 0 {
+            return Ok(report);
+        }
     }
 
     Ok(report)

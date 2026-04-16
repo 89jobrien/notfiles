@@ -39,7 +39,7 @@ fn test_nothooks_notsecrets_independent() {
     };
 
     let runner = HookRunner::new(dir.path().to_path_buf());
-    let result = runner.run_hook(&spec);
+    let result = runner.run_hook(&spec).expect("hook runner should not fail");
     assert!(
         matches!(result, HookResult::Ok),
         "expected HookResult::Ok, got: {result:?}"

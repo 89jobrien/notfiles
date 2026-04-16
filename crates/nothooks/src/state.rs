@@ -22,7 +22,9 @@ impl HookState {
 
     pub fn save(&self, dir: &Path) -> Result<()> {
         let path = dir.join(STATE_FILE);
-        std::fs::write(path, toml::to_string(self)?)?;
+        let tmp = dir.join(format!("{STATE_FILE}.tmp"));
+        std::fs::write(&tmp, toml::to_string(self)?)?;
+        std::fs::rename(&tmp, &path)?;
         Ok(())
     }
 
