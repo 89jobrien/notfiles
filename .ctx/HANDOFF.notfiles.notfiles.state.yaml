@@ -1,0 +1,10 @@
+updated: 2026-04-17
+branch: main
+build: clean
+tests: passing
+notes: Added notnet crate with YubikeySource and threaded Tailscale into notstrap
+touched_files:
+  - .ctx/HANDOFF.notfiles.notfiles.yaml
+  - Cargo.toml
+  - crates/notnet/src/lib.rs
+  - crates/notstrap/src/lib.rs

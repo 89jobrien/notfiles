@@ -1,13 +1,18 @@
 project: notfiles
 id: notfile
-updated: 2026-04-15
-branch: refactor/formalize-ports
+updated: 2026-04-17
+branch: main
 state:
   tests: passing
   build: clean
   notes: Handoff is now ephemeral; track active work via GitHub issues synced through doob.
 items: []
 log:
+- date: 2026-04-17
+  summary: Added notnet crate with YubikeySource and threaded Tailscale into notstrap; design spec complete
+  commits:
+  - c7c074d
+  - dfdd9ca
 - date: 2026-04-15
   summary: Hardened bootstrap and hook-state failure handling, made notfiles FileStore usage real, and fixed copy-drift safety coverage
   commits:
