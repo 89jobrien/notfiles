@@ -18,6 +18,7 @@ notcore     = { workspace = true }
 notfiles    = { workspace = true }
 notsecrets  = { workspace = true }
 nothooks    = { workspace = true }
+notnet      = { workspace = true }
 clap        = { workspace = true }
 anyhow      = { workspace = true }
 which       = { workspace = true }

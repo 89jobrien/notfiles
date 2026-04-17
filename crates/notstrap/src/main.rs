@@ -44,6 +44,7 @@ fn main() -> Result<()> {
         force,
         key_file,
         dotfiles,
+        tailscale: None, // defer to [tailscale] section in config (if present)
         check_prereqs: Some(Box::new(prereqs::check_prerequisites)),
         env_injector: None,
     };

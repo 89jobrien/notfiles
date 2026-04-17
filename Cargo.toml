@@ -7,6 +7,7 @@ members = [
     "crates/notfiles",
     "crates/notsecrets",
     "crates/nothooks",
+    "crates/notnet",
     "crates/notstrap",
     "crates/notgraph",
     "tests/integration",
@@ -30,6 +31,7 @@ notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
 notsecrets  = { path = "crates/notsecrets" }
 nothooks    = { path = "crates/nothooks" }
+notnet      = { path = "crates/notnet" }
 
 [profile.release]
 opt-level = 3

@@ -1,0 +1,71 @@
+<h2>notfiles + Tailscale — Bootstrap Architecture</h2>
+<p class="subtitle">How the crates fit together for ephemeral machine setup</p>
+
+<div class="section">
+  <div style="background:#1a1a2e;border-radius:12px;padding:24px;font-family:monospace;font-size:13px;line-height:2;color:#e0e0e0;">
+
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+
+      <!-- Fresh machine -->
+      <div style="border:2px solid #4a9eff;border-radius:8px;padding:16px;min-width:160px;background:#0d1b2a;">
+        <div style="color:#4a9eff;font-weight:bold;margin-bottom:8px;">New Machine</div>
+        <div style="color:#aaa;font-size:12px;">TS_AUTHKEY env var</div>
+        <div style="color:#aaa;font-size:12px;">YubiKey (PIV slot 9d)</div>
+        <div style="color:#aaa;font-size:12px;">→ interactive prompt</div>
+      </div>
+
+      <div style="color:#888;font-size:20px;margin-top:28px;">→</div>
+
+      <!-- notstrap -->
+      <div style="border:2px solid #f0c040;border-radius:8px;padding:16px;min-width:160px;background:#1a1500;">
+        <div style="color:#f0c040;font-weight:bold;margin-bottom:8px;">notstrap</div>
+        <div style="color:#aaa;font-size:12px;">1. prereqs check</div>
+        <div style="color:#aaa;font-size:12px;">2. → <span style="color:#ff7eb3">notnet</span></div>
+        <div style="color:#aaa;font-size:12px;">3. clone Gitea</div>
+        <div style="color:#aaa;font-size:12px;">4. → <span style="color:#7effa0">notsecrets</span></div>
+        <div style="color:#aaa;font-size:12px;">5. link dotfiles</div>
+        <div style="color:#aaa;font-size:12px;">6. run hooks</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:0;">
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="color:#888;font-size:20px;">→</div>
+          <!-- notnet -->
+          <div style="border:2px solid #ff7eb3;border-radius:8px;padding:16px;min-width:160px;background:#1a0a14;">
+            <div style="color:#ff7eb3;font-weight:bold;margin-bottom:8px;">notnet <span style="color:#666;font-size:10px;">NEW</span></div>
+            <div style="color:#aaa;font-size:12px;">detect existing Tailscale</div>
+            <div style="color:#aaa;font-size:12px;">install if missing</div>
+            <div style="color:#aaa;font-size:12px;">resolve auth key</div>
+            <div style="color:#aaa;font-size:12px;">join tailnet</div>
+            <div style="color:#aaa;font-size:12px;">verify peer reachable</div>
+          </div>
+          <div style="color:#888;font-size:20px;">→</div>
+          <div style="border:2px solid #7effa0;border-radius:8px;padding:12px;min-width:120px;background:#001a08;">
+            <div style="color:#7effa0;font-weight:bold;margin-bottom:6px;">Tailnet</div>
+            <div style="color:#aaa;font-size:12px;">minibox (VPS)</div>
+            <div style="color:#aaa;font-size:12px;">Gitea repo</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="color:#888;font-size:20px;">→</div>
+          <!-- notsecrets -->
+          <div style="border:2px solid #7effa0;border-radius:8px;padding:16px;min-width:160px;background:#001a08;">
+            <div style="color:#7effa0;font-weight:bold;margin-bottom:8px;">notsecrets <span style="color:#666;font-size:10px;">+YubiKey</span></div>
+            <div style="color:#aaa;font-size:12px;">YubikeySource (PIV 9c)</div>
+            <div style="color:#aaa;font-size:12px;">BitwardenSource</div>
+            <div style="color:#aaa;font-size:12px;">FileSource</div>
+            <div style="color:#aaa;font-size:12px;">PromptSource</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #333;color:#888;font-size:11px;">
+      Already on Tailnet? notstrap detects active Tailscale → skips notnet entirely
+    </div>
+  </div>
+</div>

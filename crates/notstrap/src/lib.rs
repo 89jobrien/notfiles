@@ -4,25 +4,31 @@ use notfiles::{LinkOptions, link};
 use nothooks::{HookRunner, run_phase};
 use notsecrets::identities::Identity;
 use notsecrets::sources::IdentitySource;
-use notsecrets::{BitwardenSource, FileSource, PromptSource, resolve_identities};
+use notsecrets::{BitwardenSource, FileSource, PromptSource, YubikeySource, resolve_identities};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 pub mod prereqs;
 pub mod repo;
 
+pub use notnet::TailscaleOptions;
+
 type EnvInjector = Box<dyn Fn(&Path, Vec<Box<dyn Identity>>) -> Result<String>>;
 
 #[derive(Deserialize)]
 pub struct NotstrapConfig {
     pub bootstrap: BootstrapSection,
+    /// When present, notstrap joins the tailnet before cloning dotfiles.
+    pub tailscale: Option<TailscaleOptions>,
     #[serde(default)]
     pub hooks: Vec<notcore::HookSpec>,
 }
 
 #[derive(Deserialize)]
 pub struct BootstrapSection {
-    pub dotfiles_repo: String,
+    /// Required when `[tailscale]` is absent. When `[tailscale]` is present,
+    /// `gitea_url` from that section is used as the clone URL instead.
+    pub dotfiles_repo: Option<String>,
     pub dotfiles_dir: String,
     #[serde(default = "default_bw_item")]
     pub bw_age_item: String,
@@ -42,6 +48,12 @@ pub struct BootstrapOptions {
     pub force: bool,
     pub key_file: Option<PathBuf>,
     pub dotfiles: Option<PathBuf>,
+    /// Override the Tailscale options from the config file. `None` here defers to the
+    /// config; use `Some(None)` to explicitly skip Tailscale even when the config has
+    /// a `[tailscale]` section (useful in tests and CI).
+    ///
+    /// Encoding: `None` = use config, `Some(None)` = skip, `Some(Some(opts))` = override.
+    pub tailscale: Option<Option<TailscaleOptions>>,
     /// None = skip prereq check (tests). Some(f) = run f().
     pub check_prereqs: Option<Box<dyn Fn() -> Result<()>>>,
     /// None = skip env injection (tests). Some(f) = decrypt sops at path and inject.
@@ -76,8 +88,37 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         })?,
     };
 
-    // 3. Clone dotfiles if missing
-    match repo::clone_if_missing(&cfg.bootstrap.dotfiles_repo, &dotfiles_dir) {
+    // Resolve which Tailscale options to use: CLI override > config > None.
+    let ts_opts: Option<TailscaleOptions> = match opts.tailscale {
+        Some(override_val) => override_val, // Some(None) = skip, Some(Some(o)) = use override
+        None => cfg.tailscale.clone(),      // defer to config
+    };
+
+    // Resolve dotfiles clone URL: Tailscale gitea_url takes precedence over dotfiles_repo.
+    let clone_url: Option<String> = ts_opts
+        .as_ref()
+        .map(|ts| ts.gitea_url.clone())
+        .or_else(|| cfg.bootstrap.dotfiles_repo.clone());
+
+    // 3. Tailscale (inserted before clone, skipped when ts_opts is None)
+    if let Some(ref ts) = ts_opts {
+        match notnet::ensure_connected(ts) {
+            Ok(true) => report.add("tailscale", StepStatus::Ok),
+            Ok(false) => report.add("tailscale", StepStatus::Skipped),
+            Err(e) => {
+                report.add("tailscale", StepStatus::Failed(e.to_string()));
+                return Ok(report);
+            }
+        }
+    }
+
+    // 4. Clone dotfiles if missing
+    let clone_url = clone_url.ok_or_else(|| {
+        anyhow::anyhow!(
+            "no dotfiles clone URL: set [bootstrap].dotfiles_repo or add a [tailscale] section"
+        )
+    })?;
+    match repo::clone_if_missing(&clone_url, &dotfiles_dir) {
         Ok(true) => {
             report.add("clone dotfiles", StepStatus::Ok);
         }
@@ -90,11 +131,12 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     }
 
-    // 4. Resolve age identities
+    // 5. Resolve age identities
     let sources: Vec<Box<dyn IdentitySource>> = if let Some(kf) = opts.key_file {
         vec![Box::new(FileSource::new(kf))]
     } else {
         vec![
+            Box::new(YubikeySource),
             Box::new(BitwardenSource::new(&cfg.bootstrap.bw_age_item)),
             Box::new(PromptSource),
         ]

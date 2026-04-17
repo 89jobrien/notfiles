@@ -1,0 +1,17 @@
+[package]
+name    = "notnet"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Tailscale network presence management for notstrap"
+
+[dependencies]
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+rpassword = { workspace = true }
+serde     = { workspace = true }
+yubikey   = { version = "0.8", optional = true }
+
+[features]
+default = []
+yubikey = ["dep:yubikey"]

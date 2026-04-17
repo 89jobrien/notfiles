@@ -18,7 +18,7 @@ pub use ports::IdentitySource;
 pub use recipients::{
     Recipient, ScryptRecipient, SshEd25519Recipient, SshRsaRecipient, X25519Recipient,
 };
-pub use sources::{BitwardenSource, FileSource, PromptSource};
+pub use sources::{BitwardenSource, FileSource, PromptSource, YubikeySource};
 
 /// Try each `IdentitySource` in order; collect all identities that load successfully.
 ///
