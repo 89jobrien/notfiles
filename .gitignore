@@ -2,10 +2,10 @@
 .envrc
 .worktrees/
 .claude.local.md
-docs/
+docs/*
+!docs/superpowers/
 librust_out.rlib
 .remember/
-!docs/superpowers/
 
 
 # handoff-begin
