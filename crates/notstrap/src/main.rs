@@ -46,7 +46,7 @@ fn main() -> Result<()> {
         dotfiles,
         tailscale: None, // defer to [tailscale] section in config (if present)
         check_prereqs: Some(Box::new(prereqs::check_prerequisites)),
-        env_injector: None,
+        secrets_config: None,
     };
     let report = run(opts)?;
     report.print();

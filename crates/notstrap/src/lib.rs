@@ -2,18 +2,17 @@ use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookRunner, run_phase};
-use notsecrets::identities::Identity;
 use notsecrets::sources::IdentitySource;
-use notsecrets::{BitwardenSource, FileSource, PromptSource, YubikeySource, resolve_identities};
+use notsecrets::{
+    BitwardenSource, FileSource, PromptSource, SecretResolver, YubikeySource, resolve_identities,
+};
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub mod prereqs;
 pub mod repo;
 
 pub use notnet::TailscaleOptions;
-
-type EnvInjector = Box<dyn Fn(&Path, Vec<Box<dyn Identity>>) -> Result<String>>;
 
 #[derive(Deserialize)]
 pub struct NotstrapConfig {
@@ -56,8 +55,8 @@ pub struct BootstrapOptions {
     pub tailscale: Option<Option<TailscaleOptions>>,
     /// None = skip prereq check (tests). Some(f) = run f().
     pub check_prereqs: Option<Box<dyn Fn() -> Result<()>>>,
-    /// None = skip env injection (tests). Some(f) = decrypt sops at path and inject.
-    pub env_injector: Option<EnvInjector>,
+    /// Path to notsecrets.toml. None = skip secret resolution.
+    pub secrets_config: Option<PathBuf>,
 }
 
 pub fn run(opts: BootstrapOptions) -> Result<Report> {
@@ -142,7 +141,7 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         ]
     };
 
-    let identities = match resolve_identities(sources) {
+    let _identities = match resolve_identities(sources) {
         Ok(ids) => {
             report.add("age key", StepStatus::Ok);
             ids
@@ -153,33 +152,44 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     };
 
-    // 5. Decrypt sops secrets (optional)
-    if let Some(injector) = opts.env_injector {
-        let sops_path = dotfiles_dir.join(&cfg.bootstrap.sops_file);
-        match injector(&sops_path, identities) {
-            Ok(env_content) => {
-                for line in env_content.lines() {
-                    match parse_env_line(line) {
-                        Ok(Some((k, v))) => {
-                            // SAFETY: `notstrap` is a single-threaded bootstrap binary; no other
-                            // threads exist. Subsequent Command::spawn calls (git, hooks) will
-                            // inherit these vars — keys are validated by parse_env_line before
-                            // reaching this point (null bytes and dangerous keys are rejected).
-                            unsafe {
-                                std::env::set_var(&k, &v);
+    // 5b. Resolve secrets via notsecrets.toml (optional)
+    if let Some(secrets_path) = opts.secrets_config {
+        match notsecrets::load_config(&secrets_path) {
+            Ok(secrets_cfg) => match SecretResolver::from_config(secrets_cfg) {
+                Ok(resolver) => match resolver.resolve_all() {
+                    Ok(env_map) => {
+                        for (k, v) in &env_map {
+                            match parse_env_line(&format!("{k}={v}")) {
+                                Ok(Some((k, v))) => {
+                                    // SAFETY: `notstrap` is a single-threaded bootstrap
+                                    // binary; no other threads exist. Keys are validated
+                                    // by parse_env_line (null bytes and dangerous keys
+                                    // are rejected).
+                                    unsafe {
+                                        std::env::set_var(&k, &v);
+                                    }
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    report.add("secrets", StepStatus::Failed(e.to_string()));
+                                    return Ok(report);
+                                }
                             }
                         }
-                        Ok(None) => {}
-                        Err(e) => {
-                            report.add("decrypt secrets", StepStatus::Failed(e.to_string()));
-                            return Ok(report);
-                        }
+                        report.add("secrets", StepStatus::Ok);
                     }
+                    Err(e) => {
+                        report.add("secrets", StepStatus::Failed(e.to_string()));
+                        return Ok(report);
+                    }
+                },
+                Err(e) => {
+                    report.add("secrets", StepStatus::Failed(e.to_string()));
+                    return Ok(report);
                 }
-                report.add("decrypt secrets", StepStatus::Ok);
-            }
+            },
             Err(e) => {
-                report.add("decrypt secrets", StepStatus::Failed(e.to_string()));
+                report.add("secrets", StepStatus::Failed(e.to_string()));
                 return Ok(report);
             }
         }
