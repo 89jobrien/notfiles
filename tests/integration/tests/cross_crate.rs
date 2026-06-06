@@ -5,6 +5,8 @@ use tempfile::TempDir;
 use notcore::{HookPhase, HookSpec};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookResult, HookRunner};
+use notsecrets::config::{Provider, SecretsConfig};
+use notsecrets::resolver::SecretResolver;
 use notsecrets::sources::IdentitySource;
 use notsecrets::{FileSource, resolve_identities};
 
@@ -44,6 +46,24 @@ fn test_nothooks_notsecrets_independent() {
         matches!(result, HookResult::Ok),
         "expected HookResult::Ok, got: {result:?}"
     );
+}
+
+#[test]
+fn secret_resolver_resolves_env_var_cross_crate() {
+    use std::collections::HashMap;
+
+    unsafe { std::env::set_var("NOTFILES_CROSS_CRATE_TEST", "works") };
+
+    let config = SecretsConfig {
+        providers: vec![Provider::Env],
+        provider: HashMap::new(),
+        secrets: HashMap::new(),
+    };
+    let resolver = SecretResolver::from_config(config).unwrap();
+    let val = resolver.resolve("NOTFILES_CROSS_CRATE_TEST").unwrap();
+    assert_eq!(val, Some("works".to_string()));
+
+    unsafe { std::env::remove_var("NOTFILES_CROSS_CRATE_TEST") };
 }
 
 /// Test that notfiles ignores .notfiles-state.toml and .nothooks-state.toml

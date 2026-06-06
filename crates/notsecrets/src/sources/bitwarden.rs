@@ -1,7 +1,8 @@
-use crate::error::AgeError;
+use crate::config::Provider;
+use crate::error::{AgeError, SecretsError};
 use crate::identities::Identity;
 use crate::identities::x25519::X25519Identity;
-use crate::ports::IdentitySource;
+use crate::ports::{IdentitySource, SecretSource};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -24,7 +25,7 @@ impl BitwardenSource {
             .unwrap_or(false);
         if !bw_ok {
             return Err(AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!("bw CLI not found in PATH"),
             });
         }
@@ -34,7 +35,7 @@ impl BitwardenSource {
             let password =
                 rpassword::prompt_password("Bitwarden master password: ").map_err(|e| {
                     AgeError::SourceError {
-                        name: self.name().to_string(),
+                        name: "bitwarden".to_string(),
                         source: anyhow::anyhow!("could not read password: {e}"),
                     }
                 })?;
@@ -46,26 +47,26 @@ impl BitwardenSource {
                 .stderr(Stdio::piped())
                 .spawn()
                 .map_err(|e| AgeError::SourceError {
-                    name: self.name().to_string(),
+                    name: "bitwarden".to_string(),
                     source: anyhow::anyhow!("bw unlock spawn: {e}"),
                 })?;
             if let Some(mut stdin) = child.stdin.take() {
                 stdin
                     .write_all(password.as_bytes())
                     .map_err(|e| AgeError::SourceError {
-                        name: self.name().to_string(),
+                        name: "bitwarden".to_string(),
                         source: anyhow::anyhow!("bw unlock stdin write: {e}"),
                     })?;
             }
             let output = child
                 .wait_with_output()
                 .map_err(|e| AgeError::SourceError {
-                    name: self.name().to_string(),
+                    name: "bitwarden".to_string(),
                     source: anyhow::anyhow!("bw unlock wait: {e}"),
                 })?;
             if !output.status.success() {
                 return Err(AgeError::SourceError {
-                    name: self.name().to_string(),
+                    name: "bitwarden".to_string(),
                     source: anyhow::anyhow!(
                         "bw unlock failed: {}",
                         String::from_utf8_lossy(&output.stderr)
@@ -74,7 +75,7 @@ impl BitwardenSource {
             }
             String::from_utf8(output.stdout)
                 .map_err(|e| AgeError::SourceError {
-                    name: self.name().to_string(),
+                    name: "bitwarden".to_string(),
                     source: anyhow::anyhow!("bw unlock output UTF-8: {e}"),
                 })?
                 .trim()
@@ -90,12 +91,12 @@ impl BitwardenSource {
             .args(["get", "notes", &self.item_name, "--session", &session])
             .output()
             .map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!("bw get spawn: {e}"),
             })?;
         if !output.status.success() {
             return Err(AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!(
                     "bw get notes '{}' failed: {}",
                     self.item_name,
@@ -105,18 +106,32 @@ impl BitwardenSource {
         }
         let key = String::from_utf8(output.stdout)
             .map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!("bw output UTF-8: {e}"),
             })?
             .trim()
             .to_string();
         if key.is_empty() {
             return Err(AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!("Bitwarden item '{}' has empty notes", self.item_name),
             });
         }
         Ok(key)
+    }
+}
+
+impl SecretSource for BitwardenSource {
+    fn name(&self) -> &str {
+        "bitwarden"
+    }
+
+    fn provider(&self) -> Provider {
+        Provider::Bitwarden
+    }
+
+    fn resolve(&self, _key: &str) -> Result<Option<String>, SecretsError> {
+        Ok(None)
     }
 }
 
@@ -129,7 +144,7 @@ impl IdentitySource for BitwardenSource {
         let key = self.retrieve_key()?;
         let identity =
             X25519Identity::from_bech32(key.trim()).map_err(|e| AgeError::SourceError {
-                name: self.name().to_string(),
+                name: "bitwarden".to_string(),
                 source: anyhow::anyhow!("key is not a valid AGE-SECRET-KEY-1: {e}"),
             })?;
         Ok(Box::new(identity))

@@ -1,3 +1,4 @@
+pub mod config;
 pub mod decrypt;
 pub mod encrypt;
 pub mod error;
@@ -5,20 +6,27 @@ pub mod format;
 pub mod identities;
 pub mod ports;
 pub mod recipients;
+pub mod resolver;
 pub mod sources;
 
+pub use config::{Provider, ProviderConfig, SecretRef, SecretsConfig, load_config};
 pub use decrypt::Decryptor;
 pub use encrypt::Encryptor;
 pub use error::AgeError;
+pub use error::SecretsError;
 pub use identities::{
     EncryptedIdentity, FileKey, Header, Identity, ScryptIdentity, SshEd25519Identity,
     SshRsaIdentity, Stanza, X25519Identity,
 };
-pub use ports::IdentitySource;
+pub use ports::{EnumerableSecretSource, IdentitySource, SecretSource};
 pub use recipients::{
     Recipient, ScryptRecipient, SshEd25519Recipient, SshRsaRecipient, X25519Recipient,
 };
-pub use sources::{BitwardenSource, FileSource, PromptSource, YubikeySource};
+pub use resolver::SecretResolver;
+pub use sources::{
+    BitwardenSource, DirenvSource, DotenvxSource, DotenvySource, EnvSource, FileSource, GsmSource,
+    MiseSource, NuenvSource, OpSource, PromptSource, SopsSource, VaultSource, YubikeySource,
+};
 
 /// Try each `IdentitySource` in order; collect all identities that load successfully.
 ///

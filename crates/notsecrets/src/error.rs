@@ -13,3 +13,42 @@ pub enum AgeError {
     #[error("identity source failed ({name}): {source}")]
     SourceError { name: String, source: anyhow::Error },
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum SecretsError {
+    #[error("[{name}] {source}")]
+    SourceError { name: String, source: anyhow::Error },
+    #[error("no provider resolved key: {key}")]
+    NotFound { key: String },
+    #[error("config error: {0}")]
+    Config(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn secrets_error_display_source_error() {
+        let err = SecretsError::SourceError {
+            name: "op".to_string(),
+            source: anyhow::anyhow!("not found"),
+        };
+        assert!(err.to_string().contains("[op]"));
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn secrets_error_display_not_found() {
+        let err = SecretsError::NotFound {
+            key: "DB_URL".to_string(),
+        };
+        assert!(err.to_string().contains("DB_URL"));
+    }
+
+    #[test]
+    fn secrets_error_display_config() {
+        let err = SecretsError::Config("bad toml".to_string());
+        assert!(err.to_string().contains("bad toml"));
+    }
+}
