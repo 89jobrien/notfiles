@@ -16,6 +16,10 @@ pub struct Cli {
     #[arg(long, short, global = true)]
     pub verbose: bool,
 
+    /// Output in JSON format
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -49,5 +53,32 @@ pub enum Command {
     Status {
         /// Specific packages to check (default: all)
         packages: Vec<String>,
+    },
+
+    /// Validate config without making changes (CI-friendly)
+    Check,
+
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+
+    /// Show differences between source and target for copy-method packages
+    Diff {
+        /// Specific packages to diff (default: all copy-method packages)
+        packages: Vec<String>,
+    },
+
+    /// Auto-detect existing dotfile managers (stow, chezmoi, etc.)
+    Detect,
+
+    /// Move existing files into a package and replace with symlinks
+    Adopt {
+        /// Package to adopt files into
+        package: String,
+        /// File paths (relative to target dir) to adopt
+        files: Vec<String>,
     },
 }
