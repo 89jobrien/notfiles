@@ -1,4 +1,5 @@
 use crate::types::{CrateGraph, FanStats, GraphStats, Hotspot, HotspotKind, ModStats, ModuleGraph};
+use std::cmp::Reverse;
 use std::collections::{HashMap, VecDeque};
 
 pub fn fan_stats(nodes: &[String], edges: &[(String, String)]) -> Vec<FanStats> {
@@ -66,7 +67,7 @@ pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     let mut result = Vec::new();
 
     let mut by_fan_in = stats.to_vec();
-    by_fan_in.sort_by(|a, b| b.fan_in.cmp(&a.fan_in));
+    by_fan_in.sort_by_key(|b| Reverse(b.fan_in));
     for s in by_fan_in.iter().take(top_n) {
         if s.fan_in > 0 {
             result.push(Hotspot {
@@ -78,7 +79,7 @@ pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     }
 
     let mut by_fan_out = stats.to_vec();
-    by_fan_out.sort_by(|a, b| b.fan_out.cmp(&a.fan_out));
+    by_fan_out.sort_by_key(|b| Reverse(b.fan_out));
     for s in by_fan_out.iter().take(top_n) {
         if s.fan_out > 0 {
             result.push(Hotspot {
