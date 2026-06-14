@@ -24,6 +24,31 @@ pub struct Cli {
     pub command: Command,
 }
 
+// TODO(install): `notfiles` is not yet installed on PATH. Add `just install` recipe and
+//   `mise task` so `nf` / `notfiles` is available without `cargo run`. See Justfile.
+
+// TODO(bootstrap): Wire `notstrap` into the CLI as `notfiles bootstrap`. Should clone the
+//   repo, resolve age key (Bitwarden/YubiKey/prompt), decrypt SOPS secrets, link packages,
+//   and run post-hooks. The notstrap crate already models this — needs a CLI entry point.
+
+// TODO(migrate): Add `notfiles migrate <dir>` that takes a stow/chezmoi repo (from `detect`)
+//   and generates a notfiles.toml for it, then bulk-adopts all packages. Should call
+//   `detect::detect()`, let the user pick a source, and run `adopt` for each package.
+
+// TODO(which): Add `notfiles which <path>` — reverse lookup from a target path (e.g.
+//   ~/.gitconfig) to its source package and file. Walk state entries and check read_link.
+
+// TODO(doctor): Add `notfiles doctor` — holistic drift detection replacing drift-check.sh.
+//   Checks: broken symlinks, unmanaged dotfiles in $HOME, dirty git state, conflicts,
+//   packages in dir not listed in notfiles.toml. Should print a summary like `just doctor`.
+
+// TODO(discover): Add `[defaults] discover = true` mode to notfiles.toml so all top-level
+//   dirs are treated as packages automatically, without maintaining an explicit `include`
+//   list. Opt-in via config, not the default (explicit is safer).
+
+// TODO(edit): Add `notfiles edit <managed-path>` — resolve the source file for a managed
+//   symlink and open it in $EDITOR. Quality-of-life shortcut for day-to-day editing.
+
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Create a starter notfiles.toml

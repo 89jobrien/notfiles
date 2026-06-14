@@ -14,6 +14,9 @@ ci:
     cargo clippy --workspace -- -D warnings
     cargo nextest run --workspace
 
+install:
+    cargo install --path crates/notfiles --root "${HOME}/.local" --force
+
 install-hooks:
     #!/usr/bin/env sh
     printf '#!/bin/sh\njust pre-commit\n' > .git/hooks/pre-commit

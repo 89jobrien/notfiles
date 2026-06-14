@@ -60,6 +60,9 @@ alias zbi = zb install
 alias zbl = zb list
 alias zbu = zb update
 
+# ── notfiles ─────────────────────────────────────────────────────────────────
+def --wrapped nf [...args] { notfiles --dir /Users/joe/dev/notfiles ...$args }
+
 # ── Dotfiles ─────────────────────────────────────────────────────────────────
 alias dotfiles = cd ~/dotfiles
 def --env dotgs   [] { cd ~/dotfiles; git status -sb }
