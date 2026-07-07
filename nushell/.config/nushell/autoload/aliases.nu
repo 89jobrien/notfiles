@@ -17,6 +17,9 @@ alias mr  = mise run
 alias mi  = mise install
 alias mt  = mise tasks ls
 
+# ── Rust / cargo ─────────────────────────────────────────────────────────────
+alias x = cargo xtask
+
 # ── Git (gitoxide) ───────────────────────────────────────────────────────────
 # gix-supported: status, branch, log, fetch, clone, diff(objects), blame, worktree
 # not yet in gix: add, commit, checkout/switch/restore, push, stash, rebase, merge
