@@ -1,0 +1,34 @@
+# Example notfiles.toml — mirrors a realistic dotfiles repo.
+#
+# This fixture is used by integration tests and serves as documentation
+# for how to configure notfiles with a mixed-purpose dotfiles repo.
+
+[defaults]
+target = "~"
+ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml", ".nothooks-state.toml"]
+
+# Only link actual stow packages — skip operational dirs.
+include = ["git", "zsh", "nushell", "starship", "alacritty", "mise", "fish", "nixos", "vscode"]
+
+[packages.git]
+
+[packages.zsh]
+
+[packages.nushell]
+
+[packages.starship]
+
+[packages.alacritty]
+
+[packages.mise]
+
+[packages.fish]
+
+[packages.nixos]
+platforms = ["linux"]
+
+[packages.vscode]
+
+[packages.secrets]
+method = "copy"
+ignore = ["*.example"]

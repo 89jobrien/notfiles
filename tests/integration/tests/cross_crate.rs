@@ -66,6 +66,133 @@ fn secret_resolver_resolves_env_var_cross_crate() {
     unsafe { std::env::remove_var("NOTFILES_CROSS_CRATE_TEST") };
 }
 
+// ── nu_libs nushell package e2e ───────────────────────────────────────────────
+
+/// Helper: build a dotfiles dir containing the nushell/nu_libs.nu package
+/// mirroring the real notfiles repo layout.
+fn make_nu_libs_dotfiles(dotfiles: &Path, target_home: &Path) {
+    let src = dotfiles.join("nushell/.config/nushell/autoload");
+    fs::create_dir_all(&src).unwrap();
+    fs::write(
+        src.join("nu_libs.nu"),
+        b"const NU_LIBS_AI = \"/Users/joe/dev/nu_libs/lib/ai/mod.nu\"\nuse $NU_LIBS_AI *\n",
+    )
+    .unwrap();
+    fs::write(
+        dotfiles.join("notfiles.toml"),
+        format!(
+            "[defaults]\ntarget = \"{}\"\ninclude = [\"nushell\"]\n\n[packages.nushell]\n",
+            target_home.display()
+        )
+        .as_bytes(),
+    )
+    .unwrap();
+}
+
+/// The nu_libs autoload file is symlinked into the correct autoload directory.
+#[test]
+fn nu_libs_autoload_is_linked_to_target() {
+    let dotfiles = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let autoload = home.path().join(".config/nushell/autoload");
+    fs::create_dir_all(&autoload).unwrap();
+
+    make_nu_libs_dotfiles(dotfiles.path(), home.path());
+
+    let opts = LinkOptions {
+        force: false,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
+    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+
+    let link_path = autoload.join("nu_libs.nu");
+    assert!(link_path.exists(), "nu_libs.nu should exist at target");
+    assert!(link_path.is_symlink(), "nu_libs.nu should be a symlink");
+    assert_eq!(
+        fs::read_link(&link_path).unwrap(),
+        dotfiles
+            .path()
+            .join("nushell/.config/nushell/autoload/nu_libs.nu"),
+        "symlink should point into the notfiles nushell package"
+    );
+}
+
+/// Unlinking removes the symlink but leaves the autoload directory intact.
+#[test]
+fn nu_libs_autoload_is_removed_on_unlink() {
+    let dotfiles = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let autoload = home.path().join(".config/nushell/autoload");
+    fs::create_dir_all(&autoload).unwrap();
+
+    make_nu_libs_dotfiles(dotfiles.path(), home.path());
+
+    let opts = LinkOptions {
+        force: false,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
+    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+    notfiles::unlink(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+
+    assert!(
+        !autoload.join("nu_libs.nu").exists(),
+        "symlink should be removed after unlink"
+    );
+}
+
+/// A pre-existing regular file at the target path causes link to fail without --force.
+#[test]
+fn nu_libs_link_does_not_overwrite_existing_file_without_force() {
+    let dotfiles = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let autoload = home.path().join(".config/nushell/autoload");
+    fs::create_dir_all(&autoload).unwrap();
+    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").unwrap();
+
+    make_nu_libs_dotfiles(dotfiles.path(), home.path());
+
+    let opts = LinkOptions {
+        force: false,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
+    let result = link(dotfiles.path(), &["nushell".to_string()], &opts);
+    assert!(
+        result.is_err(),
+        "link should fail when target file exists without --force"
+    );
+}
+
+/// With --force the existing file is replaced by a symlink.
+#[test]
+fn nu_libs_link_with_force_replaces_existing_file() {
+    let dotfiles = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let autoload = home.path().join(".config/nushell/autoload");
+    fs::create_dir_all(&autoload).unwrap();
+    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").unwrap();
+
+    make_nu_libs_dotfiles(dotfiles.path(), home.path());
+
+    let opts = LinkOptions {
+        force: true,
+        no_backup: false,
+        dry_run: false,
+        verbose: false,
+    };
+    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+
+    assert!(
+        autoload.join("nu_libs.nu").is_symlink(),
+        "nu_libs.nu should be a symlink after forced link"
+    );
+}
+
 /// Test that notfiles ignores .notfiles-state.toml and .nothooks-state.toml
 /// by default — they must not be symlinked into the target directory and must
 /// not appear in the returned State.

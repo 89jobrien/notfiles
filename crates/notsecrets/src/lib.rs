@@ -15,13 +15,11 @@ pub use encrypt::Encryptor;
 pub use error::AgeError;
 pub use error::SecretsError;
 pub use identities::{
-    EncryptedIdentity, FileKey, Header, Identity, ScryptIdentity, SshEd25519Identity,
-    SshRsaIdentity, Stanza, X25519Identity,
+    EncryptedIdentity, FileKey, Header, Identity, ScryptIdentity, SshEd25519Identity, Stanza,
+    X25519Identity,
 };
 pub use ports::{EnumerableSecretSource, IdentitySource, SecretSource};
-pub use recipients::{
-    Recipient, ScryptRecipient, SshEd25519Recipient, SshRsaRecipient, X25519Recipient,
-};
+pub use recipients::{Recipient, ScryptRecipient, SshEd25519Recipient, X25519Recipient};
 pub use resolver::SecretResolver;
 pub use sources::{
     BitwardenSource, DirenvSource, DotenvxSource, DotenvySource, EnvSource, FileSource, GsmSource,

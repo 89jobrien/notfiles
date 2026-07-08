@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use serde_json::json;
+
 use crate::linker::State;
 use crate::package::collect_files_with_store;
 use crate::ports::FileStore;
@@ -121,6 +123,126 @@ pub fn package_status(
     results
 }
 
+#[derive(Debug, PartialEq)]
+pub enum DiffKind {
+    Identical,
+    Modified,
+    SourceOnly,
+    TargetOnly,
+}
+
+pub struct DiffEntry {
+    pub source_display: String,
+    pub target: PathBuf,
+    pub kind: DiffKind,
+}
+
+pub fn diff_package(
+    dotfiles_dir: &Path,
+    config: &Config,
+    state: &State,
+    package: &str,
+    fs: &dyn FileStore,
+) -> Vec<DiffEntry> {
+    let mut results = Vec::new();
+    let method = config.method_for(package);
+    if method != Method::Copy {
+        return results;
+    }
+
+    let package_dir = dotfiles_dir.join(package);
+    let target_base = match expand_tilde(config.target_for(package)) {
+        Ok(p) => p,
+        Err(_) => return results,
+    };
+
+    // Check files tracked in state for this package
+    for entry in state.entries_for_package(package) {
+        let source = PathBuf::from(&entry.source);
+        let target = PathBuf::from(&entry.target);
+        let source_display = format!(
+            "{package}/{}",
+            source
+                .strip_prefix(&package_dir)
+                .unwrap_or(&source)
+                .display()
+        );
+
+        let kind = match (fs.read(&source), fs.read(&target)) {
+            (Ok(src), Ok(tgt)) => {
+                if src == tgt {
+                    DiffKind::Identical
+                } else {
+                    DiffKind::Modified
+                }
+            }
+            (Ok(_), Err(_)) => DiffKind::SourceOnly,
+            (Err(_), Ok(_)) => DiffKind::TargetOnly,
+            (Err(_), Err(_)) => continue,
+        };
+
+        results.push(DiffEntry {
+            source_display,
+            target,
+            kind,
+        });
+    }
+
+    // Also check untracked files from the package dir
+    if let Ok(files) = collect_files_with_store(&package_dir, config, package, fs) {
+        for relative in &files {
+            let source = package_dir.join(relative);
+            let target = target_base.join(relative);
+            // Skip if already covered by state entries
+            if results.iter().any(|r| r.target == target) {
+                continue;
+            }
+            let source_display = format!("{package}/{}", relative.display());
+            let kind = if !fs.exists(&target) {
+                DiffKind::SourceOnly
+            } else {
+                match (fs.read(&source), fs.read(&target)) {
+                    (Ok(src), Ok(tgt)) if src == tgt => DiffKind::Identical,
+                    (Ok(_), Ok(_)) => DiffKind::Modified,
+                    _ => continue,
+                }
+            };
+            results.push(DiffEntry {
+                source_display,
+                target,
+                kind,
+            });
+        }
+    }
+
+    results
+}
+
+pub fn print_diff(package: &str, entries: &[DiffEntry]) {
+    let non_identical: Vec<_> = entries
+        .iter()
+        .filter(|e| e.kind != DiffKind::Identical)
+        .collect();
+    if non_identical.is_empty() {
+        println!("  {package}: all copies identical");
+        return;
+    }
+    println!("  \x1b[1m{package}\x1b[0m:");
+    for entry in &non_identical {
+        let label = match entry.kind {
+            DiffKind::Modified => "\x1b[33mmodified\x1b[0m",
+            DiffKind::SourceOnly => "\x1b[36msource only\x1b[0m",
+            DiffKind::TargetOnly => "\x1b[35mtarget only\x1b[0m",
+            DiffKind::Identical => unreachable!(),
+        };
+        println!(
+            "    {label} {} -> {}",
+            entry.source_display,
+            entry.target.display()
+        );
+    }
+}
+
 pub fn print_status(package: &str, entries: &[StatusEntry]) {
     if entries.is_empty() {
         println!("  {package}: (empty)");
@@ -135,4 +257,19 @@ pub fn print_status(package: &str, entries: &[StatusEntry]) {
             entry.target.display()
         );
     }
+}
+
+pub fn print_status_json(package: &str, entries: &[StatusEntry]) {
+    let items: Vec<_> = entries
+        .iter()
+        .map(|e| {
+            json!({
+                "source": e.source_display,
+                "target": e.target.to_string_lossy(),
+                "status": format!("{:?}", e.status).to_lowercase(),
+            })
+        })
+        .collect();
+    let obj = json!({"package": package, "entries": items});
+    println!("{}", serde_json::to_string(&obj).unwrap_or_default());
 }

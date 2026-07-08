@@ -9,9 +9,6 @@ pub use ssh_ed25519::SshEd25519Identity;
 pub mod scrypt;
 pub use scrypt::ScryptIdentity;
 
-pub mod ssh_rsa;
-pub use ssh_rsa::SshRsaIdentity;
-
 pub mod encrypted;
 pub use encrypted::EncryptedIdentity;
 

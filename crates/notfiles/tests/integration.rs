@@ -463,3 +463,164 @@ fn test_unlink_cleans_empty_dirs() {
     // The .config/zsh directory should be cleaned up
     assert!(!target.join(".config/zsh").exists());
 }
+
+// ── Fixture-based tests ─────────────────────────────────────────────────────
+
+/// Copy the static fixture into a temp dir with a rewritten target, so tests
+/// don't touch the real home directory.
+fn setup_from_fixture(tmp: &TempDir) {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/dotfiles");
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+    fs::create_dir_all(&target).unwrap();
+    copy_dir_recursive(&fixture, &dotfiles).unwrap();
+
+    // Rewrite notfiles.toml to point target at our temp home
+    let config_path = dotfiles.join("notfiles.toml");
+    let content = fs::read_to_string(&config_path).unwrap();
+    let rewritten = content.replace(
+        "target = \"~\"",
+        &format!("target = \"{}\"", target.display()),
+    );
+    fs::write(&config_path, rewritten).unwrap();
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn test_fixture_include_excludes_non_packages() {
+    let tmp = TempDir::new().unwrap();
+    setup_from_fixture(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let (_, _, ok) = run(&dotfiles, &["link"]);
+    assert!(ok);
+
+    // Stow packages should be linked
+    assert!(
+        target.join(".gitconfig").exists(),
+        ".gitconfig should be linked"
+    );
+    assert!(target.join(".zshrc").exists(), ".zshrc should be linked");
+    assert!(
+        target.join(".config/nushell/config.nu").exists(),
+        "nushell config should be linked",
+    );
+    assert!(
+        target.join(".config/starship.toml").exists(),
+        "starship config should be linked",
+    );
+
+    // Non-package dirs should NOT be linked
+    assert!(
+        !target.join("lib/common.sh").exists(),
+        "scripts/ should not be linked",
+    );
+    assert!(
+        !target.join("bootstrap-runbook.md").exists(),
+        "docs/ should not be linked",
+    );
+    assert!(
+        !target.join("doctor.sh").exists(),
+        "scripts/ should not be linked",
+    );
+}
+
+#[test]
+fn test_fixture_status_shows_all_packages() {
+    let tmp = TempDir::new().unwrap();
+    setup_from_fixture(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+
+    let (stdout, _, ok) = run(&dotfiles, &["status"]);
+    assert!(ok);
+
+    // Should list stow packages
+    assert!(stdout.contains("git"), "status should show git package");
+    assert!(stdout.contains("zsh"), "status should show zsh package");
+    assert!(
+        stdout.contains("nushell"),
+        "status should show nushell package"
+    );
+
+    // Should NOT list excluded dirs
+    assert!(
+        !stdout.contains("scripts"),
+        "status should not show scripts"
+    );
+    assert!(!stdout.contains("docs"), "status should not show docs");
+}
+
+#[test]
+fn test_fixture_deep_paths_link_correctly() {
+    let tmp = TempDir::new().unwrap();
+    setup_from_fixture(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let (_, _, ok) = run(&dotfiles, &["link", "vscode"]);
+    assert!(ok);
+
+    let vscode_settings = target.join("Library/Application Support/Code/User/settings.json");
+    assert!(
+        vscode_settings.exists(),
+        "deep path should be linked: {}",
+        vscode_settings.display(),
+    );
+}
+
+#[test]
+fn test_fixture_platform_filter_skips_linux_on_macos() {
+    if !cfg!(target_os = "macos") {
+        return; // This test is macOS-specific
+    }
+    let tmp = TempDir::new().unwrap();
+    setup_from_fixture(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let (_, _, ok) = run(&dotfiles, &["link"]);
+    assert!(ok);
+
+    // nixos has platforms = ["linux"], so it should NOT be linked on macOS
+    assert!(
+        !target.join("configuration.nix").exists(),
+        "nixos package should be skipped on macOS",
+    );
+
+    // But macos-compatible packages should be linked
+    assert!(target.join(".gitconfig").exists());
+}
+
+#[test]
+fn test_fixture_link_and_unlink_round_trip() {
+    let tmp = TempDir::new().unwrap();
+    setup_from_fixture(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    // Link all
+    let (_, _, ok) = run(&dotfiles, &["link"]);
+    assert!(ok);
+    assert!(target.join(".gitconfig").exists());
+
+    // Unlink all
+    let (_, _, ok) = run(&dotfiles, &["unlink"]);
+    assert!(ok);
+    assert!(!target.join(".gitconfig").exists());
+    assert!(!target.join(".zshrc").exists());
+}

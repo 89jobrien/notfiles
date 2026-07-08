@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::package::collect_files_with_store;
 use crate::ports::FileStore;
+use notcore::reporter::{LinkEvent, Reporter};
 use notcore::{Config, Method, NotfilesError, expand_tilde};
 
 const STATE_FILE: &str = ".notfiles-state.toml";
@@ -81,6 +82,15 @@ pub struct LinkOptions {
     pub verbose: bool,
 }
 
+#[derive(Debug, Default)]
+pub struct LinkResult {
+    pub package: String,
+    pub linked: usize,
+    pub copied: usize,
+    pub skipped: usize,
+    pub backed_up: usize,
+}
+
 pub fn link_package(
     dotfiles_dir: &Path,
     config: &Config,
@@ -88,17 +98,23 @@ pub fn link_package(
     package: &str,
     opts: &LinkOptions,
     fs: &dyn FileStore,
-) -> Result<(), NotfilesError> {
+    reporter: &dyn Reporter,
+) -> Result<LinkResult, NotfilesError> {
     let package_dir = dotfiles_dir.join(package);
     let method = config.method_for(package);
     let target_base = expand_tilde(config.target_for(package))?;
     let files = collect_files_with_store(&package_dir, config, package, fs)?;
+    let mut result = LinkResult {
+        package: package.to_string(),
+        ..Default::default()
+    };
 
     if files.is_empty() {
-        if opts.verbose {
-            println!("  {package}: no files to link");
-        }
-        return Ok(());
+        reporter.report(&LinkEvent::Skip {
+            source: package,
+            reason: "no files to link",
+        });
+        return Ok(result);
     }
 
     for relative in &files {
@@ -108,19 +124,22 @@ pub fn link_package(
 
         // Check if already correctly linked / copied
         if is_already_linked(&source, &target, method, fs) {
-            if opts.verbose {
-                println!("  \x1b[90mskip\x1b[0m {source_display} (already linked)");
-            }
+            reporter.report(&LinkEvent::Skip {
+                source: &source_display,
+                reason: "already linked",
+            });
+            result.skipped += 1;
             continue;
         }
 
         // Helper: save partial state then return an error.
-        let save_and_return = |state: &mut State, e: NotfilesError| -> Result<(), NotfilesError> {
-            if !opts.dry_run {
-                let _ = state.save(dotfiles_dir, fs);
-            }
-            Err(e)
-        };
+        let save_and_return =
+            |state: &mut State, e: NotfilesError| -> Result<LinkResult, NotfilesError> {
+                if !opts.dry_run {
+                    let _ = state.save(dotfiles_dir, fs);
+                }
+                Err(e)
+            };
 
         // Conflict detection
         if fs.exists(&target) || fs.symlink_metadata(&target).is_ok() {
@@ -139,22 +158,20 @@ pub fn link_package(
             if !opts.no_backup {
                 let backup = backup_path(&target);
                 if opts.dry_run {
-                    println!(
-                        "  \x1b[33mwould backup\x1b[0m {} -> {}",
-                        target.display(),
-                        backup.display()
-                    );
+                    reporter.report(&LinkEvent::DryRun {
+                        action: "backup",
+                        source: &source_display,
+                        target: &backup,
+                    });
                 } else {
-                    if opts.verbose {
-                        println!(
-                            "  \x1b[33mbackup\x1b[0m {} -> {}",
-                            target.display(),
-                            backup.display()
-                        );
-                    }
+                    reporter.report(&LinkEvent::Backup {
+                        from: &target,
+                        to: &backup,
+                    });
                     if let Err(e) = fs.rename(&target, &backup) {
                         return save_and_return(state, e.into());
                     }
+                    result.backed_up += 1;
                 }
             } else if !opts.dry_run {
                 let rm_result = if fs.is_dir(&target) {
@@ -171,9 +188,7 @@ pub fn link_package(
         // Create parent directories
         if let Some(parent) = target.parent().filter(|p| !fs.exists(p)) {
             if opts.dry_run {
-                if opts.verbose {
-                    println!("  \x1b[90mwould create dir\x1b[0m {}", parent.display());
-                }
+                reporter.report(&LinkEvent::CreateDir { path: parent });
             } else if let Err(e) = fs.create_dir_all(parent) {
                 return save_and_return(state, e.into());
             }
@@ -186,12 +201,13 @@ pub fn link_package(
         };
 
         if opts.dry_run {
-            println!(
-                "  \x1b[36mwould {action_word}\x1b[0m {source_display} -> {}",
-                target.display()
-            );
+            reporter.report(&LinkEvent::DryRun {
+                action: action_word,
+                source: &source_display,
+                target: &target,
+            });
         } else {
-            let link_result = match method {
+            let io_result = match method {
                 Method::Symlink => {
                     #[cfg(unix)]
                     {
@@ -210,14 +226,24 @@ pub fn link_package(
                     fs.write(&target, &content).map(|_| content.len() as u64)
                 }
             };
-            if let Err(e) = link_result {
+            if let Err(e) = io_result {
                 return save_and_return(state, e.into());
             }
-            if opts.verbose {
-                println!(
-                    "  \x1b[32m{action_word}\x1b[0m {source_display} -> {}",
-                    target.display()
-                );
+            match method {
+                Method::Symlink => {
+                    reporter.report(&LinkEvent::Link {
+                        source: &source_display,
+                        target: &target,
+                    });
+                    result.linked += 1;
+                }
+                Method::Copy => {
+                    reporter.report(&LinkEvent::Copy {
+                        source: &source_display,
+                        target: &target,
+                    });
+                    result.copied += 1;
+                }
             }
 
             state.add_entry(StateEntry {
@@ -233,7 +259,7 @@ pub fn link_package(
     if !opts.dry_run {
         state.save(dotfiles_dir, fs)?;
     }
-    Ok(())
+    Ok(result)
 }
 
 pub fn unlink_package(
@@ -242,6 +268,7 @@ pub fn unlink_package(
     package: &str,
     opts: &LinkOptions,
     fs: &dyn FileStore,
+    reporter: &dyn Reporter,
 ) -> Result<(), NotfilesError> {
     // Validate the package: it must either exist as a directory in dotfiles_dir
     // or have entries in state.  A name that satisfies neither is a user error.
@@ -260,9 +287,10 @@ pub fn unlink_package(
         .collect();
 
     if entries.is_empty() {
-        if opts.verbose {
-            println!("  {package}: nothing to unlink");
-        }
+        reporter.report(&LinkEvent::Skip {
+            source: package,
+            reason: "nothing to unlink",
+        });
         return Ok(());
     }
 
@@ -273,9 +301,10 @@ pub fn unlink_package(
         let source = PathBuf::from(&entry.source);
 
         if !fs.exists(&target) && fs.symlink_metadata(&target).is_err() {
-            if opts.verbose {
-                println!("  \x1b[90mskip\x1b[0m {} (already gone)", target.display());
-            }
+            reporter.report(&LinkEvent::Skip {
+                source: &target.to_string_lossy(),
+                reason: "already gone",
+            });
             if !opts.dry_run {
                 removed_entries.push((entry.source.clone(), entry.target.clone()));
             }
@@ -287,64 +316,59 @@ pub fn unlink_package(
                 // Verify it's a symlink pointing to our source
                 if let Ok(link_target) = fs.read_link(&target) {
                     if link_target != source {
-                        if opts.verbose {
-                            println!(
-                                "  \x1b[33mskip\x1b[0m {} (symlink points elsewhere)",
-                                target.display()
-                            );
-                        }
+                        reporter.report(&LinkEvent::Skip {
+                            source: &target.to_string_lossy(),
+                            reason: "symlink points elsewhere",
+                        });
                         continue;
                     }
                 } else {
-                    if opts.verbose {
-                        println!("  \x1b[33mskip\x1b[0m {} (not a symlink)", target.display());
-                    }
+                    reporter.report(&LinkEvent::Skip {
+                        source: &target.to_string_lossy(),
+                        reason: "not a symlink",
+                    });
                     continue;
                 }
             }
             Method::Copy => match (fs.read(&source), fs.read(&target)) {
                 (Ok(source_bytes), Ok(target_bytes)) if source_bytes == target_bytes => {}
                 (Ok(_), Ok(_)) => {
-                    if opts.verbose {
-                        println!(
-                            "  \x1b[33mskip\x1b[0m {} (copied file diverged from source)",
-                            target.display()
-                        );
-                    }
+                    reporter.report(&LinkEvent::Skip {
+                        source: &target.to_string_lossy(),
+                        reason: "copied file diverged from source",
+                    });
                     continue;
                 }
                 (Err(_), _) => {
-                    if opts.verbose {
-                        println!(
-                            "  \x1b[33mskip\x1b[0m {} (source missing for copied file)",
-                            target.display()
-                        );
-                    }
+                    reporter.report(&LinkEvent::Skip {
+                        source: &target.to_string_lossy(),
+                        reason: "source missing for copied file",
+                    });
                     continue;
                 }
                 (_, Err(_)) => {
-                    if opts.verbose {
-                        println!(
-                            "  \x1b[33mskip\x1b[0m {} (cannot read copied target)",
-                            target.display()
-                        );
-                    }
+                    reporter.report(&LinkEvent::Skip {
+                        source: &target.to_string_lossy(),
+                        reason: "cannot read copied target",
+                    });
                     continue;
                 }
             },
         }
 
         if opts.dry_run {
-            println!("  \x1b[36mwould remove\x1b[0m {}", target.display());
+            reporter.report(&LinkEvent::DryRun {
+                action: "remove",
+                source: &target.to_string_lossy(),
+                target: &target,
+            });
         } else {
             if fs.is_dir(&target) {
                 fs.remove_dir_all(&target)?;
             } else {
                 fs.remove_file(&target)?;
             }
-            if opts.verbose {
-                println!("  \x1b[31mremove\x1b[0m {}", target.display());
-            }
+            reporter.report(&LinkEvent::Remove { target: &target });
 
             // Clean up empty parent dirs
             cleanup_empty_parents(&target, fs);
@@ -360,6 +384,100 @@ pub fn unlink_package(
     }
 
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn adopt_files(
+    dotfiles_dir: &Path,
+    config: &Config,
+    state: &mut State,
+    package: &str,
+    files: &[String],
+    opts: &LinkOptions,
+    fs: &dyn FileStore,
+    reporter: &dyn Reporter,
+) -> Result<LinkResult, NotfilesError> {
+    let package_dir = dotfiles_dir.join(package);
+    let target_base = expand_tilde(config.target_for(package))?;
+    let mut result = LinkResult {
+        package: package.to_string(),
+        ..Default::default()
+    };
+
+    if !fs.is_dir(&package_dir) {
+        if opts.dry_run {
+            reporter.report(&LinkEvent::CreateDir { path: &package_dir });
+        } else {
+            fs.create_dir_all(&package_dir)?;
+        }
+    }
+
+    for file in files {
+        let relative = PathBuf::from(file);
+        let target = target_base.join(&relative);
+        let source = package_dir.join(&relative);
+        let display = format!("{package}/{}", relative.display());
+
+        if !fs.exists(&target) {
+            reporter.report(&LinkEvent::Skip {
+                source: &display,
+                reason: "target file does not exist",
+            });
+            result.skipped += 1;
+            continue;
+        }
+
+        if fs.exists(&source) {
+            reporter.report(&LinkEvent::Skip {
+                source: &display,
+                reason: "already exists in package",
+            });
+            result.skipped += 1;
+            continue;
+        }
+
+        if opts.dry_run {
+            reporter.report(&LinkEvent::DryRun {
+                action: "adopt",
+                source: &display,
+                target: &target,
+            });
+            continue;
+        }
+
+        // Create parent dirs in package
+        if let Some(parent) = source.parent().filter(|p| !fs.exists(p)) {
+            fs.create_dir_all(parent)?;
+        }
+
+        // Move target -> package source
+        fs.rename(&target, &source)?;
+
+        // Create symlink target -> source
+        #[cfg(unix)]
+        {
+            fs.symlink(&source, &target)?;
+        }
+
+        reporter.report(&LinkEvent::Link {
+            source: &display,
+            target: &target,
+        });
+
+        state.add_entry(StateEntry {
+            package: package.to_string(),
+            source: source.to_string_lossy().to_string(),
+            target: target.to_string_lossy().to_string(),
+            method: Method::Symlink,
+            linked_at: Utc::now().to_rfc3339(),
+        });
+        result.linked += 1;
+    }
+
+    if !opts.dry_run {
+        state.save(dotfiles_dir, fs)?;
+    }
+    Ok(result)
 }
 
 fn is_already_linked(source: &Path, target: &Path, method: Method, fs: &dyn FileStore) -> bool {

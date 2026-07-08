@@ -1,0 +1,11 @@
+.ctx
+.kgx
+.github
+.claude
+docs
+examples
+fuzz
+target
+*.md
+*.json
+tests/

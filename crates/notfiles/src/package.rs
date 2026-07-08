@@ -5,6 +5,38 @@ use crate::ignore::IgnoreMatcher;
 use crate::ports::FileStore;
 use notcore::{Config, NotfilesError};
 
+/// Discover packages filtered by the config's include/exclude lists and
+/// platform constraints.
+pub fn discover_packages_filtered(
+    dotfiles_dir: &Path,
+    config: &Config,
+) -> Result<Vec<String>, NotfilesError> {
+    discover_packages_filtered_with_store(dotfiles_dir, config, &FileStoreImpl)
+}
+
+pub fn discover_packages_filtered_with_store(
+    dotfiles_dir: &Path,
+    config: &Config,
+    fs: &dyn FileStore,
+) -> Result<Vec<String>, NotfilesError> {
+    let all = discover_packages_with_store(dotfiles_dir, fs)?;
+    let filtered: Vec<String> = if let Some(include) = config.included_packages() {
+        all.into_iter()
+            .filter(|p| include.contains(&p.as_str()))
+            .collect()
+    } else {
+        all.into_iter()
+            .filter(|p| !config.is_package_excluded(p))
+            .collect()
+    };
+    // Apply platform filter
+    let filtered = filtered
+        .into_iter()
+        .filter(|p| config.is_package_for_current_platform(p))
+        .collect();
+    Ok(filtered)
+}
+
 /// Discover available packages (subdirectories of the dotfiles dir).
 pub fn discover_packages(dotfiles_dir: &Path) -> Result<Vec<String>, NotfilesError> {
     discover_packages_with_store(dotfiles_dir, &FileStoreImpl)
@@ -48,13 +80,28 @@ pub fn resolve_packages_with_store(
     requested: &[String],
     fs: &dyn FileStore,
 ) -> Result<Vec<String>, NotfilesError> {
-    let available = discover_packages_with_store(dotfiles_dir, fs)?;
+    resolve_packages_filtered_with_store(dotfiles_dir, requested, &Config::default(), fs)
+}
+
+pub fn resolve_packages_filtered_with_store(
+    dotfiles_dir: &Path,
+    requested: &[String],
+    config: &Config,
+    fs: &dyn FileStore,
+) -> Result<Vec<String>, NotfilesError> {
+    let available = discover_packages_filtered_with_store(dotfiles_dir, config, fs)?;
     if requested.is_empty() {
         return Ok(available);
     }
     for name in requested {
         if !available.contains(name) {
-            return Err(NotfilesError::PackageNotFound { name: name.clone() });
+            let available_refs: Vec<&str> = available.iter().map(|s| s.as_str()).collect();
+            let suggestion = notcore::suggest_package(name, &available_refs);
+            let mut msg = name.clone();
+            if let Some(s) = suggestion {
+                msg = format!("{name} (did you mean '{s}'?)");
+            }
+            return Err(NotfilesError::PackageNotFound { name: msg });
         }
     }
     Ok(requested.to_vec())
@@ -121,6 +168,40 @@ mod tests {
 
         let pkgs = discover_packages(tmp.path()).unwrap();
         assert_eq!(pkgs, vec!["git", "zsh"]);
+    }
+
+    #[test]
+    fn test_discover_respects_include_filter() {
+        let tmp = TempDir::new().unwrap();
+        fs::create_dir(tmp.path().join("git")).unwrap();
+        fs::create_dir(tmp.path().join("zsh")).unwrap();
+        fs::create_dir(tmp.path().join("scripts")).unwrap();
+
+        let toml_str = r#"
+[defaults]
+target = "~"
+include = ["git", "zsh"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let pkgs = discover_packages_filtered(tmp.path(), &config).unwrap();
+        assert_eq!(pkgs, vec!["git", "zsh"]);
+    }
+
+    #[test]
+    fn test_discover_respects_exclude_filter() {
+        let tmp = TempDir::new().unwrap();
+        fs::create_dir(tmp.path().join("git")).unwrap();
+        fs::create_dir(tmp.path().join("scripts")).unwrap();
+        fs::create_dir(tmp.path().join("docs")).unwrap();
+
+        let toml_str = r#"
+[defaults]
+target = "~"
+exclude = ["scripts", "docs"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let pkgs = discover_packages_filtered(tmp.path(), &config).unwrap();
+        assert_eq!(pkgs, vec!["git"]);
     }
 
     #[test]

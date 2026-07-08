@@ -1,8 +1,28 @@
 project: notfiles
 id: notfile
-updated: 2026-06-06
-items: []
+updated: 2026-07-07
+items:
+- id: uncommitted-work
+  doob_uuid: null
+  name: uncommitted-work
+  priority: P1
+  status: open
+  title: Uncommitted changes (3 files)
+  description: |-
+    Working tree has uncommitted changes:
+    .claude/worktrees/agent-a27fe5f2
+    .claude/settings.local.json
+    .superpowers/brainstorm/72758-1776397235/state/server-stopped
+  files:
+  - .claude/worktrees/agent-a27fe5f2
+  - .claude/settings.local.json
+  - .superpowers/brainstorm/72758-1776397235/state/server-stopped
+  completed: null
+  extra: []
 log:
+- date: '20260606.135918'
+  summary: done=13 running=0 pending=0 blocked=0
+  commits: []
 - date: 2026-04-17
   summary: Added notnet crate with YubikeySource and threaded Tailscale into notstrap; design spec complete
   commits: []
@@ -12,8 +32,3 @@ log:
 - date: 2026-04-15
   summary: Pruned completed items from handoff; GitHub issues plus doob are now the source of truth for active work
   commits: []
-branch: main
-state:
-  tests: passing
-  build: clean
-  notes: Handoff is now ephemeral; track active work via GitHub issues synced through doob.

@@ -15,9 +15,23 @@ notfiles link
 # Check status
 notfiles status
 
+# Validate config without changes (CI-friendly)
+notfiles check
+
+# Show copy-method divergence
+notfiles diff
+
+# Move an existing file into a package
+notfiles adopt git .gitconfig
+
 # Remove symlinks
 notfiles unlink
+
+# Generate shell completions
+notfiles completions bash > ~/.bash_completion.d/notfiles
 ```
+
+All commands support `--dry-run`, `--verbose`, and `--json` flags.
 
 On a new machine (once `notstrap` ships):
 
@@ -33,11 +47,13 @@ notstrap run
 ```
 notfiles/
 ├── crates/
-│   ├── notcore/        # shared types, config, paths, errors
+│   ├── notcore/        # shared types, config, paths, errors, Reporter trait
 │   ├── notfiles/       # symlink engine (stow replacement)  ← you are here
-│   ├── notsecrets/     # age key retrieval + sops decrypt
+│   ├── notsecrets/     # multi-provider secret resolution + age crypto
 │   ├── nothooks/       # hook execution engine
-│   └── notstrap/       # new-machine bootstrap orchestrator
+│   ├── notnet/         # network utilities (Tailscale, Yubikey)
+│   ├── notstrap/       # new-machine bootstrap orchestrator
+│   └── notgraph/       # Rust dependency graph visualizer
 ├── notfiles.toml       # symlink package config
 └── notstrap.toml       # bootstrap hook/phase config
 ```
@@ -46,11 +62,13 @@ notfiles/
 
 | Crate | Type | Does |
 |-------|------|------|
-| `notcore` | lib | Shared types, config, paths, errors — no deps on other crates |
-| `notfiles` | lib + bin | Symlink/copy packages into `$HOME`, track state |
-| `notsecrets` | lib | Retrieve age key → sops decrypt → inject secrets |
+| `notcore` | lib | Shared types, config, paths, errors, Reporter trait — no deps on other crates |
+| `notfiles` | lib + bin | Symlink/copy packages into `$HOME`, track state, adopt/diff/check |
+| `notsecrets` | lib | Multi-provider secret resolution, native age encryption/decryption |
 | `nothooks` | lib + bin | Run bootstrap hooks in phases, skip already-run setup hooks |
+| `notnet` | lib | Tailscale integration, Yubikey identity source |
 | `notstrap` | bin | Orchestrate everything on a fresh machine |
+| `notgraph` | lib + bin | Rust file dependency/import graph with HTML/Mermaid output |
 
 ### Dependency graph
 
@@ -60,6 +78,7 @@ notstrap
   │     └── notcore
   ├── notsecrets
   │     └── notcore
+  ├── notnet
   └── nothooks
         └── notcore
 ```
@@ -91,13 +110,16 @@ State is tracked in `.notfiles-state.toml` so `unlink` and `status` know exactly
 ```
 notfiles link
   │
-  ├─ resolve_packages()     discover subdirs or validate requested names
+  ├─ config.validate()                check include/exclude mutual exclusion
   │
-  ├─ collect_files()        recursive walk, apply ignore patterns (globset)
+  ├─ resolve_packages_filtered()      include/exclude + platform filtering
   │
-  ├─ conflict_check()       existing file? symlink to wrong target?
+  ├─ collect_files()                  recursive walk, apply ignore patterns
   │
-  └─ linker::link_package() create symlinks (or copies), write state
+  ├─ conflict_check()                 existing file? symlink to wrong target?
+  │
+  └─ linker::link_package()           create symlinks (or copies), write state,
+                                      return LinkResult with counters
 ```
 
 ### State file
@@ -156,16 +178,21 @@ Note: 1Password (`op`) is installed as a **hook** in phase `setup` — after sec
 
 ## Secrets Bootstrap Detail
 
-`notsecrets` implements an `AgeKeySource` trait with three sources tried in order:
+`notsecrets` implements a `SecretResolver` with pluggable provider sources:
 
 ```
-AgeKeySource
-  ├── BitwardenSource   bw unlock → session token → bw get item age-key
-  ├── FileSource        read from --key-file path (USB, etc.)
-  └── PromptSource      read from stdin (paste)
+SecretResolver
+  ├── EnvSource         read from environment variables
+  ├── OpSource          1Password CLI (op read)
+  ├── BitwardenSource   bw CLI
+  ├── FileSource        read from file path
+  ├── DotenvxSource     dotenvx encrypted .env files
+  ├── SopsSource        SOPS-encrypted files (native age decryption)
+  └── ...               (extensible via SecretSource trait)
 ```
 
-Once the age key is retrieved, it's written to `~/.config/sops/age/keys.txt` and `sops` decrypts `secrets.sops.env`. The decrypted file contains all critical bootstrap credentials (op, bw, github, openai, anthropic, etc.) and is injected into the environment for subsequent hooks.
+Age encryption/decryption is handled natively (no external `age` or `sops`
+binaries). Supports x25519, SSH ed25519/RSA, and scrypt identities.
 
 ---
 
@@ -190,9 +217,14 @@ Once the age key is retrieved, it's written to `~/.config/sops/age/keys.txt` and
 [defaults]
 method = "symlink"
 target = "~"
+include = ["git", "zsh", "nushell", "starship"]  # allowlist (optional)
+# exclude = ["scratch"]                           # or blocklist (mutually exclusive)
 
 [packages.secrets]
 method = "copy"    # copy instead of symlink for sensitive files
+
+[packages.nixos]
+platforms = ["linux"]  # only link on Linux
 
 [packages.work]
 target = "~/work"  # different target dir

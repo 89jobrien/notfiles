@@ -3,10 +3,16 @@ name    = "notcore"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Shared types and config for the notfiles dotfiles manager"
 
 [dependencies]
 serde     = { workspace = true }
 toml      = { workspace = true }
 thiserror = { workspace = true }
 dirs      = { workspace = true }
+strsim    = { workspace = true }
 anyhow    = { workspace = true }
