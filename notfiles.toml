@@ -1,7 +1,0 @@
-[defaults]
-target = "~"
-ignore = [".git", ".DS_Store", "README.md", "LICENSE*", "notfiles.toml", ".notfiles-state.toml", ".nothooks-state.toml", "Cargo.toml", "Cargo.lock", "crates", "docs", "tests", "target", "scripts", "mise.toml", "deny.toml", "rustqual.toml", ".github", ".gitea", ".envrc", ".sccignore", ".codex", ".superpowers", ".remember", ".worktrees", ".ctx", "HANDOFF.md", "AGENTS.md", "preflight.md"]
-
-include = ["nushell"]
-
-[packages.nushell]
