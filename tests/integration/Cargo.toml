@@ -14,11 +14,11 @@ name = "cross_crate"
 path = "tests/cross_crate.rs"
 
 [dev-dependencies]
-notstrap  = { path = "../../crates/notstrap" }
+anyhow    = { workspace = true }
+assert_fs = { workspace = true }
+notcore   = { path = "../../crates/notcore" }
 notfiles  = { path = "../../crates/notfiles" }
 nothooks  = { path = "../../crates/nothooks" }
 notsecrets = { path = "../../crates/notsecrets" }
-notcore   = { path = "../../crates/notcore" }
+notstrap  = { path = "../../crates/notstrap" }
 tempfile  = { workspace = true }
-assert_fs = { workspace = true }
-anyhow    = { workspace = true }
