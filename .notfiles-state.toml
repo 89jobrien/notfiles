@@ -1,0 +1,76 @@
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/aliases.nu"
+target = "/Users/joe/.config/nushell/autoload/aliases.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728685+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/audit.nu"
+target = "/Users/joe/.config/nushell/autoload/audit.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728734+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/did-you-mean.nu"
+target = "/Users/joe/.config/nushell/autoload/did-you-mean.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728773+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/functions.nu"
+target = "/Users/joe/.config/nushell/autoload/functions.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728809+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/nu_libs.nu"
+target = "/Users/joe/.config/nushell/autoload/nu_libs.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728847+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/nuenv.nu"
+target = "/Users/joe/.config/nushell/autoload/nuenv.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728879+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/session-guard.nu"
+target = "/Users/joe/.config/nushell/autoload/session-guard.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728915+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/settings.nu"
+target = "/Users/joe/.config/nushell/autoload/settings.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728947+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/autoload/toolkit-hook.nu"
+target = "/Users/joe/.config/nushell/autoload/toolkit-hook.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.728981+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/config.nu"
+target = "/Users/joe/.config/nushell/config.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.729023+00:00"
+
+[[entries]]
+package = "nushell"
+source = "/Users/joe/dev/notfiles/nushell/.config/nushell/env.nu"
+target = "/Users/joe/.config/nushell/env.nu"
+method = "symlink"
+linked_at = "2026-06-14T04:23:50.729055+00:00"

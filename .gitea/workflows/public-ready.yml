@@ -108,9 +108,9 @@ jobs:
       - name: Public readiness summary
         if: success()
         run: |
-          echo "✅ No secrets or PII detected"
-          echo "✅ No hardcoded private addresses"
-          echo "✅ Licenses are OSS-compatible"
-          echo "✅ No secrets files tracked in git"
+          echo "[OK] No secrets or PII detected"
+          echo "[OK] No hardcoded private addresses"
+          echo "[OK] Licenses are OSS-compatible"
+          echo "[OK] No secrets files tracked in git"
           echo ""
           echo "This repository appears safe to mirror to a public GitHub repo."

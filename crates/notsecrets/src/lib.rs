@@ -1,57 +1,106 @@
+pub mod config;
+pub mod decrypt;
+pub mod encrypt;
+pub mod error;
+pub mod format;
+pub mod identities;
+pub mod ports;
+pub mod recipients;
+pub mod resolver;
 pub mod sources;
 
-pub use sources::{BitwardenSource, FileSource, PromptSource};
+pub use config::{Provider, ProviderConfig, SecretRef, SecretsConfig, load_config};
+pub use decrypt::Decryptor;
+pub use encrypt::Encryptor;
+pub use error::AgeError;
+pub use error::SecretsError;
+pub use identities::{
+    EncryptedIdentity, FileKey, Header, Identity, ScryptIdentity, SshEd25519Identity, Stanza,
+    X25519Identity,
+};
+pub use ports::{EnumerableSecretSource, IdentitySource, SecretSource};
+pub use recipients::{Recipient, ScryptRecipient, SshEd25519Recipient, X25519Recipient};
+pub use resolver::SecretResolver;
+pub use sources::{
+    BitwardenSource, DirenvSource, DotenvxSource, DotenvySource, EnvSource, FileSource, GsmSource,
+    MiseSource, NuenvSource, OpSource, PromptSource, SopsSource, VaultSource, YubikeySource,
+};
 
-use anyhow::{bail, Context, Result};
-use std::path::{Path, PathBuf};
-use std::process::Command;
+/// Try each `IdentitySource` in order; collect all identities that load successfully.
+///
+/// Returns an error only if all sources fail. Partial success is accepted because
+/// not every source needs to hold the key for the target file.
+pub fn resolve_identities(
+    sources: Vec<Box<dyn IdentitySource>>,
+) -> Result<Vec<Box<dyn Identity>>, AgeError> {
+    let mut identities: Vec<Box<dyn Identity>> = Vec::new();
+    let mut last_err: Option<AgeError> = None;
 
-/// Trait for retrieving an age private key from some source.
-pub trait AgeKeySource {
-    fn name(&self) -> &str;
-    fn retrieve(&self) -> Result<String>;
-}
-
-/// Try each source in order; return the first success.
-pub fn resolve_age_key(sources: Vec<Box<dyn AgeKeySource>>) -> Result<String> {
-    let mut last_err = String::new();
     for source in sources {
-        match source.retrieve() {
-            Ok(key) => return Ok(key),
+        match source.load() {
+            Ok(identity) => identities.push(identity),
             Err(e) => {
                 eprintln!("  [{}] {e}", source.name());
-                last_err = format!("{e}");
+                last_err = Some(e);
             }
         }
     }
-    bail!("all age key sources failed; last error: {last_err}")
+
+    if identities.is_empty() {
+        Err(last_err.unwrap_or(AgeError::SourceError {
+            name: "resolve_identities".to_string(),
+            source: anyhow::anyhow!("no sources provided"),
+        }))
+    } else {
+        Ok(identities)
+    }
 }
 
-/// Write the age key to `~/.config/sops/age/keys.txt` (mode 0600).
-pub fn install_age_key(key: &str) -> Result<PathBuf> {
-    let path = dirs::home_dir()
-        .context("cannot find home directory")?
-        .join(".config/sops/age/keys.txt");
-    std::fs::create_dir_all(path.parent().with_context(|| "age keys.txt path has no parent directory")?)?;
-    std::fs::write(&path, key)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(path)
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ports::IdentitySource;
 
-/// Run `sops --decrypt <sops_file>` and return the decrypted content.
-pub fn decrypt_sops(sops_file: &Path) -> Result<String> {
-    let output = Command::new("sops")
-        .args(["--decrypt", sops_file.to_str().ok_or_else(|| anyhow::anyhow!("sops path is not valid UTF-8"))?])
-        .output()
-        .context("failed to run sops")?;
-
-    if !output.status.success() {
-        bail!("sops decrypt failed: {}", String::from_utf8_lossy(&output.stderr));
+    struct AlwaysFailSource;
+    impl IdentitySource for AlwaysFailSource {
+        fn name(&self) -> &str {
+            "always-fail"
+        }
+        fn load(&self) -> Result<Box<dyn Identity>, AgeError> {
+            Err(AgeError::SourceError {
+                name: "always-fail".to_string(),
+                source: anyhow::anyhow!("intentional failure"),
+            })
+        }
     }
 
-    Ok(String::from_utf8(output.stdout)?)
+    struct StaticX25519Source;
+    impl IdentitySource for StaticX25519Source {
+        fn name(&self) -> &str {
+            "static-x25519"
+        }
+        fn load(&self) -> Result<Box<dyn Identity>, AgeError> {
+            use rand::rngs::OsRng;
+            use x25519_dalek::StaticSecret;
+            Ok(Box::new(
+                crate::identities::x25519::X25519Identity::from_static_secret(
+                    StaticSecret::random_from_rng(OsRng),
+                ),
+            ))
+        }
+    }
+
+    #[test]
+    fn resolve_identities_all_fail_returns_error() {
+        let sources: Vec<Box<dyn IdentitySource>> = vec![Box::new(AlwaysFailSource)];
+        assert!(resolve_identities(sources).is_err());
+    }
+
+    #[test]
+    fn resolve_identities_partial_success_returns_loaded() {
+        let sources: Vec<Box<dyn IdentitySource>> =
+            vec![Box::new(AlwaysFailSource), Box::new(StaticX25519Source)];
+        let ids = resolve_identities(sources).expect("at least one source succeeded");
+        assert_eq!(ids.len(), 1);
+    }
 }

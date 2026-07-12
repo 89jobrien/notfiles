@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use std::path::Path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::path::Path;
 
 const STATE_FILE: &str = ".nothooks-state.toml";
 
@@ -22,7 +22,9 @@ impl HookState {
 
     pub fn save(&self, dir: &Path) -> Result<()> {
         let path = dir.join(STATE_FILE);
-        std::fs::write(path, toml::to_string(self)?)?;
+        let tmp = dir.join(format!("{STATE_FILE}.tmp"));
+        std::fs::write(&tmp, toml::to_string(self)?)?;
+        std::fs::rename(&tmp, &path)?;
         Ok(())
     }
 

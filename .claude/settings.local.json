@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(doob:*)",
+      "Bash(echo:*)",
+      "Bash(gh:*)",
+      "Bash(op:*)",
+      "Bash(obfsck:*)",
+      "Bash(head:*)",
+      "Bash(git ls-files:*)",
+      "WebSearch",
+      "WebFetch(domain:www.apache.org)",
+      "Skill(todo:*)",
+      "Bash(PATH=\"/Users/joe/.local/share/mise/shims:$PATH\" which nu)",
+      "Bash(PATH=\"/Users/joe/.local/share/mise/shims:$PATH\" nu --version 2>&1 | head -1)",
+      "Bash(doob todo:*)",
+      "Bash(handoff-detect 2>&1; echo \"exit: $?\")",
+      "Bash(handoff-detect --name && handoff-detect --project)",
+      "Bash(rtk gain:*)",
+      "Bash(rtk rewrite:*)",
+      "Bash(rtk grep:*)",
+      "Bash(nu -c '\nlet result = \\(do { python3 -c \"import json; print\\(json.dumps\\({\\\\\"ok\\\\\": True}\\)\\)\" } | complete\\)\nprint $result.stdout\n')",
+      "Bash(echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -n \\\\\"^foo\\\\\" /file.md\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu)",
+      "Bash(echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -c pattern file.txt\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu\necho '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -i \\\\\"Hello World\\\\\" /dir/\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu\necho '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git status\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu; echo \"exit: $?\")"
+    ]
+  }
+}

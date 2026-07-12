@@ -1,0 +1,104 @@
+[tools]
+rust = "1.91.1"
+
+[tasks]
+
+# ── Quality Gates ──────────────────────────────────────────────────────────────
+
+[tasks."all:check"]
+description = "cargo check across workspace"
+run = "cargo check --workspace"
+
+[tasks."all:fmt"]
+description = "Format all code"
+run = "cargo fmt"
+
+[tasks."all:fmt-check"]
+description = "Check formatting (no changes)"
+run = "cargo fmt --check"
+
+[tasks."all:clippy"]
+description = "Clippy with warnings as errors"
+run = "cargo clippy --workspace -- -D warnings"
+
+[tasks."all:test"]
+description = "Run all tests via nextest"
+run = "cargo nextest run --workspace --cargo-profile release"
+
+[tasks."all:test-unit"]
+description = "Run unit tests only (exclude integration)"
+run = "cargo nextest run --workspace --lib --cargo-profile release"
+
+[tasks."all:test-integration"]
+description = "Run integration tests"
+run = "cargo nextest run -p integration --cargo-profile release"
+
+[tasks."all:ci"]
+description = "Full CI gate: fmt-check + clippy + nextest"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "── fmt ──────────────────────────────"
+cargo fmt --check
+echo "── clippy ───────────────────────────"
+cargo clippy --workspace -- -D warnings
+echo "── dep-boundaries ───────────────────"
+python3 scripts/check-dep-boundaries.py
+echo "── graph-check ──────────────────────"
+cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles
+echo "── test ─────────────────────────────"
+cargo nextest run --workspace --cargo-profile release
+echo "✓ all gates passed"
+"""
+
+[tasks."all:ci-setup"]
+description = "One-time setup: install cargo-nextest, cargo-deny"
+run = """
+#!/usr/bin/env bash
+set -e
+echo "Installing cargo-nextest..."
+command -v cargo-nextest >/dev/null 2>&1 || ~/.local/bin/mise exec -- cargo install cargo-nextest --locked
+echo "Installing cargo-deny..."
+command -v cargo-deny >/dev/null 2>&1 || ~/.local/bin/mise exec -- cargo install cargo-deny --locked
+echo "✓ CI setup complete"
+"""
+
+[tasks."all:dep-boundaries"]
+description = "Enforce crate dependency boundary rules"
+run = "python3 scripts/check-dep-boundaries.py"
+
+[tasks."all:graph"]
+description = "Generate module graph reports (docs/graph/)"
+run = "cargo run -p notgraph --release -- --output docs/graph"
+
+[tasks."all:graph-check"]
+description = "CI: fail if module cycles detected"
+run = "cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles"
+
+[tasks."all:deny"]
+description = "Run cargo-deny license/security checks"
+run = "cargo deny check"
+
+# ── Dev Workflow ───────────────────────────────────────────────────────────────
+
+[tasks."all:build"]
+description = "Build all workspace crates"
+run = "cargo build"
+
+[tasks."all:build-release"]
+description = "Build release binaries"
+run = "cargo build --release"
+
+[tasks."all:commit"]
+description = "Stage all + commit. Usage: mise run all:commit -- 'message'"
+run = """
+#!/usr/bin/env bash
+set -e
+MSG="${1:?usage: mise run all:commit -- 'message'}"
+git add -A
+git commit -m "$MSG"
+"""
+
+[tasks."all:watch"]
+description = "Watch for changes and run check + nextest"
+run = "cargo watch -x 'check --workspace' -x 'nextest run --workspace --cargo-profile release'"

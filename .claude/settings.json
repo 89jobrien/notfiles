@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "nu /Users/joe/dev/notfiles/scripts/preflight.nu"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -f Cargo.toml ]; then cargo check --quiet 2>&1 | head -20; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -22,34 +22,64 @@ cargo fmt --check                  # check formatting
 
 ## Workspace Structure
 
-This is a Cargo workspace with 5 crates under `crates/`:
+This is a Cargo workspace with 7 crates under `crates/`:
 
-| Crate | Purpose |
-|-------|---------|
-| `notcore` | Shared types: `Config`, `NotfilesError`, `expand_tilde`, `HookPhase`, `HookSpec`, `Report`, `StepStatus` |
-| `notfiles` | Dotfiles linker — lib + `notfiles` binary (symlink/copy, init, status) |
-| `notsecrets` | Age key retrieval via Bitwarden, file, or prompt; SOPS decryption |
-| `nothooks` | Nushell hook runner with dot/setup phases and state persistence |
-| `notstrap` | New-machine bootstrap orchestrator — ties all crates together |
+| Crate        | Purpose                                                                    |
+| ------------ | -------------------------------------------------------------------------- |
+| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
+|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
+| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
+| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
+|              | decryption, identity management                                           |
+| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
+| `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
+| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
+| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
+|              | heatmap, cycle detection                                                   |
 
 ## Architecture
 
 ### notfiles (primary user-facing tool)
 
-Four subcommands: `init`, `link`, `unlink`, `status`. CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
+Eight subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
+`adopt`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
+CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
 
-**Core flow for `link`:** `main` → `resolve_packages` → `collect_files` (recursive walk with ignore filtering) → `linker::link_package` (create symlinks or copies, record in state).
+**Core flow for `link`:** `main` → `config.validate()` →
+`resolve_packages_filtered` (include/exclude + platform filtering) →
+`collect_files` (recursive walk with ignore filtering) →
+`linker::link_package` (create symlinks or copies, record in state,
+return `LinkResult` with counters).
+
+**Architecture**: Hexagonal (ports/adapters). `FileStore` trait abstracts
+filesystem I/O; `Reporter` trait abstracts output. Adapters:
+`FileStoreImpl` (real fs), `InMemoryFileStore` (testing),
+`TerminalReporter` (ANSI), `JsonReporter` (NDJSON).
 
 Key modules in `crates/notfiles/src/`:
-- **linker** — Creates/removes symlinks or copies. Manages `State` (`.notfiles-state.toml`) tracking every linked file. Handles conflict detection, `--force` backups, empty-parent cleanup on unlink.
-- **config** — Parses `notfiles.toml`. Per-package overrides for method, target, ignore. Falls back to `[defaults]`.
-- **package** — Discovers packages (non-hidden subdirs) and recursively collects files via `IgnoreMatcher`.
+
+- **linker** — Creates/removes symlinks or copies via `FileStore` port.
+  Manages `State` (`.notfiles-state.toml`). Returns `LinkResult` with
+  linked/copied/skipped/backed_up counts. Also provides `adopt_files`.
+- **package** — Discovers packages with include/exclude and platform
+  filtering. Recursively collects files via `IgnoreMatcher`. Typo
+  suggestions via `suggest_package` on not-found errors.
 - **ignore** — Glob-based ignore matching using `globset`.
-- **status** — Compares expected vs actual state: linked/copied/missing/conflict/orphan.
+- **status** — Compares expected vs actual state:
+  linked/copied/missing/conflict/orphan. Also provides `diff_package`
+  for copy-method divergence detection.
+- **adapters/** — `FileStoreImpl`, `InMemoryFileStore`,
+  `TerminalReporter`, `JsonReporter`.
+- **ports** — `FileStore` trait definition.
 
 ### notsecrets
 
-`AgeKeySource` trait with three implementations: `BitwardenSource` (bw CLI), `FileSource`, `PromptSource`. `resolve_age_key()` tries each in order. `install_age_key()` writes to `~/.config/sops/age/keys.txt` (mode 0600). `decrypt_sops()` shells out to `sops --decrypt`.
+Multi-provider secret resolution via `SecretResolver`. Providers include
+`EnvSource`, `OpSource` (1Password), `BitwardenSource`, `FileSource`,
+`DotenvxSource`, `SopsSource`, and others. Native age encryption/decryption
+with x25519, SSH ed25519/RSA, and scrypt identity support. No external
+`sops` or `age` binaries required.
 
 ### nothooks
 
@@ -61,7 +91,14 @@ Orchestrates in order: prereqs check → load config → clone dotfiles → age 
 
 ## Configuration
 
-`notfiles.toml` lives at the dotfiles directory root. Each subdirectory is a "package". Per-package config can override: `method` (symlink/copy), `target` directory, additional `ignore` patterns.
+`notfiles.toml` lives at the dotfiles directory root. Each subdirectory
+is a "package".
+
+Global defaults support `include` (allowlist) or `exclude` (blocklist)
+for package filtering — mutually exclusive. Per-package config can
+override: `method` (symlink/copy), `target` directory, additional
+`ignore` patterns, and `platforms` (e.g. `["linux"]`, `["macos"]`) to
+gate packages to specific OSes.
 
 ## Edition
 

@@ -14,7 +14,9 @@ impl IgnoreMatcher {
             // Match the pattern as a filename component and also as a path suffix.
             let glob = Glob::new(pattern)
                 .or_else(|_| Glob::new(&format!("**/{pattern}")))
-                .map_err(|e| NotfilesError::Other(format!("invalid ignore pattern '{pattern}': {e}")))?;
+                .map_err(|e| {
+                    NotfilesError::Glob(format!("invalid ignore pattern '{pattern}': {e}"))
+                })?;
             builder.add(glob);
             // Also add a recursive variant so "foo" matches "a/foo" etc.
             #[allow(clippy::collapsible_if)]
@@ -26,7 +28,7 @@ impl IgnoreMatcher {
         }
         let globset = builder
             .build()
-            .map_err(|e| NotfilesError::Other(format!("building ignore set: {e}")))?;
+            .map_err(|e| NotfilesError::Glob(format!("building ignore set: {e}")))?;
         Ok(Self { globset })
     }
 

@@ -17,6 +17,12 @@ pub enum NotfilesError {
     #[error("state file error: {0}")]
     State(String),
 
+    #[error("glob error: {0}")]
+    Glob(String),
+
+    #[error("validation error: {0}")]
+    Validation(String),
+
     #[error("{0}")]
     Io(#[from] std::io::Error),
 

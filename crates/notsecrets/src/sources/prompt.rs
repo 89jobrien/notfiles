@@ -1,17 +1,28 @@
-use anyhow::Result;
-use crate::AgeKeySource;
+use crate::error::AgeError;
+use crate::identities::Identity;
+use crate::identities::scrypt::ScryptIdentity;
+use crate::ports::IdentitySource;
 
 pub struct PromptSource;
 
-impl AgeKeySource for PromptSource {
-    fn name(&self) -> &str { "prompt" }
+impl IdentitySource for PromptSource {
+    fn name(&self) -> &str {
+        "prompt"
+    }
 
-    fn retrieve(&self) -> Result<String> {
-        let key = rpassword::prompt_password("Paste your age private key: ")
-            .map_err(|e| anyhow::anyhow!("could not read age key from prompt: {e}"))?;
-        if key.trim().is_empty() {
-            anyhow::bail!("empty age key entered");
+    fn load(&self) -> Result<Box<dyn Identity>, AgeError> {
+        let passphrase = rpassword::prompt_password("Enter age passphrase: ").map_err(|e| {
+            AgeError::SourceError {
+                name: self.name().to_string(),
+                source: anyhow::anyhow!("could not read passphrase: {e}"),
+            }
+        })?;
+        if passphrase.trim().is_empty() {
+            return Err(AgeError::SourceError {
+                name: self.name().to_string(),
+                source: anyhow::anyhow!("empty passphrase entered"),
+            });
         }
-        Ok(key)
+        Ok(Box::new(ScryptIdentity::new(passphrase)))
     }
 }

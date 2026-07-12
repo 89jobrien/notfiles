@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use nothooks::{run_phase, HookRunner};
 use notcore::{HookPhase, HookSpec};
+use nothooks::{HookRunner, run_phase};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
         HookRunner::new(state_dir)
     };
 
-    let report = run_phase(&file.hooks, &phase, &runner);
+    let report = run_phase(&file.hooks, &phase, &runner)?;
     report.print();
 
     if report.has_failures() {

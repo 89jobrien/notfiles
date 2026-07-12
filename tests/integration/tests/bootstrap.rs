@@ -1,6 +1,6 @@
 use notcore::{HookPhase, HookSpec, StepStatus};
-use nothooks::{run_phase, HookRunner};
-use notstrap::{run, BootstrapOptions};
+use nothooks::{HookRunner, run_phase};
+use notstrap::{BootstrapOptions, run};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -19,7 +19,11 @@ fn make_test_env() -> TestEnv {
 
     // age key file (content doesn't matter — FileSource reads it verbatim)
     let key_file = d.join("age.key");
-    fs::write(&key_file, "AGE-SECRET-KEY-1TESTKEY\n").unwrap();
+    fs::write(
+        &key_file,
+        "AGE-SECRET-KEY-1X3QKFQ4MZQM7LTJ3AX0N3EM63RGRV4J6N5ZDWPVKCEUCZKJWJSUSU6GYN6\n",
+    )
+    .unwrap();
 
     // notfiles.toml — one package "shell" targeting home tempdir
     fs::write(
@@ -65,8 +69,9 @@ fn make_opts(env: &TestEnv, force: bool) -> BootstrapOptions {
         force,
         key_file: Some(env.key_file.clone()),
         dotfiles: Some(env.dotfiles.path().to_path_buf()),
+        tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
-        env_injector: None,
+        secrets_config: None,
     }
 }
 
@@ -182,9 +187,10 @@ fn test_setup_hooks_skipped_on_rerun() {
         name: HOOK_NAME.to_string(),
         script: script.to_str().unwrap().to_string(),
         phase: HookPhase::Setup,
+        interpreter: None,
     };
     let runner = HookRunner::new(d.to_path_buf());
-    let phase_report = run_phase(&[hook_spec], &HookPhase::Setup, &runner);
+    let phase_report = run_phase(&[hook_spec], &HookPhase::Setup, &runner).unwrap();
     let step = phase_report
         .steps
         .iter()
@@ -211,8 +217,9 @@ fn test_bootstrap_fails_fast_on_bad_key() {
         force: false,
         key_file: Some(PathBuf::from("/nonexistent/no-such-key.age")),
         dotfiles: Some(d.to_path_buf()),
+        tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
-        env_injector: None,
+        secrets_config: None,
     };
 
     let report = run(opts).expect("run() should return Ok even when a step fails");
@@ -237,5 +244,51 @@ fn test_bootstrap_fails_fast_on_bad_key() {
     assert!(
         !has_link,
         "should not reach link dotfiles step after key failure"
+    );
+}
+
+/// A link conflict must stop bootstrap before any hook phase runs.
+#[test]
+fn test_bootstrap_stops_after_link_failure() {
+    let env = make_test_env();
+    let d = env.dotfiles.path();
+    let home = env.home.path();
+
+    fs::write(home.join(".zshrc"), "local override\n").unwrap();
+
+    let script = d.join("scripts/greet.nu");
+    fs::write(&script, "print hello\n").unwrap();
+    fs::write(
+        &env.config,
+        format!(
+            "[bootstrap]\n\
+             dotfiles_repo = \"https://example.com/fake.git\"\n\
+             dotfiles_dir = \"{dotfiles}\"\n\n\
+             [[hooks]]\n\
+             name = \"greet\"\n\
+             script = \"{script}\"\n\
+             phase = \"dot\"\n",
+            dotfiles = d.display(),
+            script = script.display(),
+        ),
+    )
+    .unwrap();
+
+    let report = run(make_opts(&env, false)).unwrap();
+
+    let link_step = report
+        .steps
+        .iter()
+        .find(|step| step.name == "link dotfiles")
+        .expect("link dotfiles step should be present");
+    assert!(
+        matches!(link_step.status, StepStatus::Failed(_)),
+        "link failure should be surfaced, got {:?}",
+        link_step.status
+    );
+    assert!(
+        report.steps.iter().all(|step| step.name != "dot hooks"),
+        "bootstrap should stop before running hooks after link failure: {:?}",
+        report.steps
     );
 }

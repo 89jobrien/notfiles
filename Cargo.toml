@@ -1,5 +1,10 @@
 [workspace.package]
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/89jobrien/notfiles"
+homepage = "https://github.com/89jobrien/notfiles"
+keywords = ["dotfiles", "symlink", "stow", "config"]
+categories = ["command-line-utilities", "filesystem"]
+readme = "README.md"
 
 [workspace]
 members = [
@@ -7,20 +12,29 @@ members = [
     "crates/notfiles",
     "crates/notsecrets",
     "crates/nothooks",
+    "crates/notnet",
     "crates/notstrap",
+    "crates/notgraph",
+    "crates/notforge",
     "tests/integration",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 anyhow      = "1"
+base64      = "0.22"
 clap        = { version = "4", features = ["derive"] }
+clap_complete = "4"
 chrono      = { version = "0.4", default-features = false, features = ["clock"] }
 dirs        = "6"
 globset     = "0.4"
 serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+strsim      = "0.11"
 thiserror   = "2"
 toml        = "0.8"
+miette      = { version = "7", features = ["derive"] }
+ureq        = { version = "2", features = ["json"] }
 which       = "7"
 rpassword   = "7"
 tempfile    = "3"
@@ -29,6 +43,8 @@ notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
 notsecrets  = { path = "crates/notsecrets" }
 nothooks    = { path = "crates/nothooks" }
+notnet      = { path = "crates/notnet" }
+notforge    = { path = "crates/notforge" }
 
 [profile.release]
 opt-level = 3
