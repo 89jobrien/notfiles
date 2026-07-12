@@ -79,9 +79,11 @@ pub struct SecretsConfig {
 }
 
 pub fn load_config(path: &Path) -> Result<SecretsConfig, SecretsError> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| SecretsError::Config(format!("cannot read {}: {e}", path.display())))?;
-    toml::from_str(&content).map_err(|e| SecretsError::Config(format!("parse error: {e}")))
+    notcore::config::load_toml_file(
+        path,
+        |path, err| SecretsError::Config(format!("cannot read {}: {err}", path.display())),
+        |_path, err| SecretsError::Config(format!("parse error: {err}")),
+    )
 }
 
 #[cfg(test)]

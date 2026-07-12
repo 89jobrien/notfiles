@@ -1,3 +1,4 @@
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -83,6 +84,22 @@ impl std::fmt::Display for Method {
             Method::Copy => write!(f, "copy"),
         }
     }
+}
+
+/// Load and deserialize a TOML config file, mapping I/O and parse errors
+/// into the caller's crate-specific error type.
+pub fn load_toml_file<T, E, ReadError, ParseError>(
+    path: &Path,
+    read_error: ReadError,
+    parse_error: ParseError,
+) -> Result<T, E>
+where
+    T: DeserializeOwned,
+    ReadError: FnOnce(&Path, std::io::Error) -> E,
+    ParseError: FnOnce(&Path, toml::de::Error) -> E,
+{
+    let content = std::fs::read_to_string(path).map_err(|err| read_error(path, err))?;
+    toml::from_str(&content).map_err(|err| parse_error(path, err))
 }
 
 impl Config {
@@ -204,6 +221,10 @@ ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfil
 mod tests {
     use super::*;
 
+    fn temp_config_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("notcore-{name}-{}.toml", std::process::id()))
+    }
+
     #[test]
     fn test_default_config() {
         let config = Config::default();
@@ -322,5 +343,41 @@ target = "~/bin"
         let ssh_ignores = config.ignore_patterns_for("ssh");
         assert!(ssh_ignores.contains(&".git"));
         assert!(ssh_ignores.contains(&"known_hosts"));
+    }
+
+    #[test]
+    fn load_toml_file_deserializes_config() {
+        let path = temp_config_path("load-toml-file-ok");
+        std::fs::write(&path, "[defaults]\ntarget = \"~/dotfiles\"\n")
+            .expect("test should write temporary config");
+
+        let config: Config = load_toml_file(
+            &path,
+            |path, err| format!("read {}: {err}", path.display()),
+            |path, err| format!("parse {}: {err}", path.display()),
+        )
+        .expect("temporary config should parse");
+
+        assert_eq!(config.defaults.target, "~/dotfiles");
+
+        std::fs::remove_file(&path).expect("test should remove temporary config");
+    }
+
+    #[test]
+    fn load_toml_file_maps_parse_error() {
+        let path = temp_config_path("load-toml-file-parse-error");
+        std::fs::write(&path, "[defaults\ntarget = \"~/dotfiles\"\n")
+            .expect("test should write invalid temporary config");
+
+        let result: Result<Config, String> = load_toml_file(
+            &path,
+            |path, err| format!("read {}: {err}", path.display()),
+            |path, err| format!("parse {}: {err}", path.display()),
+        );
+
+        let err = result.expect_err("invalid TOML should return parse error");
+        assert!(err.contains("parse "));
+
+        std::fs::remove_file(&path).expect("test should remove temporary config");
     }
 }
