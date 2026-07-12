@@ -5,6 +5,7 @@
 .venv/
 .envrc
 .worktrees/
+.claude/worktrees/
 .claude.local.md
 docs/*
 !docs/superpowers/
