@@ -1,7 +1,7 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::NotfilesError;
 
@@ -102,19 +102,40 @@ where
     toml::from_str(&content).map_err(|err| parse_error(path, err))
 }
 
+/// Returns the default config path: `~/.config/notfiles/notfiles.toml`.
+pub fn default_config_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .join("notfiles")
+        .join("notfiles.toml")
+}
+
+/// Returns the default dotfiles directory: `~/.notfiles`.
+pub fn default_dotfiles_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join(".notfiles")
+}
+
 impl Config {
-    pub fn load(dotfiles_dir: &Path) -> Result<Self, NotfilesError> {
-        let config_path = dotfiles_dir.join("notfiles.toml");
+    /// Load config from an explicit path. Returns `Config::default()` if the file does not exist.
+    pub fn load_from(config_path: &Path) -> Result<Self, NotfilesError> {
         if !config_path.exists() {
             return Ok(Config::default());
         }
-        let content = std::fs::read_to_string(&config_path).map_err(|e| {
+        let content = std::fs::read_to_string(config_path).map_err(|e| {
             NotfilesError::Config(format!("reading {}: {e}", config_path.display()))
         })?;
         let config: Config = toml::from_str(&content).map_err(|e| {
             NotfilesError::Config(format!("parsing {}: {e}", config_path.display()))
         })?;
         Ok(config)
+    }
+
+    /// Load config from `<dotfiles_dir>/notfiles.toml` (legacy location).
+    /// Prefer [`Config::load_from`] with an explicit path in new call sites.
+    pub fn load(dotfiles_dir: &Path) -> Result<Self, NotfilesError> {
+        Self::load_from(&dotfiles_dir.join("notfiles.toml"))
     }
 
     pub fn method_for(&self, package: &str) -> Method {

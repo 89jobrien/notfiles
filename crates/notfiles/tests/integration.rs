@@ -14,9 +14,12 @@ fn notfiles_bin() -> std::path::PathBuf {
 }
 
 fn run(dotfiles: &Path, args: &[&str]) -> (String, String, bool) {
+    let config = dotfiles.join("notfiles.toml");
     let output = Command::new(notfiles_bin())
         .arg("--dir")
         .arg(dotfiles)
+        .arg("--config")
+        .arg(&config)
         .args(args)
         .output()
         .expect("failed to run notfiles");
@@ -61,7 +64,7 @@ fn test_init_creates_config() {
 
     let (stdout, _, ok) = run(&dotfiles, &["init"]);
     assert!(ok);
-    assert!(stdout.contains("Created notfiles.toml"));
+    assert!(stdout.contains("Created"), "expected Created in: {stdout}");
     assert!(dotfiles.join("notfiles.toml").exists());
 }
 

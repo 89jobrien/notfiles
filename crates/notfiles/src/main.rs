@@ -15,9 +15,25 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let dotfiles_dir = cli
         .dir
-        .unwrap_or_else(|| std::env::current_dir().expect("cannot determine current directory"));
+        .unwrap_or_else(notcore::config::default_dotfiles_dir);
+
+    // Init is the only command allowed when the dotfiles dir doesn't exist yet.
+    if matches!(cli.command, Command::Init) {
+        return cmd_init(&dotfiles_dir, cli.config.as_deref());
+    }
+
+    if !dotfiles_dir.exists() {
+        anyhow::bail!(
+            "dotfiles directory not found: {}\nRun `notfiles init` to create it.",
+            dotfiles_dir.display()
+        );
+    }
     let dotfiles_dir = fs::canonicalize(&dotfiles_dir)
         .with_context(|| format!("dotfiles directory not found: {}", dotfiles_dir.display()))?;
+
+    let config_path = cli
+        .config
+        .unwrap_or_else(notcore::config::default_config_path);
 
     let reporter: Box<dyn Reporter> = if cli.json {
         Box::new(JsonReporter)
@@ -37,14 +53,14 @@ fn main() -> Result<()> {
                 detect::print_detected(&managers);
             }
         }
-        Command::Init => cmd_init(&dotfiles_dir)?,
+        Command::Init => unreachable!("handled above"),
         Command::Link {
             force,
             no_backup,
             packages,
         } => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             config.validate()?;
             let mut state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
@@ -89,7 +105,7 @@ fn main() -> Result<()> {
         }
         Command::Unlink { packages } => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             let _ = &config; // loaded but not needed for unlink
             let mut state = State::load(&dotfiles_dir, fs)?;
             let pkgs = if packages.is_empty() {
@@ -145,7 +161,7 @@ fn main() -> Result<()> {
         }
         Command::Check => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             config.validate()?;
             let all = resolve_packages_filtered_with_store(&dotfiles_dir, &[], &config, fs)?;
 
@@ -171,7 +187,7 @@ fn main() -> Result<()> {
         }
         Command::Diff { packages } => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             config.validate()?;
             let state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
@@ -183,7 +199,7 @@ fn main() -> Result<()> {
         }
         Command::Adopt { package, files } => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             let mut state = State::load(&dotfiles_dir, fs)?;
             let opts = LinkOptions {
                 force: false,
@@ -217,7 +233,7 @@ fn main() -> Result<()> {
         }
         Command::Status { packages } => {
             let fs = &adapters::FileStoreImpl;
-            let config = Config::load(&dotfiles_dir)?;
+            let config = Config::load_from(&config_path)?;
             config.validate()?;
             let state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
@@ -236,13 +252,29 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn cmd_init(dotfiles_dir: &std::path::Path) -> Result<()> {
-    let config_path = dotfiles_dir.join("notfiles.toml");
+fn cmd_init(
+    dotfiles_dir: &std::path::Path,
+    config_override: Option<&std::path::Path>,
+) -> Result<()> {
+    if !dotfiles_dir.exists() {
+        fs::create_dir_all(dotfiles_dir)
+            .with_context(|| format!("creating dotfiles dir: {}", dotfiles_dir.display()))?;
+        println!("Created {}", dotfiles_dir.display());
+    }
+
+    let config_path = config_override
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(notcore::config::default_config_path);
+
     if config_path.exists() {
-        println!("notfiles.toml already exists.");
+        println!("{} already exists.", config_path.display());
         return Ok(());
     }
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("creating config dir: {}", parent.display()))?;
+    }
     fs::write(&config_path, notcore::config::starter_toml())?;
-    println!("Created notfiles.toml");
+    println!("Created {}", config_path.display());
     Ok(())
 }

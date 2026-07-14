@@ -4,9 +4,13 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "notfiles", about = "A modern dotfiles manager")]
 pub struct Cli {
-    /// Path to the dotfiles directory (default: current directory)
+    /// Path to the dotfiles directory (default: ~/.notfiles)
     #[arg(long, global = true)]
     pub dir: Option<PathBuf>,
+
+    /// Path to the config file (default: ~/.config/notfiles/notfiles.toml)
+    #[arg(long, global = true)]
+    pub config: Option<PathBuf>,
 
     /// Show what would be done without making changes
     #[arg(long, global = true)]
