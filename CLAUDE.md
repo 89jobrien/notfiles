@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+<preflight>
+  Read: 
+    - @docs/DESIGN.md
+    - @.ctx/HANDOFF.md
+</preflight>
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What is notfiles?
@@ -24,19 +30,19 @@ cargo fmt --check                  # check formatting
 
 This is a Cargo workspace with 7 crates under `crates/`:
 
-| Crate        | Purpose                                                                    |
-| ------------ | -------------------------------------------------------------------------- |
-| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
-|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
-| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
-| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
-|              | decryption, identity management                                           |
-| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
-| `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
-| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
-| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
-|              | heatmap, cycle detection                                                   |
+| Crate        | Purpose                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,       |
+|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`    |
+| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`, |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`             |
+| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/    |
+|              | decryption, identity management                                         |
+| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence         |
+| `notnet`     | Network utilities — Tailscale integration, YubikeySource                |
+| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together           |
+| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,   |
+|              | heatmap, cycle detection                                                |
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 project: notfiles
 id: notfile
-updated: 2026-07-08
+updated: 2026-07-14
 items:
 - id: uncommitted-work
   doob_uuid: null
@@ -20,13 +20,11 @@ items:
   completed: null
   extra: []
 log:
-- date: 2026-07-08
-  summary: hexagonal architecture refactor with adapters and integration tests, notsecrets cleanup, config payload moved to notfiles-config repo
-  commits:
-  - 6427d18
-  - 25624c9
 - date: '20260606.135918'
   summary: done=13 running=0 pending=0 blocked=0
+  commits: []
+- date: 2026-07-08
+  summary: hexagonal architecture refactor with adapters and integration tests, notsecrets cleanup, config payload moved to notfiles-config repo
   commits: []
 - date: 2026-04-17
   summary: Added notnet crate with YubikeySource and threaded Tailscale into notstrap; design spec complete

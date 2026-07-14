@@ -5,6 +5,7 @@ homepage = "https://github.com/89jobrien/notfiles"
 keywords = ["dotfiles", "symlink", "stow", "config"]
 categories = ["command-line-utilities", "filesystem"]
 readme = "README.md"
+rust-version = "1.87.0"
 
 [workspace]
 members = [
@@ -22,31 +23,33 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow      = "1"
+assert_fs   = "1"
 base64      = "0.22"
+chrono      = { version = "0.4", default-features = false, features = ["clock"] }
 clap        = { version = "4", features = ["derive"] }
 clap_complete = "4"
-chrono      = { version = "0.4", default-features = false, features = ["clock"] }
 dirs        = "6"
 globset     = "0.4"
+miette      = { version = "7", features = ["derive"] }
+notcore     = { path = "crates/notcore" }
+notfiles    = { path = "crates/notfiles" }
+notforge    = { path = "crates/notforge" }
+nothooks    = { path = "crates/nothooks" }
+notnet      = { path = "crates/notnet" }
+notsecrets  = { path = "crates/notsecrets" }
+notstrap = { path = "crates/notstrap", version = "^0.1.0" } #unified
+rpassword   = "7"
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 strsim      = "0.11"
+tempfile    = "3"
 thiserror   = "2"
 toml        = "0.8"
-miette      = { version = "7", features = ["derive"] }
 ureq        = { version = "2", features = ["json"] }
 which       = "7"
-rpassword   = "7"
-tempfile    = "3"
-assert_fs   = "1"
-notcore     = { path = "crates/notcore" }
-notfiles    = { path = "crates/notfiles" }
-notsecrets  = { path = "crates/notsecrets" }
-nothooks    = { path = "crates/nothooks" }
-notnet      = { path = "crates/notnet" }
-notforge    = { path = "crates/notforge" }
 
 [profile.release]
+codegen-units = 1
 opt-level = 3
 lto = "thin"
 strip = true

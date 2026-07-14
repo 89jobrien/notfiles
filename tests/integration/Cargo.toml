@@ -3,7 +3,7 @@ name = "integration"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
-publish = false
+publish = true
 
 [[test]]
 name = "bootstrap"
@@ -16,9 +16,9 @@ path = "tests/cross_crate.rs"
 [dev-dependencies]
 anyhow    = { workspace = true }
 assert_fs = { workspace = true }
-notcore   = { path = "../../crates/notcore" }
-notfiles  = { path = "../../crates/notfiles" }
-nothooks  = { path = "../../crates/nothooks" }
-notsecrets = { path = "../../crates/notsecrets" }
-notstrap  = { path = "../../crates/notstrap" }
+notcore = { workspace = true } #unified
+notfiles = { workspace = true } #unified
+nothooks = { workspace = true } #unified
+notsecrets = { workspace = true } #unified
+notstrap = { workspace = true } #unified
 tempfile  = { workspace = true }

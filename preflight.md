@@ -3,7 +3,7 @@
 A `rust-script` preflight that surfaces repo context in one shot: shell detection, git state,
 tracked-file tree, and HANDOFF document read/update.
 
-```rust
+````rust
 #!/usr/bin/env rust-script
 //! ```cargo
 //! [dependencies]
@@ -238,7 +238,7 @@ fn main() -> Result<()> {
     println!("\n{}", "╚══ done ══╝".bold().yellow());
     Ok(())
 }
-```
+````
 
 ## Usage
 
@@ -253,13 +253,13 @@ rust-script preflight.rs
 
 ## What it surfaces
 
-| Section | Details |
-|---------|---------|
-| Environment | Current shell (`$SHELL`), cwd, git root |
-| Git status | Branch name, short status (clean or dirty file list) |
-| Git history | Last 7 commits, one-line with decoration |
-| Tracked file tree | `git ls-files` output rendered as an indented tree, depth ≤ 3 |
-| HANDOFF docs | Full content (first 40 lines) of any `HANDOFF.*` file at repo root; stamps `last_preflight:` timestamp |
+| Section           | Details                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| Environment       | Current shell (`$SHELL`), cwd, git root                                                                |
+| Git status        | Branch name, short status (clean or dirty file list)                                                   |
+| Git history       | Last 7 commits, one-line with decoration                                                               |
+| Tracked file tree | `git ls-files` output rendered as an indented tree, depth ≤ 3                                          |
+| HANDOFF docs      | Full content (first 40 lines) of any `HANDOFF.*` file at repo root; stamps `last_preflight:` timestamp |
 
 ## Dependencies
 

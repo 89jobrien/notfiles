@@ -1084,7 +1084,6 @@ dependencies = [
 name = "notcore"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "dirs",
  "serde",
  "strsim",
@@ -1114,9 +1113,7 @@ dependencies = [
 name = "notforge"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "base64",
- "clap",
  "miette",
  "notcore",
  "serde",
@@ -1173,7 +1170,6 @@ dependencies = [
  "bech32",
  "chacha20poly1305",
  "curve25519-dalek",
- "dirs",
  "ed25519-dalek",
  "hkdf",
  "hmac",
@@ -1188,7 +1184,6 @@ dependencies = [
  "toml",
  "x25519-dalek",
  "yubikey",
- "zeroize",
 ]
 
 [[package]]

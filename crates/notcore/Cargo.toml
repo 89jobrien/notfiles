@@ -10,7 +10,6 @@ categories.workspace = true
 description = "Shared types and config for the notfiles dotfiles manager"
 
 [dependencies]
-anyhow    = { workspace = true }
 dirs      = { workspace = true }
 serde     = { workspace = true }
 strsim    = { workspace = true }
