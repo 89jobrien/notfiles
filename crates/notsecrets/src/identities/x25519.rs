@@ -1,3 +1,4 @@
+use crate::bech32_util::decode_bech32_32;
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
 use crate::wrap_key::derive_wrap_key;
@@ -20,18 +21,7 @@ impl X25519Identity {
     }
 
     pub fn from_bech32(s: &str) -> Result<Self, AgeError> {
-        let s_lower = s.to_lowercase();
-        let (hrp, data) = bech32::decode(&s_lower)
-            .map_err(|e| AgeError::ParseError(format!("bech32 decode identity: {e}")))?;
-        if hrp.as_str() != IDENTITY_HRP {
-            return Err(AgeError::ParseError(format!(
-                "expected hrp '{IDENTITY_HRP}', got '{}'",
-                hrp.as_str()
-            )));
-        }
-        let bytes: [u8; 32] = data
-            .try_into()
-            .map_err(|_| AgeError::ParseError("identity key must be 32 bytes".to_string()))?;
+        let bytes = decode_bech32_32(s, IDENTITY_HRP, true)?;
         Ok(Self {
             secret: StaticSecret::from(bytes),
         })

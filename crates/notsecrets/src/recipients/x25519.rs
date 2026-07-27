@@ -1,3 +1,4 @@
+use crate::bech32_util::decode_bech32_32;
 use crate::error::AgeError;
 use crate::identities::x25519::HKDF_INFO;
 use crate::identities::{FileKey, Stanza};
@@ -22,17 +23,7 @@ impl X25519Recipient {
     }
 
     pub fn from_bech32(s: &str) -> Result<Self, AgeError> {
-        let (hrp, data) = bech32::decode(s)
-            .map_err(|e| AgeError::ParseError(format!("bech32 decode recipient: {e}")))?;
-        if hrp.as_str() != RECIPIENT_HRP {
-            return Err(AgeError::ParseError(format!(
-                "expected hrp '{RECIPIENT_HRP}', got '{}'",
-                hrp.as_str()
-            )));
-        }
-        let bytes: [u8; 32] = data
-            .try_into()
-            .map_err(|_| AgeError::ParseError("recipient key must be 32 bytes".to_string()))?;
+        let bytes = decode_bech32_32(s, RECIPIENT_HRP, false)?;
         Ok(Self {
             public_key: PublicKey::from(bytes),
         })

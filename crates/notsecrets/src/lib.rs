@@ -1,3 +1,4 @@
+pub(crate) mod bech32_util;
 pub mod config;
 pub mod decrypt;
 pub mod encrypt;
