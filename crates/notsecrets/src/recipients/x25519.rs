@@ -1,7 +1,8 @@
 use crate::error::AgeError;
-use crate::identities::x25519::derive_wrap_key;
+use crate::identities::x25519::HKDF_INFO;
 use crate::identities::{FileKey, Stanza};
 use crate::recipients::Recipient;
+use crate::wrap_key::derive_wrap_key;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use bech32::{Bech32, Hrp};
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
@@ -54,6 +55,7 @@ impl Recipient for X25519Recipient {
             shared.as_bytes(),
             ephemeral_pub.as_bytes(),
             self.public_key.as_bytes(),
+            HKDF_INFO,
         )?;
 
         let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrap_key));

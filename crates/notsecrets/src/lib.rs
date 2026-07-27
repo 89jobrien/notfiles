@@ -8,6 +8,7 @@ pub mod ports;
 pub mod recipients;
 pub mod resolver;
 pub mod sources;
+pub(crate) mod wrap_key;
 
 pub use config::{Provider, ProviderConfig, SecretRef, SecretsConfig, load_config};
 pub use decrypt::Decryptor;

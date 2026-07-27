@@ -1,14 +1,14 @@
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
+use crate::wrap_key::derive_wrap_key;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
 use ed25519_dalek::SigningKey;
-use hkdf::Hkdf;
 use sha2::{Digest, Sha256, Sha512};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519StaticSecret};
 
 const TAG: &str = "ssh-ed25519";
-const HKDF_INFO: &[u8] = b"age-encryption.org/v1/ssh-ed25519";
+pub(crate) const HKDF_INFO: &[u8] = b"age-encryption.org/v1/ssh-ed25519";
 
 pub struct SshEd25519Identity {
     signing_key: SigningKey,
@@ -76,6 +76,7 @@ fn unwrap(stanza: &Stanza, identity: &SshEd25519Identity) -> Result<FileKey, Age
         shared.as_bytes(),
         ephemeral_pub.as_bytes(),
         x25519_pub.as_bytes(),
+        HKDF_INFO,
     )?;
 
     let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrap_key));
@@ -89,22 +90,6 @@ fn unwrap(stanza: &Stanza, identity: &SshEd25519Identity) -> Result<FileKey, Age
 pub(crate) fn ssh_key_fingerprint(pub_key_bytes: &[u8]) -> [u8; 4] {
     let hash = Sha256::digest(pub_key_bytes);
     hash[..4].try_into().expect("SHA-256 output is 32 bytes")
-}
-
-pub(crate) fn derive_wrap_key(
-    shared: &[u8],
-    ephemeral_pub: &[u8],
-    recipient_pub: &[u8],
-) -> Result<[u8; 32], AgeError> {
-    let mut ikm = Vec::with_capacity(shared.len() + ephemeral_pub.len() + recipient_pub.len());
-    ikm.extend_from_slice(shared);
-    ikm.extend_from_slice(ephemeral_pub);
-    ikm.extend_from_slice(recipient_pub);
-    let hk = Hkdf::<Sha256>::new(None, &ikm);
-    let mut wrap_key = [0u8; 32];
-    hk.expand(HKDF_INFO, &mut wrap_key)
-        .map_err(|e| AgeError::CryptoError(format!("HKDF expand: {e}")))?;
-    Ok(wrap_key)
 }
 
 #[cfg(test)]

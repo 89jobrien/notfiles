@@ -1,14 +1,13 @@
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
+use crate::wrap_key::derive_wrap_key;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use bech32::{Bech32, Hrp};
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
-use hkdf::Hkdf;
-use sha2::Sha256;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 const TAG: &str = "X25519";
-const HKDF_INFO: &[u8] = b"age-encryption.org/v1/X25519";
+pub(crate) const HKDF_INFO: &[u8] = b"age-encryption.org/v1/X25519";
 const IDENTITY_HRP: &str = "age-secret-key-";
 
 pub struct X25519Identity {
@@ -76,6 +75,7 @@ fn unwrap_stanza(stanza: &Stanza, secret: &StaticSecret) -> Result<FileKey, AgeE
         shared.as_bytes(),
         ephemeral_pub.as_bytes(),
         recipient_pub.as_bytes(),
+        HKDF_INFO,
     )?;
 
     let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrap_key));
@@ -85,23 +85,6 @@ fn unwrap_stanza(stanza: &Stanza, secret: &StaticSecret) -> Result<FileKey, AgeE
         .map_err(|_| AgeError::CryptoError("X25519 file key decryption failed".to_string()))?;
 
     FileKey::try_from(file_key_bytes.as_slice())
-}
-
-pub(crate) fn derive_wrap_key(
-    shared: &[u8],
-    ephemeral_pub: &[u8],
-    recipient_pub: &[u8],
-) -> Result<[u8; 32], AgeError> {
-    let mut ikm = Vec::with_capacity(shared.len() + ephemeral_pub.len() + recipient_pub.len());
-    ikm.extend_from_slice(shared);
-    ikm.extend_from_slice(ephemeral_pub);
-    ikm.extend_from_slice(recipient_pub);
-
-    let hk = Hkdf::<Sha256>::new(None, &ikm);
-    let mut wrap_key = [0u8; 32];
-    hk.expand(HKDF_INFO, &mut wrap_key)
-        .map_err(|e| AgeError::CryptoError(format!("HKDF expand: {e}")))?;
-    Ok(wrap_key)
 }
 
 #[cfg(test)]

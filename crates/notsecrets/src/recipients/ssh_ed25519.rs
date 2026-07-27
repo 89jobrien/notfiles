@@ -1,7 +1,8 @@
 use crate::error::AgeError;
-use crate::identities::ssh_ed25519::{derive_wrap_key, ssh_key_fingerprint};
+use crate::identities::ssh_ed25519::{HKDF_INFO, ssh_key_fingerprint};
 use crate::identities::{FileKey, Stanza};
 use crate::recipients::Recipient;
+use crate::wrap_key::derive_wrap_key;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce, aead::Aead};
 use ed25519_dalek::VerifyingKey;
@@ -40,6 +41,7 @@ impl Recipient for SshEd25519Recipient {
             shared.as_bytes(),
             ephemeral_pub.as_bytes(),
             recipient_x25519.as_bytes(),
+            HKDF_INFO,
         )?;
 
         let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrap_key));
