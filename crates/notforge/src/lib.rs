@@ -3,6 +3,7 @@
 pub mod config;
 pub mod error;
 pub mod gitea;
+pub mod lifecycle;
 pub mod ports;
 
 /// Current `notforge` crate version.

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "algorithm": "sha256-normalized-core-contract-v1",
+  "surfaces": [
+    {
+      "name": "crates/types",
+      "path": "crates/notcore/src/types.rs",
+      "hash": "13aedd3687b09a6d2c3fb23d1fd3ce544b0163369c6749b0644831213efbdd83"
+    },
+    {
+      "name": "crates/api",
+      "path": "crates/notforge/tests/api.rs",
+      "hash": "a19aded5a1df65536a2a01dd6db890ba39e2ac7878dc3f63fa8abd75eb88861d"
+    },
+    {
+      "name": "crates/types",
+      "path": "crates/notgraph/src/types.rs",
+      "hash": "13aedd3687b09a6d2c3fb23d1fd3ce544b0163369c6749b0644831213efbdd83"
+    }
+  ]
+}
