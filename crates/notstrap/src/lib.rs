@@ -22,6 +22,37 @@ pub struct NotstrapConfig {
     pub tailscale: Option<TailscaleOptions>,
     #[serde(default)]
     pub hooks: Vec<notcore::HookSpec>,
+    /// When present and enabled, notstrap ensures the configured forge
+    /// repo exists and is wired as a git remote before cloning dotfiles.
+    pub forge: Option<ForgeSection>,
+}
+
+/// Optional `[forge]` bootstrap step configuration.
+///
+/// Deliberately primitive-shaped (paths and flags) rather than embedding
+/// `notforge::ForgeConfig` directly, so `notstrap.toml` stays insulated
+/// from `notforge`'s config schema, which is not yet stable.
+#[derive(Deserialize)]
+pub struct ForgeSection {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Path to a notforge `ForgeConfig` TOML file.
+    pub config_path: PathBuf,
+    /// Path to the local repo notstrap should wire a remote onto.
+    pub local_repo: PathBuf,
+    #[serde(default)]
+    pub on_error: ForgeOnError,
+}
+
+/// How a failed forge step affects the rest of the bootstrap run.
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ForgeOnError {
+    /// Log the failure and continue bootstrapping.
+    #[default]
+    Warn,
+    /// Abort bootstrap when the forge step fails.
+    Fail,
 }
 
 #[derive(Deserialize)]
@@ -327,6 +358,70 @@ pub fn parse_env_line(line: &str) -> Result<Option<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn minimal_toml() -> &'static str {
+        r#"
+        [bootstrap]
+        dotfiles_dir = "~/.notfiles"
+        dotfiles_repo = "https://example.com/dotfiles.git"
+        "#
+    }
+
+    #[test]
+    fn forge_section_absent_by_default() {
+        let cfg: NotstrapConfig = toml::from_str(minimal_toml()).unwrap();
+        assert!(cfg.forge.is_none());
+    }
+
+    #[test]
+    fn forge_section_parses_when_present() {
+        let toml_str = r#"
+        [bootstrap]
+        dotfiles_dir = "~/.notfiles"
+        dotfiles_repo = "https://example.com/dotfiles.git"
+
+        [forge]
+        enabled = true
+        config_path = "forge.toml"
+        local_repo = "~/.notfiles"
+        on_error = "warn"
+        "#;
+        let cfg: NotstrapConfig = toml::from_str(toml_str).unwrap();
+        let forge = cfg.forge.unwrap();
+        assert!(forge.enabled);
+        assert_eq!(forge.on_error, ForgeOnError::Warn);
+    }
+
+    #[test]
+    fn forge_on_error_defaults_to_warn() {
+        let toml_str = r#"
+        [bootstrap]
+        dotfiles_dir = "~/.notfiles"
+        dotfiles_repo = "https://example.com/dotfiles.git"
+
+        [forge]
+        enabled = true
+        config_path = "forge.toml"
+        local_repo = "~/.notfiles"
+        "#;
+        let cfg: NotstrapConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.forge.unwrap().on_error, ForgeOnError::Warn);
+    }
+
+    #[test]
+    fn forge_enabled_defaults_to_false() {
+        let toml_str = r#"
+        [bootstrap]
+        dotfiles_dir = "~/.notfiles"
+        dotfiles_repo = "https://example.com/dotfiles.git"
+
+        [forge]
+        config_path = "forge.toml"
+        local_repo = "~/.notfiles"
+        "#;
+        let cfg: NotstrapConfig = toml::from_str(toml_str).unwrap();
+        assert!(!cfg.forge.unwrap().enabled);
+    }
 
     /// Issue #4: null byte in key must be rejected.
     #[test]
