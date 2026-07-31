@@ -143,6 +143,21 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     }
 
+    // 3b. Forge (optional, before clone — skipped unless [forge].enabled)
+    if let Some(ref forge_cfg) = cfg.forge
+        && forge_cfg.enabled
+    {
+        match run_forge_step(forge_cfg, opts.secrets_config.as_deref()) {
+            Ok(()) => report.add("forge", StepStatus::Ok),
+            Err(e) => {
+                report.add("forge", StepStatus::Failed(e.to_string()));
+                if forge_cfg.on_error == ForgeOnError::Fail {
+                    return Ok(report);
+                }
+            }
+        }
+    }
+
     // 4. Clone dotfiles if missing
     let clone_url = clone_url.ok_or_else(|| {
         anyhow::anyhow!(
@@ -280,6 +295,63 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     Ok(report)
+}
+
+/// Ensure the forge repo(s) described by `forge.config_path` exist and are
+/// wired as git remotes on `forge.local_repo`. Only `GiteaMode::Existing`
+/// is supported today. Constructs real adapters and delegates to
+/// [`execute_forge_step`], which is the unit-testable core.
+fn run_forge_step(forge: &ForgeSection, secrets_config: Option<&std::path::Path>) -> Result<()> {
+    let secrets_path = secrets_config.ok_or_else(|| {
+        anyhow::anyhow!(
+            "forge step requires secrets_config (--secrets-config) to resolve forge credentials"
+        )
+    })?;
+    let secrets_cfg = notsecrets::load_config(secrets_path)?;
+    let resolver = SecretResolver::from_config(secrets_cfg)?;
+    let secrets_port = forge::NotsecretsResolverAdapter::new(&resolver);
+
+    let forge_config = notforge::config::load_config(&forge.config_path)?;
+    let api = notforge::gitea::GiteaHttpApi::new(forge_config.gitea.base_url.clone());
+    let lifecycle = notforge::lifecycle::ExistingGiteaLifecycle::new(&api);
+    let git_manager = notforge::git::CommandGitRemoteManager;
+
+    execute_forge_step(
+        &forge_config,
+        &forge.local_repo,
+        &api,
+        &lifecycle,
+        &git_manager,
+        &secrets_port,
+    )
+}
+
+/// Core forge-provisioning logic, decoupled from concrete adapters so it
+/// can be exercised in tests with fakes for [`notforge::ports::ForgeApi`],
+/// [`notforge::ports::ForgeLifecycle`], and
+/// [`notforge::ports::GitRemoteManager`].
+fn execute_forge_step(
+    forge_config: &notforge::config::ForgeConfig,
+    local_repo_path: &std::path::Path,
+    api: &dyn notforge::ports::ForgeApi,
+    lifecycle: &dyn notforge::ports::ForgeLifecycle,
+    git_manager: &dyn notforge::ports::GitRemoteManager,
+    secrets_port: &dyn notforge::ports::SecretResolverPort,
+) -> Result<()> {
+    let auth = notforge::resolve_auth(&forge_config.gitea.auth, secrets_port)?;
+    notforge::ensure_forge(forge_config, lifecycle)?;
+
+    let local_repo = notforge::ports::LocalRepository {
+        path: local_repo_path.to_path_buf(),
+    };
+
+    for spec in &forge_config.repositories {
+        notforge::ensure_repository(api, &auth, spec)?;
+        let remote_url = notforge::ssh_remote_url(&forge_config.gitea, spec);
+        notforge::ensure_git_remote(git_manager, &local_repo, spec, &remote_url)?;
+    }
+
+    Ok(())
 }
 
 /// Strip outer quotes from an env value and unescape inner escape sequences.
@@ -421,6 +493,152 @@ mod tests {
         "#;
         let cfg: NotstrapConfig = toml::from_str(toml_str).unwrap();
         assert!(!cfg.forge.unwrap().enabled);
+    }
+
+    struct FakeApi {
+        existing: Option<notforge::ports::RemoteRepository>,
+    }
+    impl notforge::ports::ForgeApi for FakeApi {
+        fn version(&self) -> Result<notforge::ports::ForgeVersion, notforge::error::NotforgeError> {
+            Ok(notforge::ports::ForgeVersion {
+                version: "1.0.0".to_string(),
+            })
+        }
+        fn repo(
+            &self,
+            _owner: &str,
+            _name: &str,
+        ) -> Result<Option<notforge::ports::RemoteRepository>, notforge::error::NotforgeError>
+        {
+            Ok(self.existing.clone())
+        }
+        fn create_repo(
+            &self,
+            spec: &notforge::config::RepoSpec,
+            _auth: &notforge::ports::ForgeAuth,
+        ) -> Result<notforge::ports::RemoteRepository, notforge::error::NotforgeError> {
+            Ok(notforge::ports::RemoteRepository {
+                owner: spec.owner.clone(),
+                name: spec.name.clone(),
+                clone_url: format!("http://gitea.local/{}/{}.git", spec.owner, spec.name),
+                ssh_url: format!("ssh://git@gitea.local/{}/{}.git", spec.owner, spec.name),
+            })
+        }
+    }
+
+    struct FakeLifecycle;
+    impl notforge::ports::ForgeLifecycle for FakeLifecycle {
+        fn ensure_available(
+            &self,
+            _config: &notforge::config::ForgeConfig,
+        ) -> Result<notforge::ports::LifecycleStatus, notforge::error::NotforgeError> {
+            Ok(notforge::ports::LifecycleStatus::Verified)
+        }
+    }
+
+    struct FakeGitRemoteManager;
+    impl notforge::ports::GitRemoteManager for FakeGitRemoteManager {
+        fn remote_url(
+            &self,
+            _repo: &notforge::ports::LocalRepository,
+            _remote_name: &str,
+        ) -> Result<Option<String>, notforge::error::NotforgeError> {
+            Ok(None)
+        }
+        fn set_remote(
+            &self,
+            _repo: &notforge::ports::LocalRepository,
+            _remote_name: &str,
+            _url: &str,
+        ) -> Result<notforge::ports::RemoteStatus, notforge::error::NotforgeError> {
+            Ok(notforge::ports::RemoteStatus::Added)
+        }
+        fn push(
+            &self,
+            _repo: &notforge::ports::LocalRepository,
+            _remote_name: &str,
+            _branch: &str,
+            _set_upstream: bool,
+        ) -> Result<notforge::ports::PushStatus, notforge::error::NotforgeError> {
+            Ok(notforge::ports::PushStatus::Pushed)
+        }
+    }
+
+    struct FakeSecrets;
+    impl notforge::ports::SecretResolverPort for FakeSecrets {
+        fn resolve(
+            &self,
+            _secret: &notforge::config::ForgeSecretRef,
+        ) -> Result<String, notforge::error::NotforgeError> {
+            Ok("fake-token".to_string())
+        }
+    }
+
+    fn fake_forge_config() -> notforge::config::ForgeConfig {
+        notforge::config::ForgeConfig {
+            gitea: notforge::config::GiteaConfig {
+                base_url: "http://gitea.local:3000".to_string(),
+                owner: "joe".to_string(),
+                ssh_host: "gitea.local".to_string(),
+                ssh_port: 2222,
+                mode: notforge::config::GiteaMode::Existing,
+                auth: notforge::config::ForgeAuthConfig {
+                    token: Some(notforge::config::ForgeSecretRef::Env {
+                        key: "GITEA_TOKEN".to_string(),
+                    }),
+                    username: None,
+                    password: None,
+                },
+            },
+            repositories: vec![notforge::config::RepoSpec {
+                owner: "joe".to_string(),
+                name: "notfiles-config".to_string(),
+                private: true,
+                description: None,
+                remote_name: "gitea".to_string(),
+            }],
+        }
+    }
+
+    #[test]
+    fn execute_forge_step_succeeds_with_fakes() {
+        let forge_config = fake_forge_config();
+        let api = FakeApi { existing: None };
+
+        let result = execute_forge_step(
+            &forge_config,
+            std::path::Path::new("/tmp/fake-repo"),
+            &api,
+            &FakeLifecycle,
+            &FakeGitRemoteManager,
+            &FakeSecrets,
+        );
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[test]
+    fn execute_forge_step_is_idempotent_when_repo_exists() {
+        let forge_config = fake_forge_config();
+        let api = FakeApi {
+            existing: Some(notforge::ports::RemoteRepository {
+                owner: "joe".to_string(),
+                name: "notfiles-config".to_string(),
+                clone_url: "http://gitea.local/joe/notfiles-config.git".to_string(),
+                ssh_url: "ssh://git@gitea.local/joe/notfiles-config.git".to_string(),
+            }),
+        };
+
+        let result = execute_forge_step(
+            &forge_config,
+            std::path::Path::new("/tmp/fake-repo"),
+            &api,
+            &FakeLifecycle,
+            &FakeGitRemoteManager,
+            &FakeSecrets,
+        );
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
     }
 
     /// Issue #4: null byte in key must be rejected.

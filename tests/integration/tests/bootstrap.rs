@@ -292,3 +292,93 @@ fn test_bootstrap_stops_after_link_failure() {
         report.steps
     );
 }
+
+// ── Forge step ────────────────────────────────────────────────────────────────
+
+/// No `[forge]` section at all: the report should contain no "forge" step,
+/// and bootstrap proceeds exactly as before this feature existed.
+#[test]
+fn forge_step_skipped_when_absent() {
+    let env = make_test_env();
+    let report = run(make_opts(&env, false)).unwrap();
+
+    assert!(
+        report.steps.iter().all(|s| s.name != "forge"),
+        "no forge step should be recorded when [forge] is absent: {:?}",
+        report.steps
+    );
+}
+
+fn write_config_with_forge_section(env: &TestEnv, on_error: &str) {
+    let d = env.dotfiles.path();
+    fs::write(
+        &env.config,
+        format!(
+            "[bootstrap]\n\
+             dotfiles_repo = \"https://example.com/fake.git\"\n\
+             dotfiles_dir = \"{dotfiles}\"\n\n\
+             [forge]\n\
+             enabled = true\n\
+             config_path = \"/nonexistent/forge.toml\"\n\
+             local_repo = \"{dotfiles}\"\n\
+             on_error = \"{on_error}\"\n",
+            dotfiles = d.display(),
+        ),
+    )
+    .unwrap();
+}
+
+/// `[forge]` enabled but pointing at a nonexistent config file, with the
+/// default `on_error = "warn"`: the forge step fails but bootstrap
+/// continues through clone/link/hooks.
+#[test]
+fn forge_step_warns_and_continues_on_failure_by_default() {
+    let env = make_test_env();
+    write_config_with_forge_section(&env, "warn");
+
+    let report = run(make_opts(&env, false)).unwrap();
+
+    let forge_step = report
+        .steps
+        .iter()
+        .find(|s| s.name == "forge")
+        .expect("forge step should be present");
+    assert!(
+        matches!(forge_step.status, StepStatus::Failed(_)),
+        "forge step should fail on a nonexistent config path, got: {:?}",
+        forge_step.status
+    );
+    assert!(
+        report
+            .steps
+            .iter()
+            .any(|s| s.name.starts_with("link dotfiles")),
+        "bootstrap should continue past a warn-level forge failure: {:?}",
+        report.steps
+    );
+}
+
+/// Same nonexistent forge config, but `on_error = "fail"`: bootstrap must
+/// stop immediately after the forge step, before cloning dotfiles.
+#[test]
+fn forge_step_fails_bootstrap_when_on_error_is_fail() {
+    let env = make_test_env();
+    write_config_with_forge_section(&env, "fail");
+
+    let report = run(make_opts(&env, false)).unwrap();
+
+    let forge_step = report
+        .steps
+        .iter()
+        .find(|s| s.name == "forge")
+        .expect("forge step should be present");
+    assert!(matches!(forge_step.status, StepStatus::Failed(_)));
+    assert!(
+        report
+            .steps
+            .iter()
+            .all(|s| !s.name.starts_with("clone dotfiles")),
+        "bootstrap should stop before cloning after a fail-level forge failure: {:?}",
+        report.steps
+    );
+}
