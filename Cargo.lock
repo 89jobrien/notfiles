@@ -1194,6 +1194,7 @@ dependencies = [
  "clap",
  "notcore",
  "notfiles",
+ "notforge",
  "nothooks",
  "notnet",
  "notsecrets",

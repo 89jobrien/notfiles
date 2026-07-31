@@ -18,6 +18,7 @@ anyhow      = { workspace = true }
 clap        = { workspace = true }
 notcore     = { workspace = true }
 notfiles    = { workspace = true }
+notforge    = { workspace = true }
 nothooks    = { workspace = true }
 notnet      = { workspace = true }
 notsecrets  = { workspace = true }

@@ -9,6 +9,7 @@ use notsecrets::{
 use serde::Deserialize;
 use std::path::PathBuf;
 
+pub mod forge;
 pub mod prereqs;
 pub mod repo;
 
