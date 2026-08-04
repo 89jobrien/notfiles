@@ -18,6 +18,12 @@ pub enum DoctorIssue {
     Orphan { package: String, target: String },
     /// The dotfiles git repo has uncommitted changes.
     DirtyGit,
+    /// A directory exists in the dotfiles dir but isn't in `notfiles.toml`'s
+    /// `include` list, so it's silently ignored.
+    UnlistedPackage { package: String },
+    /// A package named in `notfiles.toml`'s `include` list has no matching
+    /// directory on disk.
+    MissingPackage { package: String },
 }
 
 /// Abstracts the git-status check so it can be faked in tests, matching the
@@ -81,7 +87,41 @@ pub fn run_with_git(
     if git.is_dirty(dotfiles_dir) == Some(true) {
         issues.push(DoctorIssue::DirtyGit);
     }
+    collect_package_mismatch_issues(dotfiles_dir, config, fs, &mut issues);
     DoctorReport { issues }
+}
+
+/// Flags directories on disk that aren't in an explicit `include` list, and
+/// `include` entries with no matching directory on disk. No-op when the
+/// config has no `include` list (all discovered packages are implicitly in
+/// scope).
+fn collect_package_mismatch_issues(
+    dotfiles_dir: &Path,
+    config: &Config,
+    fs: &dyn FileStore,
+    issues: &mut Vec<DoctorIssue>,
+) {
+    let Some(included) = config.included_packages() else {
+        return;
+    };
+
+    let on_disk =
+        crate::package::discover_packages_with_store(dotfiles_dir, fs).unwrap_or_default();
+
+    for package in &on_disk {
+        if !included.contains(&package.as_str()) {
+            issues.push(DoctorIssue::UnlistedPackage {
+                package: package.clone(),
+            });
+        }
+    }
+    for package in &included {
+        if !on_disk.iter().any(|p| p == package) {
+            issues.push(DoctorIssue::MissingPackage {
+                package: package.to_string(),
+            });
+        }
+    }
 }
 
 fn collect_link_state_issues(
@@ -211,6 +251,57 @@ mod tests {
         // Unknown git state (no .git, git missing, etc.) is not an issue.
         let unknown = run_with_git(dotfiles_dir, &config, &state, &fs, &FakeGitStatus(None));
         assert!(!unknown.issues.contains(&DoctorIssue::DirtyGit));
+    }
+
+    #[test]
+    fn flags_unlisted_and_missing_packages() {
+        let fs = InMemoryFileStore::new();
+        let dotfiles_dir = Path::new("/dotfiles");
+        // "zsh" is included and present, "extra" is present but not included,
+        // "ssh" is included but has no directory on disk.
+        fs.add_dir(dotfiles_dir.join("zsh"));
+        fs.add_dir(dotfiles_dir.join("extra"));
+
+        let toml_str = r#"
+[defaults]
+target = "~"
+include = ["zsh", "ssh"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let state = State::default();
+
+        let report = run_with_git(dotfiles_dir, &config, &state, &fs, &FakeGitStatus(None));
+
+        assert!(report.issues.contains(&DoctorIssue::UnlistedPackage {
+            package: "extra".to_string(),
+        }));
+        assert!(report.issues.contains(&DoctorIssue::MissingPackage {
+            package: "ssh".to_string(),
+        }));
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| matches!(i, DoctorIssue::UnlistedPackage { package } if package == "zsh"))
+        );
+    }
+
+    #[test]
+    fn no_mismatch_issues_without_include_list() {
+        let fs = InMemoryFileStore::new();
+        let dotfiles_dir = Path::new("/dotfiles");
+        fs.add_dir(dotfiles_dir.join("anything"));
+
+        let config = Config::default();
+        let state = State::default();
+
+        let report = run_with_git(dotfiles_dir, &config, &state, &fs, &FakeGitStatus(None));
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| matches!(i, DoctorIssue::UnlistedPackage { .. }))
+        );
     }
 
     #[test]
