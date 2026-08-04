@@ -23,6 +23,7 @@
 pub mod adapters;
 pub mod cli;
 pub mod detect;
+pub mod doctor;
 pub mod ignore;
 pub mod linker;
 pub mod package;
