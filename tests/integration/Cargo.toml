@@ -13,6 +13,10 @@ path = "tests/bootstrap.rs"
 name = "cross_crate"
 path = "tests/cross_crate.rs"
 
+[[test]]
+name = "doctor"
+path = "tests/doctor.rs"
+
 [dev-dependencies]
 anyhow    = { workspace = true }
 assert_fs = { workspace = true }
