@@ -16,6 +16,34 @@ pub enum DoctorIssue {
     Missing { package: String, target: String },
     /// A tracked state entry whose source file no longer exists.
     Orphan { package: String, target: String },
+    /// The dotfiles git repo has uncommitted changes.
+    DirtyGit,
+}
+
+/// Abstracts the git-status check so it can be faked in tests, matching the
+/// `FileStore` dependency-injection pattern used elsewhere in this crate.
+pub trait GitStatus {
+    /// Returns `Some(true)` if the repo has uncommitted changes, `Some(false)`
+    /// if clean, or `None` if the status could not be determined (no `.git`,
+    /// `git` not on PATH, etc.) — which is not treated as an issue.
+    fn is_dirty(&self, repo_dir: &Path) -> Option<bool>;
+}
+
+pub struct SystemGitStatus;
+
+impl GitStatus for SystemGitStatus {
+    fn is_dirty(&self, repo_dir: &Path) -> Option<bool> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_dir)
+            .args(["status", "--porcelain"])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(!output.stdout.is_empty())
+    }
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -29,15 +57,30 @@ impl DoctorReport {
     }
 }
 
-/// Run all doctor checks across every package and aggregate the results.
+/// Run all doctor checks across every package and aggregate the results,
+/// using the real system `git` for the dirty-repo check.
 pub fn run(
     dotfiles_dir: &Path,
     config: &Config,
     state: &State,
     fs: &dyn FileStore,
 ) -> DoctorReport {
+    run_with_git(dotfiles_dir, config, state, fs, &SystemGitStatus)
+}
+
+/// Run all doctor checks with an injectable `GitStatus` (for testing).
+pub fn run_with_git(
+    dotfiles_dir: &Path,
+    config: &Config,
+    state: &State,
+    fs: &dyn FileStore,
+    git: &dyn GitStatus,
+) -> DoctorReport {
     let mut issues = Vec::new();
     collect_link_state_issues(dotfiles_dir, config, state, fs, &mut issues);
+    if git.is_dirty(dotfiles_dir) == Some(true) {
+        issues.push(DoctorIssue::DirtyGit);
+    }
     DoctorReport { issues }
 }
 
@@ -128,6 +171,46 @@ mod tests {
                 .any(|i| matches!(i, DoctorIssue::Orphan { package, .. } if package == "git"))
         );
         assert!(!report.is_clean());
+    }
+
+    struct FakeGitStatus(Option<bool>);
+
+    impl GitStatus for FakeGitStatus {
+        fn is_dirty(&self, _repo_dir: &Path) -> Option<bool> {
+            self.0
+        }
+    }
+
+    #[test]
+    fn flags_dirty_git_state() {
+        let fs = InMemoryFileStore::new();
+        let dotfiles_dir = Path::new("/dotfiles");
+        fs.add_dir(dotfiles_dir);
+
+        let config = Config::default();
+        let state = State::default();
+
+        let dirty = run_with_git(
+            dotfiles_dir,
+            &config,
+            &state,
+            &fs,
+            &FakeGitStatus(Some(true)),
+        );
+        assert!(dirty.issues.contains(&DoctorIssue::DirtyGit));
+
+        let clean = run_with_git(
+            dotfiles_dir,
+            &config,
+            &state,
+            &fs,
+            &FakeGitStatus(Some(false)),
+        );
+        assert!(!clean.issues.contains(&DoctorIssue::DirtyGit));
+
+        // Unknown git state (no .git, git missing, etc.) is not an issue.
+        let unknown = run_with_git(dotfiles_dir, &config, &state, &fs, &FakeGitStatus(None));
+        assert!(!unknown.issues.contains(&DoctorIssue::DirtyGit));
     }
 
     #[test]
