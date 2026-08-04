@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use serde_json::json;
+
 use crate::linker::State;
 use crate::status::{self, FileStatus};
 use notcore::Config;
@@ -122,6 +124,70 @@ fn collect_package_mismatch_issues(
             });
         }
     }
+}
+
+fn issue_kind(issue: &DoctorIssue) -> &'static str {
+    match issue {
+        DoctorIssue::Conflict { .. } => "conflict",
+        DoctorIssue::Missing { .. } => "missing",
+        DoctorIssue::Orphan { .. } => "orphan",
+        DoctorIssue::DirtyGit => "dirty_git",
+        DoctorIssue::UnlistedPackage { .. } => "unlisted_package",
+        DoctorIssue::MissingPackage { .. } => "missing_package",
+    }
+}
+
+fn issue_line(issue: &DoctorIssue) -> String {
+    match issue {
+        DoctorIssue::Conflict { package, target } => {
+            format!("conflict   {package}: {target}")
+        }
+        DoctorIssue::Missing { package, target } => {
+            format!("missing    {package}: {target}")
+        }
+        DoctorIssue::Orphan { package, target } => {
+            format!("orphan     {package}: {target}")
+        }
+        DoctorIssue::DirtyGit => "dirty git  dotfiles repo has uncommitted changes".to_string(),
+        DoctorIssue::UnlistedPackage { package } => {
+            format!("unlisted   {package}: on disk but not in notfiles.toml include list")
+        }
+        DoctorIssue::MissingPackage { package } => {
+            format!("missing    {package}: in notfiles.toml include list but no directory on disk")
+        }
+    }
+}
+
+/// Human-readable summary: a "clean" line, or one line per issue.
+pub fn format_report(report: &DoctorReport) -> String {
+    if report.is_clean() {
+        return "\x1b[32mnotfiles doctor: clean, no issues found.\x1b[0m".to_string();
+    }
+    let mut out = format!(
+        "\x1b[33m{} issue{} found:\x1b[0m\n",
+        report.issues.len(),
+        if report.issues.len() == 1 { "" } else { "s" }
+    );
+    for issue in &report.issues {
+        out.push_str("  ");
+        out.push_str(&issue_line(issue));
+        out.push('\n');
+    }
+    out.trim_end().to_string()
+}
+
+pub fn print_report(report: &DoctorReport) {
+    println!("{}", format_report(report));
+}
+
+pub fn print_report_json(report: &DoctorReport) {
+    let items: Vec<_> = report
+        .issues
+        .iter()
+        .map(|issue| json!({"kind": issue_kind(issue), "detail": issue_line(issue)}))
+        .collect();
+    let obj = json!({"clean": report.is_clean(), "issues": items});
+    println!("{}", serde_json::to_string(&obj).unwrap_or_default());
 }
 
 fn collect_link_state_issues(
@@ -302,6 +368,26 @@ include = ["zsh", "ssh"]
                 .iter()
                 .any(|i| matches!(i, DoctorIssue::UnlistedPackage { .. }))
         );
+    }
+
+    #[test]
+    fn doctor_report_prints_human_summary() {
+        let clean = DoctorReport::default();
+        assert!(format_report(&clean).contains("clean"));
+
+        let dirty = DoctorReport {
+            issues: vec![
+                DoctorIssue::Missing {
+                    package: "zsh".to_string(),
+                    target: "/home/.zshrc".to_string(),
+                },
+                DoctorIssue::DirtyGit,
+            ],
+        };
+        let summary = format_report(&dirty);
+        assert!(summary.contains("2 issues found"));
+        assert!(summary.contains("zsh"));
+        assert!(summary.contains("dirty git"));
     }
 
     #[test]

@@ -42,10 +42,6 @@ pub struct Cli {
 // TODO(which): Add `notfiles which <path>` — reverse lookup from a target path (e.g.
 //   ~/.gitconfig) to its source package and file. Walk state entries and check read_link.
 
-// TODO(doctor): Add `notfiles doctor` — holistic drift detection replacing drift-check.sh.
-//   Checks: broken symlinks, unmanaged dotfiles in $HOME, dirty git state, conflicts,
-//   packages in dir not listed in notfiles.toml. Should print a summary like `just doctor`.
-
 // TODO(discover): Add `[defaults] discover = true` mode to notfiles.toml so all top-level
 //   dirs are treated as packages automatically, without maintaining an explicit `include`
 //   list. Opt-in via config, not the default (explicit is safer).
@@ -102,6 +98,10 @@ pub enum Command {
 
     /// Auto-detect existing dotfile managers (stow, chezmoi, etc.)
     Detect,
+
+    /// Holistic drift detection: broken links, conflicts, orphans, dirty git
+    /// state, and package/config mismatches
+    Doctor,
 
     /// Move existing files into a package and replace with symlinks
     Adopt {

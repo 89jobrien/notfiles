@@ -9,7 +9,7 @@ use notfiles::cli::{Cli, Command};
 use notfiles::detect;
 use notfiles::linker::{LinkOptions, State};
 use notfiles::package::{resolve_packages_filtered_with_store, resolve_packages_with_store};
-use notfiles::{adapters, linker, status};
+use notfiles::{adapters, doctor, linker, status};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -229,6 +229,23 @@ fn main() -> Result<()> {
                     result.linked,
                     if result.linked == 1 { "" } else { "s" },
                 );
+            }
+        }
+        Command::Doctor => {
+            let fs = &adapters::FileStoreImpl;
+            let config = Config::load_from(&config_path)?;
+            config.validate()?;
+            let state = State::load(&dotfiles_dir, fs)?;
+            let report = doctor::run(&dotfiles_dir, &config, &state, fs);
+
+            if cli.json {
+                doctor::print_report_json(&report);
+            } else {
+                doctor::print_report(&report);
+            }
+
+            if !report.is_clean() {
+                std::process::exit(1);
             }
         }
         Command::Status { packages } => {
