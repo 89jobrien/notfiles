@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use notstrap::{BootstrapOptions, prereqs, run};
 
 #[derive(Parser)]
@@ -32,6 +32,15 @@ enum Cmd {
 }
 
 fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("completions") {
+        clap_complete::generate(
+            clap_complete_nushell::Nushell,
+            &mut Cli::command(),
+            "notstrap",
+            &mut std::io::stdout(),
+        );
+        return Ok(());
+    }
     let cli = Cli::parse();
     let Cmd::Run {
         config,

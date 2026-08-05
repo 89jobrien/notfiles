@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use notcore::{HookPhase, HookSpec};
 use nothooks::{HookRunner, run_phase};
 use std::path::PathBuf;
@@ -34,7 +34,18 @@ enum Cmd {
 }
 
 fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("completions") {
+        clap_complete::generate(
+            clap_complete_nushell::Nushell,
+            &mut Cli::command(),
+            "nothooks",
+            &mut std::io::stdout(),
+        );
+        return Ok(());
+    }
+
     let cli = Cli::parse();
+
     let state_dir = cli
         .state_dir
         .unwrap_or_else(|| std::env::current_dir().unwrap());

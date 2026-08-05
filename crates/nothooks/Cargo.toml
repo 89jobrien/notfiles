@@ -13,11 +13,13 @@ name = "nothooks"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow   = { workspace = true }
-clap     = { workspace = true }
-notcore  = { workspace = true }
-serde    = { workspace = true }
-toml     = { workspace = true }
+anyhow              = { workspace = true }
+clap                = { workspace = true }
+clap_complete       = "4"
+clap_complete_nushell = "4"
+notcore             = { workspace = true }
+serde               = { workspace = true }
+toml                = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

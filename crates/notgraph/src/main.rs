@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use notgraph_lib::{analysis, crate_graph, emit, module_graph, symbols};
 use std::path::PathBuf;
 
@@ -20,7 +20,18 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
+    if std::env::args().any(|a| a == "--completions") {
+        clap_complete::generate(
+            clap_complete_nushell::Nushell,
+            &mut Cli::command(),
+            "notgraph",
+            &mut std::io::stdout(),
+        );
+        return Ok(());
+    }
+
     let cli = Cli::parse();
+
     let manifest = find_workspace_manifest()?;
     let workspace_root = manifest.parent().unwrap().to_path_buf();
 

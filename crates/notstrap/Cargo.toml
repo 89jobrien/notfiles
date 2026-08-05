@@ -16,6 +16,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow      = { workspace = true }
 clap        = { workspace = true }
+clap_complete = { workspace = true }
+clap_complete_nushell = "4"
 notcore     = { workspace = true }
 notfiles    = { workspace = true }
 notforge    = { workspace = true }
