@@ -194,6 +194,52 @@ SecretResolver
 Age encryption/decryption is handled natively (no external `age` or `sops`
 binaries). Supports x25519, SSH ed25519/RSA, and scrypt identities.
 
+### Bitwarden (`bw` CLI)
+
+Requires the [Bitwarden CLI](https://bitwarden.com/help/cli/) on `PATH` and a
+logged-in account (`bw login`). Enable the provider and bind secrets to vault
+items in `notsecrets.toml`:
+
+```toml
+providers = ["env", "bitwarden"]
+
+# Optional. Pins the expected vault server -- notsecrets errors out instead of
+# silently reading from the wrong account if `bw` is logged in elsewhere.
+[provider.bitwarden]
+type       = "bitwarden"
+server_url = "https://vault.bitwarden.com"
+
+[secrets]
+# `field` defaults to "password"
+DB_PASSWORD      = { source = "bitwarden", item = "prod-database" }
+DB_USER          = { source = "bitwarden", item = "prod-database", field = "username" }
+# Any name that isn't a built-in `bw get` object is read as a custom field
+ANTHROPIC_API_KEY = { source = "bitwarden", item = "api-keys", field = "anthropic" }
+```
+
+Built-in field names map to `bw get <field> <item>`: `password`, `username`,
+`uri`, `totp`, `notes`, `exposed`. Anything else is looked up case-insensitively
+among the item's custom fields.
+
+**Unlocking.** The vault session is resolved once per process, in order:
+
+1. `$BW_SESSION` if set — the non-interactive path, best for CI and scripts:
+   ```sh
+   export BW_SESSION=$(bw unlock --raw)
+   ```
+2. Otherwise notsecrets prompts for the master password and runs
+   `bw unlock --raw --passwordstdin`, so the password never appears in the
+   process list. The resulting token is cached in memory for the run.
+
+`bw login` is never performed for you — an unauthenticated vault is a hard
+error telling you to log in.
+
+Bitwarden also serves as an **identity source** for `notstrap`: the age key is
+read from the secure note of the item named by `[bootstrap].bw_age_item`.
+
+Note that Bitwarden bindings must name an item explicitly, so the provider is
+skipped when `SecretResolver` walks its priority chain for an unbound key.
+
 ---
 
 ## Hook Phases

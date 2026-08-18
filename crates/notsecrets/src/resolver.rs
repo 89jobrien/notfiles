@@ -83,11 +83,15 @@ impl SecretResolver {
                 Provider::Direnv => sources.push(Box::new(DirenvSource)),
                 Provider::Mise => sources.push(Box::new(MiseSource)),
                 Provider::Bitwarden => {
-                    let item_name = match provider_config {
-                        Some(ProviderConfig::Bitwarden { .. }) => "default".to_string(),
-                        _ => "default".to_string(),
+                    // The vault item comes from each secret's binding, so the source
+                    // only needs the optional server pin here.
+                    let server_url = match provider_config {
+                        Some(ProviderConfig::Bitwarden { server_url }) => server_url.clone(),
+                        _ => None,
                     };
-                    sources.push(Box::new(BitwardenSource::new(item_name)));
+                    sources.push(Box::new(
+                        BitwardenSource::new(String::new()).with_server_url(server_url),
+                    ));
                 }
                 Provider::Vault => sources.push(Box::new(VaultSource)),
                 Provider::Dotenvy => sources.push(Box::new(DotenvySource)),
@@ -202,6 +206,40 @@ mod tests {
             Some("present")
         );
         unsafe { std::env::remove_var("NOTSECRETS_ALL_TEST") };
+    }
+
+    #[test]
+    fn resolver_builds_bitwarden_source_with_server_url() {
+        let config = SecretsConfig {
+            providers: vec![Provider::Bitwarden],
+            provider: HashMap::from([(
+                Provider::Bitwarden,
+                crate::config::ProviderConfig::Bitwarden {
+                    server_url: Some("https://vault.example.com".to_string()),
+                },
+            )]),
+            secrets: HashMap::from([(
+                "API_KEY".to_string(),
+                SecretRef::Bitwarden {
+                    item: "my-item".to_string(),
+                    field: Some("api_key".to_string()),
+                },
+            )]),
+        };
+        let resolver = SecretResolver::from_config(config).unwrap();
+        assert_eq!(resolver.sources.len(), 1);
+        assert_eq!(resolver.sources[0].provider(), Provider::Bitwarden);
+    }
+
+    #[test]
+    fn resolver_bitwarden_without_provider_table_is_ok() {
+        // server_url is optional -- a bare `providers = ["bitwarden"]` must work.
+        let config = SecretsConfig {
+            providers: vec![Provider::Bitwarden],
+            provider: HashMap::new(),
+            secrets: HashMap::new(),
+        };
+        assert!(SecretResolver::from_config(config).is_ok());
     }
 
     #[test]

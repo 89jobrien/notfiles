@@ -77,6 +77,8 @@ fn conformance_dotenvy_stub() {
 }
 
 #[test]
-fn conformance_bitwarden_stub() {
+fn conformance_bitwarden_source() {
+    // Bitwarden resolves only via an explicit binding, so the bare-key contract
+    // holds without ever invoking the `bw` CLI.
     assert_secret_source_contract(&BitwardenSource::new("test-item"));
 }
