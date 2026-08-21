@@ -884,4 +884,3 @@ fn test_which_exits_nonzero_for_unmanaged_path() {
     assert!(!ok, "expected a nonzero exit for an unmanaged path");
     assert!(stdout.contains("not managed by notfiles"), "{stdout}");
 }
-
