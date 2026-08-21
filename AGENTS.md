@@ -29,7 +29,8 @@ This is a Cargo workspace with 7 crates under `crates/`:
 | `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
 |              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
 | `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `which`, `detect`,          |
+|              | `completions`                                                             |
 | `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
 |              | decryption, identity management                                           |
 | `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
@@ -42,8 +43,9 @@ This is a Cargo workspace with 7 crates under `crates/`:
 
 ### notfiles (primary user-facing tool)
 
-Eight subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
-`adopt`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
+Subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
+`adopt`, `which`, `detect`, `completions`. Global flags: `--dry-run`,
+`--verbose`, `--json`.
 CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
 
 **Core flow for `link`:** `main` → `config.validate()` →
@@ -69,6 +71,9 @@ Key modules in `crates/notfiles/src/`:
 - **status** — Compares expected vs actual state:
   linked/copied/missing/conflict/orphan. Also provides `diff_package`
   for copy-method divergence detection.
+- **which** — Reverse lookup from a target path to its source package and
+  file. Tries recorded state entries, then `read_link`, then the packages
+  configured in `notfiles.toml`.
 - **adapters/** — `FileStoreImpl`, `InMemoryFileStore`,
   `TerminalReporter`, `JsonReporter`.
 - **ports** — `FileStore` trait definition.

@@ -28,6 +28,7 @@ pub mod linker;
 pub mod package;
 pub mod ports;
 pub mod status;
+pub mod which;
 
 use std::path::Path;
 

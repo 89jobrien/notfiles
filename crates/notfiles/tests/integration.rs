@@ -624,3 +624,76 @@ fn test_fixture_link_and_unlink_round_trip() {
     assert!(!target.join(".gitconfig").exists());
     assert!(!target.join(".zshrc").exists());
 }
+
+#[test]
+fn test_which_resolves_linked_path_to_package() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let (_, _, ok) = run(&dotfiles, &["link"]);
+    assert!(ok);
+
+    let gitconfig = target.join(".gitconfig");
+    let (stdout, _, ok) = run(&dotfiles, &["which", gitconfig.to_str().unwrap()]);
+    assert!(ok);
+    assert!(stdout.contains("package: git"), "{stdout}");
+    assert!(
+        stdout.contains(dotfiles.join("git/.gitconfig").to_str().unwrap()),
+        "{stdout}",
+    );
+    assert!(stdout.contains("status:"), "{stdout}");
+}
+
+#[test]
+fn test_which_json_reports_source_and_method() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    let (_, _, ok) = run(&dotfiles, &["link"]);
+    assert!(ok);
+
+    let zshrc = target.join(".config/zsh/zshrc");
+    let (stdout, _, ok) = run(&dotfiles, &["--json", "which", zshrc.to_str().unwrap()]);
+    assert!(ok);
+
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    let matches = parsed["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["package"], "zsh");
+    assert_eq!(matches[0]["method"], "symlink");
+    assert_eq!(matches[0]["via"], "state");
+    assert_eq!(matches[0]["current"], true);
+}
+
+#[test]
+fn test_which_reports_unlinked_file_from_config() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    // No `link` run — the file is configured but not yet placed.
+    let gitconfig = target.join(".gitconfig");
+    let (stdout, _, ok) = run(&dotfiles, &["which", gitconfig.to_str().unwrap()]);
+    assert!(ok);
+    assert!(stdout.contains("package: git"), "{stdout}");
+    assert!(stdout.contains("via:     config"), "{stdout}");
+    assert!(stdout.contains("stale"), "{stdout}");
+}
+
+#[test]
+fn test_which_exits_nonzero_for_unmanaged_path() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let stray = tmp.path().join("home/.bashrc");
+    fs::write(&stray, "# not ours").unwrap();
+
+    let (stdout, _, ok) = run(&dotfiles, &["which", stray.to_str().unwrap()]);
+    assert!(!ok, "expected a nonzero exit for an unmanaged path");
+    assert!(stdout.contains("not managed by notfiles"), "{stdout}");
+}

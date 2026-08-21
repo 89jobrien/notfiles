@@ -9,7 +9,7 @@ use notfiles::cli::{Cli, Command};
 use notfiles::detect;
 use notfiles::linker::{LinkOptions, State};
 use notfiles::package::{resolve_packages_filtered_with_store, resolve_packages_with_store};
-use notfiles::{adapters, linker, status};
+use notfiles::{adapters, linker, status, which};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -213,6 +213,24 @@ fn main() -> Result<()> {
                     result.linked,
                     if result.linked == 1 { "" } else { "s" },
                 );
+            }
+        }
+        Command::Which { path } => {
+            let fs = &adapters::FileStoreImpl;
+            let config = Config::load(&dotfiles_dir)?;
+            let state = State::load(&dotfiles_dir, fs)?;
+            let cwd = std::env::current_dir()
+                .with_context(|| "cannot determine current directory".to_string())?;
+            let target = which::normalize_target(&path, &cwd)?;
+            let matches = which::which(&dotfiles_dir, &config, &state, &target, fs);
+
+            if cli.json {
+                which::print_which_json(&target, &matches);
+            } else {
+                which::print_which(&target, &matches);
+            }
+            if matches.is_empty() {
+                std::process::exit(1);
             }
         }
         Command::Status { packages } => {
