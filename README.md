@@ -24,6 +24,9 @@ notfiles diff
 # Move an existing file into a package
 notfiles adopt git .gitconfig
 
+# Find the source package behind a managed path
+notfiles which ~/.gitconfig
+
 # Remove symlinks
 notfiles unlink
 
