@@ -22,7 +22,12 @@ cargo fmt --check                  # check formatting
 
 ## Workspace Structure
 
-This is a Cargo workspace with 7 crates under `crates/`:
+This is a Cargo workspace with 8 crates under `crates/`.
+
+**Each crate has its own `CLAUDE.md`** with the detail you need when editing
+inside it — invariants, gotchas, and scoped test commands. This file stays a
+map plus the rules that cross crate boundaries. When working in a crate, read
+`crates/<crate>/CLAUDE.md` first.
 
 | Crate        | Purpose                                                                    |
 | ------------ | -------------------------------------------------------------------------- |
@@ -34,65 +39,51 @@ This is a Cargo workspace with 7 crates under `crates/`:
 | `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
 |              | decryption, identity management                                           |
 | `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
-| `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
+| `notnet`     | Tailnet presence — `ensure_connected`, auth key via env/YubiKey PIV/prompt |
 | `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
 | `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
 |              | heatmap, cycle detection                                                   |
+| `notforge`   | Gitea lifecycle + repo provisioning. Scaffolded: ports and config are      |
+|              | defined, the binary is a stub and most impls are unwritten                 |
+
+### Crate dependency boundaries
+
+Enforced by `scripts/check-dep-boundaries.py` — CI fails on a violation:
+
+- **`notcore` is a leaf.** No dependencies on other workspace crates, ever.
+- **`notfiles`, `notsecrets`, `nothooks` may depend on `notcore` only** — never
+  on each other. If one seems to need another, the composition belongs in
+  `notstrap`.
+- **`notstrap` is the orchestrator** and may depend on all of them.
+
+`notnet`, `notgraph`, and `notforge` are outside the script's crate set, so
+their edges are *not* CI-enforced. Hold them to the same rule by hand.
 
 ## Architecture
 
-### notfiles (primary user-facing tool)
+`notfiles` is the primary user-facing tool: subcommands `init`, `link`,
+`unlink`, `status`, `check`, `diff`, `adopt`, `which`, `detect`,
+`completions`, with global `--dry-run`, `--verbose`, `--json`, `--dir`.
 
-Subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
-`adopt`, `which`, `detect`, `completions`. Global flags: `--dry-run`,
-`--verbose`, `--json`.
-CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
+The workspace is hexagonal throughout — behavior sits behind traits and the
+real implementations are injected at the edges. `FileStore` abstracts
+filesystem I/O, `Reporter` abstracts output, and `notforge` and `notsecrets`
+each define their own ports. In practice that means **most functions have a
+`_with_store`-style variant taking the port**, and tests drive those against
+in-memory fakes rather than a temp dir.
 
-**Core flow for `link`:** `main` → `config.validate()` →
-`resolve_packages_filtered` (include/exclude + platform filtering) →
-`collect_files` (recursive walk with ignore filtering) →
-`linker::link_package` (create symlinks or copies, record in state,
-return `LinkResult` with counters).
+Per-crate detail lives in each crate's own `CLAUDE.md`:
 
-**Architecture**: Hexagonal (ports/adapters). `FileStore` trait abstracts
-filesystem I/O; `Reporter` trait abstracts output. Adapters:
-`FileStoreImpl` (real fs), `InMemoryFileStore` (testing),
-`TerminalReporter` (ANSI), `JsonReporter` (NDJSON).
-
-Key modules in `crates/notfiles/src/`:
-
-- **linker** — Creates/removes symlinks or copies via `FileStore` port.
-  Manages `State` (`.notfiles-state.toml`). Returns `LinkResult` with
-  linked/copied/skipped/backed_up counts. Also provides `adopt_files`.
-- **package** — Discovers packages with include/exclude and platform
-  filtering. Recursively collects files via `IgnoreMatcher`. Typo
-  suggestions via `suggest_package` on not-found errors.
-- **ignore** — Glob-based ignore matching using `globset`.
-- **status** — Compares expected vs actual state:
-  linked/copied/missing/conflict/orphan. Also provides `diff_package`
-  for copy-method divergence detection.
-- **which** — Reverse lookup from a target path to its source package and
-  file. Tries recorded state entries, then `read_link`, then the packages
-  configured in `notfiles.toml`.
-- **adapters/** — `FileStoreImpl`, `InMemoryFileStore`,
-  `TerminalReporter`, `JsonReporter`.
-- **ports** — `FileStore` trait definition.
-
-### notsecrets
-
-Multi-provider secret resolution via `SecretResolver`. Providers include
-`EnvSource`, `OpSource` (1Password), `BitwardenSource`, `FileSource`,
-`DotenvxSource`, `SopsSource`, and others. Native age encryption/decryption
-with x25519, SSH ed25519/RSA, and scrypt identity support. No external
-`sops` or `age` binaries required.
-
-### nothooks
-
-`HookRunner` executes `.nu` scripts via `nu <script>`. Two phases: `HookPhase::Dot` (always runs) and `HookPhase::Setup` (runs once, tracked in `.nothooks-state.toml`). `--force` flag reruns setup hooks.
-
-### notstrap
-
-Orchestrates in order: prereqs check → load config → clone dotfiles → age key → decrypt SOPS → link dotfiles → run hooks → final report. Config file: `notstrap.toml`.
+| Read this                     | When you're working on                       |
+| ----------------------------- | -------------------------------------------- |
+| `crates/notcore/CLAUDE.md`    | Shared types, config, the leaf-crate rule    |
+| `crates/notfiles/CLAUDE.md`   | Linking, state, adding a subcommand          |
+| `crates/notsecrets/CLAUDE.md` | Provider chain contract, the age implementation |
+| `crates/nothooks/CLAUDE.md`   | Hook phases and setup-hook state             |
+| `crates/notnet/CLAUDE.md`     | Tailnet join, auth key chain                 |
+| `crates/notstrap/CLAUDE.md`   | Bootstrap order and the report failure model |
+| `crates/notgraph/CLAUDE.md`   | Graph analysis and emitters                  |
+| `crates/notforge/CLAUDE.md`   | Gitea — read the status note before planning |
 
 ## Configuration
 
@@ -108,6 +99,19 @@ gate packages to specific OSes.
 ## Edition
 
 Rust edition 2024. All hook scripts are Nushell (`.nu`) — no `.sh` scripts.
+
+## Nushell is a test dependency
+
+`nothooks` shells out to `nu`, so `cargo test --workspace` fails in
+`tests/integration` (`bootstrap.rs`, `cross_crate.rs`) on any machine without
+Nushell on `PATH`. CI installs it. If every hook-related test fails at once,
+run `which nu` before debugging the runner.
+
+## Keeping these files in sync
+
+Every `CLAUDE.md` has an `AGENTS.md` twin with identical content, at the repo
+root and in each crate. The only difference is the root file's opening line,
+which names the assistant. There is no generator — edit both, or the two drift.
 
 ## CI / Gitea Actions
 
