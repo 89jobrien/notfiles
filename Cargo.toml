@@ -18,6 +18,7 @@ members = [
     "crates/notgraph",
     "crates/notforge",
     "tests/integration",
+    "xtask",
 ]
 resolver = "2"
 
