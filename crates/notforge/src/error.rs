@@ -1,3 +1,5 @@
+//! Diagnostic errors for forge configuration, API, lifecycle, Git, and secrets.
+
 use miette::Diagnostic;
 use thiserror::Error;
 

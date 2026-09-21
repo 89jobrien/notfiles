@@ -1,3 +1,5 @@
+//! Terminal and newline-delimited JSON progress reporters.
+
 use serde_json::json;
 
 use notcore::reporter::{LinkEvent, Reporter};

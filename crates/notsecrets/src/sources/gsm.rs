@@ -1,3 +1,5 @@
+//! Resolves referenced secrets with the Google Cloud `gcloud` CLI.
+
 use crate::config::{Provider, SecretRef};
 use crate::error::SecretsError;
 use crate::ports::SecretSource;
@@ -8,6 +10,7 @@ pub struct GsmSource {
 }
 
 impl GsmSource {
+    /// Creates a source for secrets in the Google Cloud `project`.
     pub fn new(project: String) -> Self {
         Self { project }
     }

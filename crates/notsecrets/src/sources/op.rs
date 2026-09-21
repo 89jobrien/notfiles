@@ -1,3 +1,5 @@
+//! Resolves 1Password secret references with the `op` CLI.
+
 use crate::config::{Provider, SecretRef};
 use crate::error::SecretsError;
 use crate::ports::SecretSource;
@@ -8,6 +10,7 @@ pub struct OpSource {
 }
 
 impl OpSource {
+    /// Creates a source for the specified 1Password account.
     pub fn new(account: String) -> Self {
         Self { account }
     }

@@ -1,3 +1,5 @@
+//! Connects a machine to Tailscale and verifies access to a configured peer.
+
 pub mod auth;
 pub mod error;
 pub mod installer;
@@ -70,6 +72,7 @@ fn verify_peer(hostname: &str) -> Result<(), NotnetError> {
 }
 
 mod status {
+    /// Returns whether `tailscale status` reports an active connection.
     pub fn is_connected() -> bool {
         std::process::Command::new("tailscale")
             .args(["status", "--peers=false"])

@@ -1,3 +1,5 @@
+//! Adapts `notsecrets` resolution to the secret port required by `notforge`.
+
 use notforge::config::ForgeSecretRef;
 use notforge::error::NotforgeError;
 use notforge::ports::SecretResolverPort;

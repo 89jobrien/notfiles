@@ -1,7 +1,10 @@
+//! Graph metrics, cycle detection, and hotspot aggregation.
+
 use crate::types::{CrateGraph, FanStats, GraphStats, Hotspot, HotspotKind, ModStats, ModuleGraph};
 use std::cmp::Reverse;
 use std::collections::{HashMap, VecDeque};
 
+/// Computes incoming and outgoing edge counts for each node.
 pub fn fan_stats(nodes: &[String], edges: &[(String, String)]) -> Vec<FanStats> {
     let mut fan_in: HashMap<&str, usize> = nodes.iter().map(|n| (n.as_str(), 0)).collect();
     let mut fan_out: HashMap<&str, usize> = nodes.iter().map(|n| (n.as_str(), 0)).collect();
@@ -63,6 +66,7 @@ pub fn detect_cycles(nodes: &[String], edges: &[(String, String)]) -> Vec<Vec<St
     vec![cycle_nodes]
 }
 
+/// Selects the highest nonzero fan-in and fan-out nodes.
 pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     let mut result = Vec::new();
 
@@ -93,6 +97,7 @@ pub fn hotspots(stats: &[FanStats], top_n: usize) -> Vec<Hotspot> {
     result
 }
 
+/// Aggregates crate and module fan statistics, hotspots, and cycles.
 pub fn analyse(
     crate_graph: &CrateGraph,
     module_graphs: &[ModuleGraph],

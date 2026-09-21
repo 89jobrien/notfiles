@@ -1,3 +1,5 @@
+//! Detects and installs Tailscale through supported package managers or its installer.
+
 use crate::error::NotnetError;
 
 /// Returns true if the `tailscale` binary is on PATH.

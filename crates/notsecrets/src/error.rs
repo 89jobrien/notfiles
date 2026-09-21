@@ -1,3 +1,5 @@
+//! Defines errors for age cryptography and secret resolution.
+
 #[derive(Debug, thiserror::Error)]
 pub enum AgeError {
     #[error("no identity could decrypt any recipient stanza")]

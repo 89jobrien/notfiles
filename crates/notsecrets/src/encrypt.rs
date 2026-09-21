@@ -1,3 +1,5 @@
+//! Encrypts plaintext for one or more age recipients.
+
 use crate::error::AgeError;
 use crate::format::serialize_header;
 use crate::identities::{FileKey, Header};
@@ -39,6 +41,7 @@ impl Encryptor {
         Ok(Self { recipients })
     }
 
+    /// Encrypts plaintext into an authenticated age ciphertext.
     pub fn encrypt(&self, plaintext: &[u8]) -> Result<Vec<u8>, AgeError> {
         let file_key = FileKey::generate();
 

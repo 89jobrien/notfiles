@@ -1,3 +1,5 @@
+//! Domain types and ports for forge API, lifecycle, Git, and secret adapters.
+
 use std::path::PathBuf;
 
 use crate::config::{ForgeConfig, ForgeSecretRef, RepoSpec};

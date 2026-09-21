@@ -1,7 +1,10 @@
+//! Clones the configured dotfiles repository when its destination is absent.
+
 use anyhow::{Context, Result};
 use std::path::Path;
 use std::process::Command;
 
+/// Clones `url` into `dest`, returning false when `dest` already exists.
 pub fn clone_if_missing(url: &str, dest: &Path) -> Result<bool> {
     if dest.exists() {
         return Ok(false);

@@ -1,3 +1,5 @@
+//! Checks that external tools required by bootstrap are available.
+
 use anyhow::Result;
 use which::which;
 
@@ -21,6 +23,7 @@ const PREREQS: &[Prereq] = &[
     },
 ];
 
+/// Reports missing bootstrap commands and fails when any are unavailable.
 pub fn check_prerequisites() -> Result<()> {
     let missing: Vec<&Prereq> = PREREQS.iter().filter(|p| which(p.cmd).is_err()).collect();
     if missing.is_empty() {

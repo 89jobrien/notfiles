@@ -1,3 +1,5 @@
+//! Builds module-containment graphs from Rust source files.
+
 use crate::types::{CrateName, ModPath, ModuleGraph};
 use anyhow::Result;
 use std::path::Path;
@@ -33,6 +35,7 @@ impl<'ast> Visit<'ast> for ModCollector {
     }
 }
 
+/// Builds a crate's module-containment graph from its Rust source tree.
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<ModuleGraph> {
     let mut all_nodes: Vec<ModPath> = Vec::new();
     let mut all_edges: Vec<(ModPath, ModPath)> = Vec::new();

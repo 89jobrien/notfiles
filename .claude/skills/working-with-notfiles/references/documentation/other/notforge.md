@@ -1,0 +1,3 @@
+# notforge
+
+<!-- Crate documentation -->

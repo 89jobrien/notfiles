@@ -1,3 +1,5 @@
+//! Error types shared by the notfiles workspace.
+
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +24,9 @@ pub enum NotfilesError {
 
     #[error("validation error: {0}")]
     Validation(String),
+
+    #[error("shell config generation error: {0}")]
+    Shell(String),
 
     #[error("{0}")]
     Io(#[from] std::io::Error),

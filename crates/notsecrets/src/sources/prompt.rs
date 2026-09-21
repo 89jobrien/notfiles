@@ -1,3 +1,5 @@
+//! Prompts for a passphrase and exposes it as an age scrypt identity.
+
 use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::identities::scrypt::ScryptIdentity;

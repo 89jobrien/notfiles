@@ -1,3 +1,5 @@
+//! Orchestrates machine bootstrap across networking, repositories, secrets, links, and hooks.
+
 use anyhow::{Context, Result};
 use notcore::{HookPhase, Report, StepStatus};
 use notfiles::{LinkOptions, link};
@@ -91,6 +93,7 @@ pub struct BootstrapOptions {
     pub secrets_config: Option<PathBuf>,
 }
 
+/// Runs the configured bootstrap sequence and reports each completed or failed step.
 pub fn run(opts: BootstrapOptions) -> Result<Report> {
     let mut report = Report::default();
 

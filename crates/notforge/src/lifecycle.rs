@@ -1,3 +1,5 @@
+//! Availability checks for configured Gitea lifecycle modes.
+
 use crate::config::{ForgeConfig, GiteaMode};
 use crate::error::NotforgeError;
 use crate::ports::{ForgeApi, ForgeLifecycle, LifecycleStatus};

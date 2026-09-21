@@ -1,6 +1,9 @@
+//! Builds workspace crate dependency graphs from Cargo metadata.
+
 use crate::types::{CrateGraph, CrateName};
 use anyhow::Result;
 
+/// Builds a graph of workspace crates and their internal dependencies.
 pub fn build(manifest_path: &std::path::Path) -> Result<CrateGraph> {
     let meta = cargo_metadata::MetadataCommand::new()
         .manifest_path(manifest_path)

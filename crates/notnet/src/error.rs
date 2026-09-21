@@ -1,3 +1,5 @@
+//! Defines failures produced while installing or connecting Tailscale.
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]

@@ -1,0 +1,77 @@
+{
+  "name": "dirs",
+  "description": "Use when you need cross-platform directory paths (config, data, cache, home) that follow OS conventions on Windows, macOS, and Linux.",
+  "base_url": "https://docs.rs/dirs/6.0.0/dirs/",
+  "sources": [
+    {
+      "type": "documentation",
+      "base_url": "https://docs.rs/dirs/6.0.0/dirs/",
+      "selectors": {
+        "main_content": "article, main",
+        "title": "h1",
+        "code_blocks": "pre code"
+      },
+      "url_patterns": {
+        "include": [],
+        "exclude": []
+      }
+    },
+    {
+      "type": "github",
+      "repo": "dirs-dev/dirs-rs",
+      "enable_codebase_analysis": true,
+      "code_analysis_depth": "deep",
+      "fetch_issues": false
+    }
+  ],
+  "categories": {
+    "path_resolution": [
+      "home_dir",
+      "config_dir",
+      "data_dir",
+      "cache_dir",
+      "runtime_dir"
+    ],
+    "platform_support": [
+      "windows",
+      "macos",
+      "linux",
+      "xdg",
+      "cross-platform"
+    ],
+    "directory_types": [
+      "config",
+      "data",
+      "cache",
+      "state",
+      "executable",
+      "desktop",
+      "download"
+    ],
+    "xdg_base_dirs": [
+      "XDG_CONFIG_HOME",
+      "XDG_DATA_HOME",
+      "XDG_CACHE_HOME",
+      "XDG_RUNTIME_DIR"
+    ],
+    "os_conventions": [
+      "APPDATA",
+      "LOCALAPPDATA",
+      "Library",
+      "Application Support"
+    ],
+    "integration": [
+      "filesystem",
+      "environment",
+      "PathBuf",
+      "Option"
+    ]
+  },
+  "rate_limit": 0.5,
+  "max_pages": 250,
+  "metadata": {
+    "version": "1.0.0",
+    "framework": "dirs",
+    "detected_version": "6"
+  }
+}

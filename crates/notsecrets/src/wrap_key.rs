@@ -1,3 +1,5 @@
+//! Derives file-key wrapping keys for X25519-based age stanzas.
+
 use crate::error::AgeError;
 use hkdf::Hkdf;
 use sha2::Sha256;

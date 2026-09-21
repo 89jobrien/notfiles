@@ -248,8 +248,9 @@ fn walk_files(dir: &Path, base: &Path) -> Vec<PathBuf> {
     files
 }
 
-// ── Output ────────────────────────────────────────────────────────────────────
+// Render detected managers for terminal or JSON output.
 
+/// Prints a human-readable summary of detected dotfile managers.
 pub fn print_detected(managers: &[DetectedManager]) {
     if managers.is_empty() {
         println!("No dotfile managers detected.");
@@ -275,6 +276,7 @@ pub fn print_detected(managers: &[DetectedManager]) {
     }
 }
 
+/// Prints detected dotfile managers as formatted JSON.
 pub fn print_detected_json(managers: &[DetectedManager]) {
     let items: Vec<_> = managers
         .iter()

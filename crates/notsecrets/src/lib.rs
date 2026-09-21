@@ -1,3 +1,5 @@
+//! Provides age encryption and multi-provider secret resolution.
+
 pub(crate) mod bech32_util;
 pub mod config;
 pub mod decrypt;

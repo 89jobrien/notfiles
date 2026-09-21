@@ -1,3 +1,5 @@
+//! Integration tests for configuration parsing and forge port contracts.
+
 use std::path::PathBuf;
 
 use notforge::config::{

@@ -1,0 +1,905 @@
+{
+  "total_files": 2,
+  "total_settings": 12,
+  "detected_patterns": {},
+  "config_files": [
+    {
+      "file_path": "/Users/joe/dev/notfiles/docs/book.toml",
+      "relative_path": "book.toml",
+      "type": "toml",
+      "purpose": "general_configuration",
+      "patterns": [],
+      "settings_count": 8,
+      "settings": [
+        {
+          "key": "book.title",
+          "value": "notfiles",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "book.authors",
+          "value": [],
+          "type": "array",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "book.language",
+          "value": "en",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "book.src",
+          "value": "src",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "build.build-dir",
+          "value": "dist",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "output.html.git-repository-url",
+          "value": "",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "output.html.default-theme",
+          "value": "rust",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "output.html.preferred-dark-theme",
+          "value": "ayu",
+          "type": "string",
+          "env_var": null,
+          "description": ""
+        }
+      ],
+      "parse_errors": []
+    },
+    {
+      "file_path": "/Users/joe/dev/notfiles/docs/graph/report.json",
+      "relative_path": "graph/report.json",
+      "type": "json",
+      "purpose": "general_configuration",
+      "patterns": [],
+      "settings_count": 4,
+      "settings": [
+        {
+          "key": "crate_graph",
+          "value": [
+            {
+              "name": "notstrap",
+              "fan_in": 1,
+              "fan_out": 5
+            },
+            {
+              "name": "nothooks",
+              "fan_in": 2,
+              "fan_out": 1
+            },
+            {
+              "name": "integration",
+              "fan_in": 0,
+              "fan_out": 5
+            },
+            {
+              "name": "notgraph",
+              "fan_in": 0,
+              "fan_out": 0
+            },
+            {
+              "name": "notsecrets",
+              "fan_in": 2,
+              "fan_out": 1
+            },
+            {
+              "name": "notforge",
+              "fan_in": 0,
+              "fan_out": 1
+            },
+            {
+              "name": "notnet",
+              "fan_in": 1,
+              "fan_out": 0
+            },
+            {
+              "name": "notcore",
+              "fan_in": 6,
+              "fan_out": 0
+            },
+            {
+              "name": "notfiles",
+              "fan_in": 2,
+              "fan_out": 1
+            }
+          ],
+          "type": "array",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "module_graphs",
+          "value": [
+            {
+              "krate": "notcore",
+              "nodes": [
+                {
+                  "name": "notcore::types",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notcore::types::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notcore::reporter",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notcore::error",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notcore::config",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notcore::config::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notcore",
+                  "fan_in": 0,
+                  "fan_out": 5
+                },
+                {
+                  "name": "notcore::paths",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notcore::paths::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notfiles",
+              "nodes": [
+                {
+                  "name": "notfiles::ports",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles",
+                  "fan_in": 0,
+                  "fan_out": 8
+                },
+                {
+                  "name": "notfiles::adapters",
+                  "fan_in": 1,
+                  "fan_out": 3
+                },
+                {
+                  "name": "notfiles::cli",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::detect",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::ignore",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notfiles::linker",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::package",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notfiles::status",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::package::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::adapters::reporter",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::adapters::memory",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notfiles::adapters::memory::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::adapters::fs",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notfiles::ignore::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notsecrets",
+              "nodes": [
+                {
+                  "name": "notsecrets::format",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::format::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::decrypt",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::decrypt::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::ports",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::ports::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::error",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::error::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::config",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::config::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets",
+                  "fan_in": 0,
+                  "fan_out": 11
+                },
+                {
+                  "name": "notsecrets::encrypt",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::identities",
+                  "fan_in": 1,
+                  "fan_out": 4
+                },
+                {
+                  "name": "notsecrets::recipients",
+                  "fan_in": 1,
+                  "fan_out": 3
+                },
+                {
+                  "name": "notsecrets::resolver",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources",
+                  "fan_in": 1,
+                  "fan_out": 14
+                },
+                {
+                  "name": "notsecrets::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::encrypt::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::recipients::scrypt",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::recipients::ssh_ed25519",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::recipients::x25519",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::nuenv",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::nuenv::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::yubikey",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::env",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::env::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::dotenvy",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::dotenvy::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::dotenvx",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::dotenvx::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::bitwarden",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::direnv",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::direnv::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::file",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::gsm",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::mise",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::op",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::prompt",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::sops",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::vault",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::sources::gsm::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::mise::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::sops::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::op::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::sources::vault::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::resolver::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::identities::encrypted",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::identities::scrypt",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::identities::scrypt::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::identities::ssh_ed25519",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::identities::ssh_ed25519::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notsecrets::identities::x25519",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notsecrets::identities::x25519::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "nothooks",
+              "nodes": [
+                {
+                  "name": "nothooks",
+                  "fan_in": 0,
+                  "fan_out": 2
+                },
+                {
+                  "name": "nothooks::runner",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "nothooks::state",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notnet",
+              "nodes": [
+                {
+                  "name": "notnet::ports",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notnet::error",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notnet",
+                  "fan_in": 0,
+                  "fan_out": 5
+                },
+                {
+                  "name": "notnet::auth",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notnet::installer",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notnet::status",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notstrap",
+              "nodes": [
+                {
+                  "name": "notstrap::prereqs",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notstrap",
+                  "fan_in": 0,
+                  "fan_out": 3
+                },
+                {
+                  "name": "notstrap::repo",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notstrap::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notgraph",
+              "nodes": [
+                {
+                  "name": "notgraph::module_graph",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notgraph::module_graph::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notgraph::types",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notgraph::analysis",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notgraph::analysis::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notgraph",
+                  "fan_in": 0,
+                  "fan_out": 6
+                },
+                {
+                  "name": "notgraph::crate_graph",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notgraph::emit",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notgraph::symbols",
+                  "fan_in": 1,
+                  "fan_out": 1
+                },
+                {
+                  "name": "notgraph::crate_graph::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notgraph::symbols::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            },
+            {
+              "krate": "notforge",
+              "nodes": [
+                {
+                  "name": "notforge::ports",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notforge::error",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notforge::config",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notforge",
+                  "fan_in": 0,
+                  "fan_out": 5
+                },
+                {
+                  "name": "notforge::gitea",
+                  "fan_in": 1,
+                  "fan_out": 0
+                },
+                {
+                  "name": "notforge::tests",
+                  "fan_in": 1,
+                  "fan_out": 0
+                }
+              ],
+              "cycles": []
+            }
+          ],
+          "type": "array",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "hotspots",
+          "value": [
+            {
+              "name": "notcore",
+              "kind": "FanIn",
+              "score": 6
+            },
+            {
+              "name": "nothooks",
+              "kind": "FanIn",
+              "score": 2
+            },
+            {
+              "name": "notsecrets",
+              "kind": "FanIn",
+              "score": 2
+            },
+            {
+              "name": "notfiles",
+              "kind": "FanIn",
+              "score": 2
+            },
+            {
+              "name": "notstrap",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notnet",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notstrap",
+              "kind": "FanOut",
+              "score": 5
+            },
+            {
+              "name": "integration",
+              "kind": "FanOut",
+              "score": 5
+            },
+            {
+              "name": "nothooks",
+              "kind": "FanOut",
+              "score": 1
+            },
+            {
+              "name": "notsecrets",
+              "kind": "FanOut",
+              "score": 1
+            },
+            {
+              "name": "notforge",
+              "kind": "FanOut",
+              "score": 1
+            },
+            {
+              "name": "notfiles",
+              "kind": "FanOut",
+              "score": 1
+            },
+            {
+              "name": "notcore::types",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::types::tests",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::reporter",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::error",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::config",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::config::tests",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::paths",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notcore::paths::tests",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notfiles::ports",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notfiles::adapters",
+              "kind": "FanIn",
+              "score": 1
+            },
+            {
+              "name": "notsecrets::sources",
+              "kind": "FanOut",
+              "score": 14
+            },
+            {
+              "name": "notsecrets",
+              "kind": "FanOut",
+              "score": 11
+            },
+            {
+              "name": "notfiles",
+              "kind": "FanOut",
+              "score": 8
+            },
+            {
+              "name": "notgraph",
+              "kind": "FanOut",
+              "score": 6
+            },
+            {
+              "name": "notcore",
+              "kind": "FanOut",
+              "score": 5
+            },
+            {
+              "name": "notnet",
+              "kind": "FanOut",
+              "score": 5
+            },
+            {
+              "name": "notforge",
+              "kind": "FanOut",
+              "score": 5
+            },
+            {
+              "name": "notsecrets::identities",
+              "kind": "FanOut",
+              "score": 4
+            },
+            {
+              "name": "notfiles::adapters",
+              "kind": "FanOut",
+              "score": 3
+            },
+            {
+              "name": "notsecrets::recipients",
+              "kind": "FanOut",
+              "score": 3
+            }
+          ],
+          "type": "array",
+          "env_var": null,
+          "description": ""
+        },
+        {
+          "key": "cycles",
+          "value": [],
+          "type": "array",
+          "env_var": null,
+          "description": ""
+        }
+      ],
+      "parse_errors": []
+    }
+  ],
+  "errors": []
+}

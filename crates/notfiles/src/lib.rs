@@ -28,6 +28,7 @@ pub mod ignore;
 pub mod linker;
 pub mod package;
 pub mod ports;
+pub mod shellgen;
 pub mod status;
 
 use std::path::Path;

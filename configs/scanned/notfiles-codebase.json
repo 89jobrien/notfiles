@@ -1,0 +1,56 @@
+{
+  "name": "notfiles-codebase",
+  "description": "Project knowledge base for notfiles \u2014 local codebase scrape.",
+  "sources": [
+    {
+      "type": "local",
+      "path": "/Users/joe/dev/notfiles",
+      "name": "notfiles-codebase",
+      "description": "Codebase of notfiles (auto-emitted by scan).",
+      "include_code": true,
+      "file_patterns": [
+        "*.py",
+        "*.js",
+        "*.jsx",
+        "*.ts",
+        "*.tsx",
+        "*.go",
+        "*.rs",
+        "*.rb",
+        "*.java",
+        "*.kt",
+        "*.php",
+        "*.ex",
+        "*.cs",
+        "*.swift",
+        "*.md",
+        "*.json",
+        "*.toml",
+        "*.yaml",
+        "*.yml"
+      ],
+      "skip_patterns": [
+        ".git/",
+        "node_modules/",
+        "__pycache__/",
+        "*.map",
+        "dist/",
+        "build/",
+        ".venv/",
+        "venv/",
+        "target/",
+        ".pytest_cache/",
+        ".mypy_cache/"
+      ],
+      "analysis_features": {
+        "detect_patterns": true,
+        "extract_tests": true,
+        "build_guides": true,
+        "extract_config": true,
+        "build_api_reference": true,
+        "analyze_dependencies": true,
+        "detect_architecture": true
+      }
+    }
+  ]
+}

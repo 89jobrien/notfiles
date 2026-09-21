@@ -1,3 +1,5 @@
+//! Progress events and the output reporter port.
+
 use std::path::Path;
 
 /// Events emitted during link/unlink/status operations.
@@ -35,6 +37,7 @@ pub enum LinkEvent<'a> {
 /// Port for reporting link/unlink progress. Library code calls this
 /// instead of println!.
 pub trait Reporter {
+    /// Emits one link-operation event.
     fn report(&self, event: &LinkEvent<'_>);
 }
 

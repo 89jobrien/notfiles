@@ -1,3 +1,5 @@
+//! Resolves a Tailscale authentication key from configured fallback sources.
+
 /// Auth key resolution chain for Tailscale:
 ///
 /// 1. `TS_AUTHKEY` environment variable
@@ -7,6 +9,7 @@
 /// Returns `Err(NotnetError::NoAuthKey)` if all sources are exhausted without a key.
 use crate::error::NotnetError;
 
+/// Resolves a Tailscale auth key from the environment, YubiKey, or prompt.
 pub fn resolve_auth_key() -> Result<String, NotnetError> {
     // 1. Environment variable
     if let Ok(key) = std::env::var("TS_AUTHKEY")
@@ -31,7 +34,7 @@ fn read_yubikey_slot_9d() -> Option<String> {
 
     let mut yk = YubiKey::open().ok()?;
     // Slot 9d — key management slot, repurposed here for the Tailscale auth key.
-    let slot = piv::SlotId::KeyManagement; // 0x9d
+    let slot = piv::SlotId::KeyManagement; // PIV slot identifier 0x9d.
     let data = piv::read_object(&mut yk, piv::ObjectId::from(slot)).ok()?;
     let key = String::from_utf8(data.to_vec()).ok()?;
     let key = key.trim().to_string();

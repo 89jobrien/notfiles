@@ -1,3 +1,5 @@
+//! Exercises doctor diagnostics against real filesystem and Git state.
+
 use std::fs;
 use std::process::Command;
 

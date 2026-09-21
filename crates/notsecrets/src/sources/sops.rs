@@ -1,3 +1,5 @@
+//! Resolves variables by decrypting an environment file with `sops`.
+
 use crate::config::Provider;
 use crate::error::SecretsError;
 use crate::ports::{EnumerableSecretSource, SecretSource};
@@ -10,6 +12,7 @@ pub struct SopsSource {
 }
 
 impl SopsSource {
+    /// Creates a source for the encrypted environment `file`.
     pub fn new(file: PathBuf) -> Self {
         Self { file }
     }

@@ -1,3 +1,5 @@
+//! Resolves variables by decrypting an environment file with `dotenvx`.
+
 use crate::config::Provider;
 use crate::error::SecretsError;
 use crate::ports::{EnumerableSecretSource, SecretSource};
@@ -10,6 +12,7 @@ pub struct DotenvxSource {
 }
 
 impl DotenvxSource {
+    /// Creates a source for the environment file at `env_file`.
     pub fn new(env_file: PathBuf) -> Self {
         Self { env_file }
     }

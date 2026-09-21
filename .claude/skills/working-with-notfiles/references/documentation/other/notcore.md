@@ -1,0 +1,3 @@
+# notcore
+
+<!-- Crate documentation -->

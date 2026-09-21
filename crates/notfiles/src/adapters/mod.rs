@@ -1,3 +1,5 @@
+//! Filesystem and reporting adapters for notfiles ports.
+
 pub mod fs;
 pub mod memory;
 pub mod reporter;

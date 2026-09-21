@@ -1,3 +1,5 @@
+//! Verifies behavior composed across the notfiles workspace crates.
+
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

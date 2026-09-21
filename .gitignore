@@ -25,3 +25,7 @@ librust_out.rlib
 .ctx/HANDOFF.notstrap.notfiles.state.yaml
 .ctx/.initialized
 # handoff-end
+.local/
+.taskit-cache/
+output/docs/
+.claude/skills/working-with-notfiles/SKILL.md.backup

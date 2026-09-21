@@ -1,3 +1,5 @@
+//! In-memory `FileStore` adapter for isolated tests.
+
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -12,6 +14,7 @@ pub struct InMemoryFileStore {
 }
 
 impl InMemoryFileStore {
+    /// Creates an empty in-memory filesystem.
     pub fn new() -> Self {
         Self {
             files: RefCell::new(HashMap::new()),
@@ -20,6 +23,7 @@ impl InMemoryFileStore {
         }
     }
 
+    /// Adds a file and creates its parent directories.
     pub fn add_file(&self, path: impl AsRef<Path>, content: &[u8]) {
         let path = path.as_ref().to_path_buf();
         // Ensure parent dirs exist
@@ -29,14 +33,17 @@ impl InMemoryFileStore {
         self.files.borrow_mut().insert(path, content.to_vec());
     }
 
+    /// Adds a directory and its missing ancestors.
     pub fn add_dir(&self, path: impl AsRef<Path>) {
         self.ensure_parents(path.as_ref());
     }
 
+    /// Returns whether a symlink exists at `link`.
     pub fn has_symlink(&self, link: &Path) -> bool {
         self.symlinks.borrow().contains_key(link)
     }
 
+    /// Returns the target recorded for a symlink.
     pub fn symlink_target(&self, link: &Path) -> Option<PathBuf> {
         self.symlinks.borrow().get(link).cloned()
     }

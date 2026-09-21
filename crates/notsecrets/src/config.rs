@@ -1,3 +1,5 @@
+//! Defines secret-provider configuration and loads it from TOML.
+
 use crate::error::SecretsError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -52,6 +54,7 @@ pub enum SecretRef {
 }
 
 impl SecretRef {
+    /// Returns the provider required by this secret reference.
     pub fn provider(&self) -> Provider {
         match self {
             Self::Env { .. } => Provider::Env,
@@ -78,6 +81,7 @@ pub struct SecretsConfig {
     pub secrets: HashMap<String, SecretRef>,
 }
 
+/// Loads and parses secret-provider configuration from a TOML file.
 pub fn load_config(path: &Path) -> Result<SecretsConfig, SecretsError> {
     notcore::config::load_toml_file(
         path,

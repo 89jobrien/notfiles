@@ -44,7 +44,7 @@ notstrap run
 
 ## Workspace Architecture
 
-```
+```text
 notfiles/
 ├── crates/
 │   ├── notcore/        # shared types, config, paths, errors, Reporter trait
@@ -72,7 +72,7 @@ notfiles/
 
 ### Dependency graph
 
-```
+```text
 notstrap
   ├── notfiles
   │     └── notcore
@@ -91,7 +91,7 @@ notstrap
 
 Each subdirectory of your dotfiles repo is a **package**. `notfiles link` walks each package and symlinks its contents into a target directory (default: `$HOME`), mirroring the directory structure.
 
-```
+```text
 dotfiles/
 └── zsh/
     └── .zshrc          →  symlink  →  ~/.zshrc
@@ -107,7 +107,7 @@ State is tracked in `.notfiles-state.toml` so `unlink` and `status` know exactly
 
 ### Link flow
 
-```
+```text
 notfiles link
   │
   ├─ config.validate()                check include/exclude mutual exclusion
@@ -145,7 +145,7 @@ The hardest part of a new machine is the chicken-and-egg problem: you need secre
 
 `notstrap` solves this with a staged bootstrap:
 
-```
+```text
 notstrap run
   │
   ├─ 1. Prerequisites check
@@ -180,7 +180,7 @@ Note: 1Password (`op`) is installed as a **hook** in phase `setup` — after sec
 
 `notsecrets` implements a `SecretResolver` with pluggable provider sources:
 
-```
+```text
 SecretResolver
   ├── EnvSource         read from environment variables
   ├── OpSource          1Password CLI (op read)
@@ -290,7 +290,10 @@ cargo test                       # run all tests
 cargo test -p notfiles           # test one crate
 cargo clippy --workspace         # lint everything
 cargo fmt --check                # format check
+cargo run -p notgraph            # regenerate target/notgraph (module graph + cycle report)
 ```
+
+CI runs `notgraph --fail-on-cycles` on every push/PR and uploads `target/notgraph/` (HTML/Markdown/JSON reports) as a build artifact.
 
 ---
 
@@ -298,8 +301,8 @@ cargo fmt --check                # format check
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 

@@ -1,3 +1,5 @@
+//! Runs the `notgraph` workspace analysis command-line tool.
+
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use notgraph_lib::{analysis, crate_graph, emit, module_graph, symbols};

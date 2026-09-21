@@ -1,3 +1,5 @@
+//! Collects Rust symbols and their public visibility from source files.
+
 use crate::types::{CrateName, ModPath, Symbol, SymbolKind, SymbolTable};
 use anyhow::Result;
 use std::path::Path;
@@ -82,6 +84,7 @@ impl<'ast> Visit<'ast> for SymbolCollector {
     }
 }
 
+/// Builds a symbol table for a crate's Rust source tree.
 pub fn build(krate: CrateName, src_dir: &Path) -> Result<SymbolTable> {
     let mut symbols: Vec<Symbol> = Vec::new();
     for entry in WalkDir::new(src_dir)

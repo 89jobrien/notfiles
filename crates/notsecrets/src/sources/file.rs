@@ -1,3 +1,5 @@
+//! Loads plain X25519 or passphrase-encrypted age identities from files.
+
 use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::identities::encrypted::EncryptedIdentity;
@@ -10,6 +12,7 @@ pub struct FileSource {
 }
 
 impl FileSource {
+    /// Creates an identity source for `path`.
     pub fn new(path: PathBuf) -> Self {
         Self { path }
     }

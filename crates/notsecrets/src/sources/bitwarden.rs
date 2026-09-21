@@ -1,3 +1,5 @@
+//! Loads age X25519 identities from Bitwarden item notes.
+
 use crate::config::Provider;
 use crate::error::{AgeError, SecretsError};
 use crate::identities::Identity;
@@ -11,6 +13,7 @@ pub struct BitwardenSource {
 }
 
 impl BitwardenSource {
+    /// Creates a source for the named Bitwarden item.
     pub fn new(item_name: impl Into<String>) -> Self {
         Self {
             item_name: item_name.into(),

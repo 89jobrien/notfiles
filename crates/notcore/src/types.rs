@@ -1,3 +1,5 @@
+//! Shared hook and bootstrap report types.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +51,7 @@ pub struct Report {
 }
 
 impl Report {
+    /// Appends a named bootstrap step and its outcome.
     pub fn add(&mut self, name: impl Into<String>, status: StepStatus) {
         self.steps.push(Step {
             name: name.into(),
@@ -56,6 +59,7 @@ impl Report {
         });
     }
 
+    /// Prints each bootstrap step with a colored status indicator.
     pub fn print(&self) {
         for step in &self.steps {
             let icon = match &step.status {
@@ -71,6 +75,7 @@ impl Report {
         }
     }
 
+    /// Returns whether any recorded step failed.
     pub fn has_failures(&self) -> bool {
         self.steps
             .iter()

@@ -1,3 +1,5 @@
+//! Gitea API client and injectable blocking HTTP transport.
+
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};

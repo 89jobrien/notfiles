@@ -1,3 +1,5 @@
+//! Provides the placeholder mise source, which currently returns no secrets.
+
 use crate::config::Provider;
 use crate::error::SecretsError;
 use crate::ports::SecretSource;

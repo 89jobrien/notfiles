@@ -10,7 +10,7 @@ pub mod paths;
 pub mod reporter;
 pub mod types;
 
-pub use config::{Config, Defaults, Method, PackageConfig, suggest_package};
+pub use config::{Config, Defaults, Method, PackageConfig, ShellPackageConfig, suggest_package};
 pub use error::NotfilesError;
 pub use paths::{dotfiles_dir, expand_tilde};
 pub use reporter::{LinkEvent, Reporter, SilentReporter};

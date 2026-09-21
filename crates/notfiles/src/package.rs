@@ -1,3 +1,5 @@
+//! Package discovery, selection, platform filtering, and file collection.
+
 use std::path::{Path, PathBuf};
 
 use crate::adapters::FileStoreImpl;
@@ -14,6 +16,7 @@ pub fn discover_packages_filtered(
     discover_packages_filtered_with_store(dotfiles_dir, config, &FileStoreImpl)
 }
 
+/// Discovers packages through `fs`, then applies config and platform filters.
 pub fn discover_packages_filtered_with_store(
     dotfiles_dir: &Path,
     config: &Config,
@@ -42,6 +45,7 @@ pub fn discover_packages(dotfiles_dir: &Path) -> Result<Vec<String>, NotfilesErr
     discover_packages_with_store(dotfiles_dir, &FileStoreImpl)
 }
 
+/// Lists non-hidden package directories through `fs`.
 pub fn discover_packages_with_store(
     dotfiles_dir: &Path,
     fs: &dyn FileStore,
@@ -75,6 +79,7 @@ pub fn resolve_packages(
     resolve_packages_with_store(dotfiles_dir, requested, &FileStoreImpl)
 }
 
+/// Validates requested packages against packages discovered through `fs`.
 pub fn resolve_packages_with_store(
     dotfiles_dir: &Path,
     requested: &[String],
@@ -83,6 +88,7 @@ pub fn resolve_packages_with_store(
     resolve_packages_filtered_with_store(dotfiles_dir, requested, &Config::default(), fs)
 }
 
+/// Resolves requested packages against the config-filtered package set.
 pub fn resolve_packages_filtered_with_store(
     dotfiles_dir: &Path,
     requested: &[String],
@@ -116,6 +122,7 @@ pub fn collect_files(
     collect_files_with_store(package_dir, config, package_name, &FileStoreImpl)
 }
 
+/// Collects non-ignored package files recursively through `fs`.
 pub fn collect_files_with_store(
     package_dir: &Path,
     config: &Config,

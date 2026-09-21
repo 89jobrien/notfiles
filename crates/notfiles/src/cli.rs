@@ -1,3 +1,5 @@
+//! Command-line arguments and subcommands for the `notfiles` binary.
+
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 

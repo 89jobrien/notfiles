@@ -1,3 +1,5 @@
+//! Integration tests for hook execution, failure, state, and path handling.
+
 use notcore::{HookPhase, HookSpec};
 use nothooks::{HookResult, HookRunner};
 use std::fs;

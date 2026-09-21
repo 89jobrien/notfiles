@@ -1,3 +1,5 @@
+//! Command-line entry point for running `nothooks` hook phases.
+
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use notcore::{HookPhase, HookSpec};

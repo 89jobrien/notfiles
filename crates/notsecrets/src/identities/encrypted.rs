@@ -1,3 +1,5 @@
+//! Loads an X25519 identity from passphrase-encrypted age data.
+
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
 
@@ -14,6 +16,7 @@ pub struct EncryptedIdentity {
 }
 
 impl EncryptedIdentity {
+    /// Creates an encrypted identity from ciphertext and its passphrase.
     pub fn new(encrypted_data: Vec<u8>, passphrase: String) -> Self {
         Self {
             encrypted_data,

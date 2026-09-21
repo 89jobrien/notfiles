@@ -1,3 +1,5 @@
+//! Verifies common contracts across secret source implementations.
+
 use notsecrets::ports::{EnumerableSecretSource, SecretSource};
 use notsecrets::sources::*;
 

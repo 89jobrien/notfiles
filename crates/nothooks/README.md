@@ -10,9 +10,9 @@ state persistence so setup hooks are not re-run across invocations.
 
 Each hook belongs to exactly one phase:
 
-| Phase | When it runs | Typical use |
-|-------|-------------|-------------|
-| `dot` | Every time nothooks is invoked | Apply shell config, set env vars, refresh symlinks |
+| Phase   | When it runs                        | Typical use                                             |
+| ------- | ----------------------------------- | ------------------------------------------------------- |
+| `dot`   | Every time nothooks is invoked      | Apply shell config, set env vars, refresh symlinks      |
 | `setup` | Once per machine (tracked in state) | Install packages, create dirs, first-time configuration |
 
 ### HookSpec
@@ -55,7 +55,7 @@ The notstrap CLI exposes this as `--force`.
 
 ## Hook script lifecycle
 
-```
+```text
 notstrap / nothooks invoked
 │
 ├── dot phase

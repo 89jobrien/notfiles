@@ -1,3 +1,5 @@
+//! Defines age identities, file keys, headers, and recipient stanzas.
+
 use crate::error::AgeError;
 
 pub mod x25519;
@@ -17,14 +19,17 @@ pub use encrypted::EncryptedIdentity;
 pub struct FileKey([u8; 16]);
 
 impl FileKey {
+    /// Creates a file key from 16 bytes.
     pub fn new(bytes: [u8; 16]) -> Self {
         Self(bytes)
     }
 
+    /// Borrows the file key bytes.
     pub fn as_bytes(&self) -> &[u8; 16] {
         &self.0
     }
 
+    /// Generates a random file key.
     pub fn generate() -> Self {
         use rand::RngCore;
         let mut bytes = [0u8; 16];
@@ -70,5 +75,6 @@ pub struct Header {
 /// Returns `Some(Err(...))` if the stanza matches but decryption fails.
 /// Returns `Some(Ok(file_key))` on success.
 pub trait Identity {
+    /// Attempts to unwrap the file key from a matching recipient stanza.
     fn unwrap_file_key(&self, stanza: &Stanza) -> Option<Result<FileKey, AgeError>>;
 }

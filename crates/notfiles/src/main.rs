@@ -1,3 +1,5 @@
+//! Parses CLI options and dispatches dotfile management commands.
+
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use std::fs;
@@ -73,6 +75,15 @@ fn main() -> Result<()> {
 
             if cli.dry_run {
                 println!("\x1b[36m(dry run)\x1b[0m");
+            }
+
+            if !cli.dry_run {
+                let generated = notfiles::shellgen::generate_all(&dotfiles_dir, &config, fs)?;
+                if cli.verbose {
+                    for path in &generated {
+                        println!("Generated shell config: {path}");
+                    }
+                }
             }
 
             let mut results = Vec::new();

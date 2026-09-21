@@ -1,3 +1,5 @@
+//! Decodes fixed-length age keys from bech32 strings.
+
 use crate::error::AgeError;
 
 /// Decode a bech32 string into a 32-byte key, checking the expected HRP.

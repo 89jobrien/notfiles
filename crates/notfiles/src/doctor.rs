@@ -1,3 +1,5 @@
+//! Workspace health checks for link state, package config, and git drift.
+
 use std::path::Path;
 
 use serde_json::json;
@@ -60,6 +62,7 @@ pub struct DoctorReport {
 }
 
 impl DoctorReport {
+    /// Returns whether the doctor found no issues.
     pub fn is_clean(&self) -> bool {
         self.issues.is_empty()
     }
@@ -176,10 +179,12 @@ pub fn format_report(report: &DoctorReport) -> String {
     out.trim_end().to_string()
 }
 
+/// Prints the doctor report in human-readable form.
 pub fn print_report(report: &DoctorReport) {
     println!("{}", format_report(report));
 }
 
+/// Prints the doctor report as JSON.
 pub fn print_report_json(report: &DoctorReport) {
     let items: Vec<_> = report
         .issues

@@ -1,3 +1,5 @@
+//! Wraps age file keys for native X25519 recipients.
+
 use crate::bech32_util::decode_bech32_32;
 use crate::error::AgeError;
 use crate::identities::x25519::HKDF_INFO;
@@ -18,10 +20,12 @@ pub struct X25519Recipient {
 }
 
 impl X25519Recipient {
+    /// Creates a recipient from an X25519 public key.
     pub fn from_public_key(public_key: PublicKey) -> Self {
         Self { public_key }
     }
 
+    /// Parses an age recipient from bech32 text.
     pub fn from_bech32(s: &str) -> Result<Self, AgeError> {
         let bytes = decode_bech32_32(s, RECIPIENT_HRP, false)?;
         Ok(Self {
@@ -29,6 +33,7 @@ impl X25519Recipient {
         })
     }
 
+    /// Encodes this recipient as bech32 text.
     pub fn to_bech32(&self) -> String {
         let hrp = Hrp::parse(RECIPIENT_HRP).expect("static hrp is valid");
         bech32::encode::<Bech32>(hrp, self.public_key.as_bytes())

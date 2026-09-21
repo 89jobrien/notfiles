@@ -1,3 +1,5 @@
+//! Defines identity and secret-provider boundary traits.
+
 use crate::config::{Provider, SecretRef};
 use crate::error::{AgeError, SecretsError};
 use crate::identities::Identity;
@@ -15,8 +17,11 @@ pub trait IdentitySource {
 
 /// Port: resolve a single secret by key name from an external provider.
 pub trait SecretSource {
+    /// Returns the source name used in diagnostics.
     fn name(&self) -> &str;
+    /// Returns the provider implemented by this source.
     fn provider(&self) -> Provider;
+    /// Resolves one secret by key, returning `None` when absent.
     fn resolve(&self, key: &str) -> Result<Option<String>, SecretsError>;
 
     /// Resolve using a provider-specific typed reference.
@@ -32,6 +37,7 @@ pub trait SecretSource {
 
 /// Extended port: sources that can enumerate all available secrets.
 pub trait EnumerableSecretSource: SecretSource {
+    /// Resolves every secret available from this source.
     fn resolve_all(&self) -> Result<HashMap<String, String>, SecretsError>;
 }
 

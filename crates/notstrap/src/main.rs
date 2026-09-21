@@ -1,3 +1,5 @@
+//! Command-line entry point for the `notstrap` machine bootstrap sequence.
+
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use notstrap::{BootstrapOptions, prereqs, run};

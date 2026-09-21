@@ -1,3 +1,5 @@
+//! Parses and serializes age headers and recipient stanzas.
+
 use crate::error::AgeError;
 use crate::identities::{Header, Stanza};
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};

@@ -1,0 +1,79 @@
+{
+  "name": "miette",
+  "description": "Use miette for rich, user-facing diagnostic error reporting in Rust \u2014 ideal when you want annotated source spans, contextual help text, and pretty-printed error output instead of plain std::error::Error chains.",
+  "base_url": "https://docs.rs/miette",
+  "sources": [
+    {
+      "type": "documentation",
+      "base_url": "https://docs.rs/miette/7",
+      "selectors": {
+        "main_content": "article, main",
+        "title": "h1",
+        "code_blocks": "pre code"
+      },
+      "url_patterns": {
+        "include": [],
+        "exclude": []
+      }
+    },
+    {
+      "type": "github",
+      "repo": "zkat/miette",
+      "enable_codebase_analysis": true,
+      "code_analysis_depth": "deep",
+      "fetch_issues": false
+    }
+  ],
+  "categories": {
+    "error_reporting": [
+      "diagnostic",
+      "miette",
+      "Report",
+      "MietteDiagnostic",
+      "GraphicalReportHandler"
+    ],
+    "source_spans": [
+      "SourceSpan",
+      "SourceCode",
+      "LabeledSpan",
+      "named_source",
+      "NamedSource"
+    ],
+    "derive_macros": [
+      "Diagnostic",
+      "derive",
+      "thiserror",
+      "macro",
+      "help",
+      "label",
+      "url"
+    ],
+    "handlers_and_hooks": [
+      "ReportHandler",
+      "GraphicalReportHandler",
+      "NarratableReportHandler",
+      "set_hook"
+    ],
+    "integration": [
+      "anyhow",
+      "Result",
+      "miette::Result",
+      "IntoDiagnostic",
+      "WrapErr"
+    ],
+    "severity_and_codes": [
+      "Severity",
+      "DiagnosticCode",
+      "warning",
+      "error",
+      "advice"
+    ]
+  },
+  "rate_limit": 0.5,
+  "max_pages": 250,
+  "metadata": {
+    "version": "1.0.0",
+    "framework": "miette",
+    "detected_version": "7"
+  }
+}

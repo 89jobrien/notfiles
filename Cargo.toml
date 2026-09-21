@@ -17,7 +17,9 @@ members = [
     "crates/notstrap",
     "crates/notgraph",
     "crates/notforge",
+    "crates/notshell",
     "tests/integration",
+    "xtask",
 ]
 resolver = "2"
 
@@ -37,7 +39,8 @@ notforge    = { path = "crates/notforge" }
 nothooks    = { path = "crates/nothooks" }
 notnet      = { path = "crates/notnet" }
 notsecrets  = { path = "crates/notsecrets" }
-notstrap = { path = "crates/notstrap", version = "^0.1.0" } #unified
+notshell    = { path = "crates/notshell" }
+notstrap    = { path = "crates/notstrap", version = "^0.1.0" } #unified
 rpassword   = "7"
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"

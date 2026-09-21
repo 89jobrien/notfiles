@@ -1,3 +1,5 @@
+//! Exercises file-backed age identity loading and source resolution.
+
 use notsecrets::{FileSource, IdentitySource, X25519Identity, resolve_identities};
 use std::fs;
 use tempfile::TempDir;

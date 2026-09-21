@@ -1,3 +1,5 @@
+//! Unwraps age file keys with scrypt-derived passphrase keys.
+
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
@@ -10,6 +12,7 @@ pub struct ScryptIdentity {
 }
 
 impl ScryptIdentity {
+    /// Creates a passphrase identity for scrypt recipient stanzas.
     pub fn new(passphrase: String) -> Self {
         Self { passphrase }
     }

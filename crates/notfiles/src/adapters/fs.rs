@@ -1,3 +1,5 @@
+//! Standard-library filesystem adapter for the `FileStore` port.
+
 use crate::ports::FileStore;
 use std::path::{Path, PathBuf};
 

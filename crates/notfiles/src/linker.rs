@@ -1,3 +1,5 @@
+//! Package linking, unlinking, adoption, and persisted link state.
+
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -26,6 +28,7 @@ pub struct State {
 }
 
 impl State {
+    /// Loads link state, returning an empty state when no state file exists.
     pub fn load(dotfiles_dir: &Path, fs: &dyn FileStore) -> Result<Self, NotfilesError> {
         let path = dotfiles_dir.join(STATE_FILE);
         if !fs.exists(&path) {
@@ -39,6 +42,7 @@ impl State {
         Ok(state)
     }
 
+    /// Atomically writes link state through a temporary file.
     pub fn save(&self, dotfiles_dir: &Path, fs: &dyn FileStore) -> Result<(), NotfilesError> {
         let path = dotfiles_dir.join(STATE_FILE);
         let tmp_path = dotfiles_dir.join(format!("{STATE_FILE}.tmp"));
@@ -51,6 +55,7 @@ impl State {
         Ok(())
     }
 
+    /// Returns state entries belonging to `package`.
     pub fn entries_for_package(&self, package: &str) -> Vec<&StateEntry> {
         self.entries
             .iter()
@@ -58,15 +63,18 @@ impl State {
             .collect()
     }
 
+    /// Removes every state entry belonging to `package`.
     pub fn remove_package(&mut self, package: &str) {
         self.entries.retain(|e| e.package != package);
     }
 
+    /// Removes the state entry matching a package, source, and target.
     pub fn remove_entry(&mut self, package: &str, source: &str, target: &str) {
         self.entries
             .retain(|e| !(e.package == package && e.source == source && e.target == target));
     }
 
+    /// Replaces any matching source-target entry and records the new entry.
     pub fn add_entry(&mut self, entry: StateEntry) {
         // Remove existing entry for same source+target, then add new
         self.entries
@@ -91,6 +99,7 @@ pub struct LinkResult {
     pub backed_up: usize,
 }
 
+/// Links or copies every managed file in a package and updates state.
 pub fn link_package(
     dotfiles_dir: &Path,
     config: &Config,
@@ -262,6 +271,7 @@ pub fn link_package(
     Ok(result)
 }
 
+/// Removes safe-to-delete managed targets for a package and updates state.
 pub fn unlink_package(
     dotfiles_dir: &Path,
     state: &mut State,
@@ -386,6 +396,7 @@ pub fn unlink_package(
     Ok(())
 }
 
+/// Moves target files into a package, replaces them with symlinks, and updates state.
 #[allow(clippy::too_many_arguments)]
 pub fn adopt_files(
     dotfiles_dir: &Path,

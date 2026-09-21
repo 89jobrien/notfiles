@@ -1,0 +1,66 @@
+{
+  "name": "globset",
+  "description": "Use when you need glob pattern matching for file paths \u2014 filtering, ignoring, or selecting files by pattern in Rust applications.",
+  "base_url": "https://docs.rs/globset",
+  "sources": [
+    {
+      "type": "documentation",
+      "base_url": "https://docs.rs/globset/0.4",
+      "selectors": {
+        "main_content": "article, main",
+        "title": "h1",
+        "code_blocks": "pre code"
+      },
+      "url_patterns": {
+        "include": [],
+        "exclude": []
+      }
+    },
+    {
+      "type": "github",
+      "repo": "BurntSushi/ripgrep",
+      "enable_codebase_analysis": true,
+      "code_analysis_depth": "deep",
+      "fetch_issues": false
+    }
+  ],
+  "categories": {
+    "pattern_matching": [
+      "glob",
+      "wildcard",
+      "fnmatch",
+      "pattern"
+    ],
+    "file_filtering": [
+      "include",
+      "exclude",
+      "ignore",
+      "gitignore"
+    ],
+    "path_handling": [
+      "filepath",
+      "path",
+      "directory",
+      "recursive"
+    ],
+    "sets_and_collections": [
+      "globset",
+      "multi-pattern",
+      "batch",
+      "union"
+    ],
+    "performance": [
+      "compiled",
+      "regex",
+      "automaton",
+      "matching"
+    ]
+  },
+  "rate_limit": 0.5,
+  "max_pages": 250,
+  "metadata": {
+    "version": "1.0.0",
+    "framework": "globset",
+    "detected_version": "0.4"
+  }
+}

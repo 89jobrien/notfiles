@@ -1,3 +1,5 @@
+//! Wraps age file keys with scrypt-derived passphrase keys.
+
 use crate::error::AgeError;
 use crate::identities::scrypt::derive_scrypt_key;
 use crate::identities::{FileKey, Stanza};

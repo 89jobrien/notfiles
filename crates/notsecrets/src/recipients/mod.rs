@@ -1,3 +1,5 @@
+//! Defines age recipients that wrap file keys into header stanzas.
+
 use crate::error::AgeError;
 use crate::identities::{FileKey, Stanza};
 
@@ -12,5 +14,6 @@ pub use scrypt::ScryptRecipient;
 
 /// Domain port: a recipient that can wrap a file key into a stanza.
 pub trait Recipient {
+    /// Wraps a file key into a recipient stanza.
     fn wrap_file_key(&self, file_key: &FileKey) -> Result<Stanza, AgeError>;
 }

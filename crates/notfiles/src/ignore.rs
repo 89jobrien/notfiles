@@ -1,3 +1,5 @@
+//! Glob-based filtering for package-relative paths.
+
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::Path;
 
@@ -8,6 +10,7 @@ pub struct IgnoreMatcher {
 }
 
 impl IgnoreMatcher {
+    /// Compiles package ignore patterns into a matcher.
     pub fn new(patterns: &[&str]) -> Result<Self, NotfilesError> {
         let mut builder = GlobSetBuilder::new();
         for pattern in patterns {

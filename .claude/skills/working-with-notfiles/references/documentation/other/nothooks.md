@@ -1,0 +1,3 @@
+# nothooks
+
+<!-- Crate documentation -->

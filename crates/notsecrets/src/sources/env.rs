@@ -1,3 +1,5 @@
+//! Resolves individual secrets or all values from the process environment.
+
 use crate::config::Provider;
 use crate::error::SecretsError;
 use crate::ports::{EnumerableSecretSource, SecretSource};

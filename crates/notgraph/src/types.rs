@@ -1,3 +1,5 @@
+//! Graph, symbol, metric, and report data structures used by notgraph.
+
 use serde::{Deserialize, Serialize};
 
 pub type CrateName = String;

@@ -1,3 +1,5 @@
+//! Defines the Tailscale configuration consumed by network bootstrap operations.
+
 use serde::Deserialize;
 
 /// Configuration for Tailscale network setup.

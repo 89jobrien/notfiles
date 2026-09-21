@@ -1,3 +1,5 @@
+//! Secret and identity source adapters for supported providers.
+
 pub mod bitwarden;
 pub mod direnv;
 pub mod dotenvx;

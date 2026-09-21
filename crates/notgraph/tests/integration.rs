@@ -1,3 +1,5 @@
+//! Integration tests for module analysis, symbol collection, and report emission.
+
 use notgraph_lib::{analysis, emit, module_graph, symbols, types};
 use std::path::Path;
 use tempfile::TempDir;

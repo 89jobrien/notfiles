@@ -1,3 +1,5 @@
+//! Runs configured bootstrap hooks by phase and records completed setup hooks.
+
 pub mod runner;
 pub mod state;
 

@@ -1,3 +1,5 @@
+//! Filesystem I/O port used by linker domain logic.
+
 use std::path::{Path, PathBuf};
 
 /// FileStore trait abstracts file system I/O operations.

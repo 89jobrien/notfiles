@@ -1,3 +1,5 @@
+//! Managed-file status inspection, copy diffs, and output rendering.
+
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
@@ -34,6 +36,7 @@ pub struct StatusEntry {
     pub status: FileStatus,
 }
 
+/// Classifies each expected and orphaned file for a package.
 pub fn package_status(
     dotfiles_dir: &Path,
     config: &Config,
@@ -137,6 +140,7 @@ pub struct DiffEntry {
     pub kind: DiffKind,
 }
 
+/// Compares source and target contents for a copy-method package.
 pub fn diff_package(
     dotfiles_dir: &Path,
     config: &Config,
@@ -218,6 +222,7 @@ pub fn diff_package(
     results
 }
 
+/// Prints non-identical copy differences for a package.
 pub fn print_diff(package: &str, entries: &[DiffEntry]) {
     let non_identical: Vec<_> = entries
         .iter()
@@ -243,6 +248,7 @@ pub fn print_diff(package: &str, entries: &[DiffEntry]) {
     }
 }
 
+/// Prints human-readable managed-file status for a package.
 pub fn print_status(package: &str, entries: &[StatusEntry]) {
     if entries.is_empty() {
         println!("  {package}: (empty)");
@@ -259,6 +265,7 @@ pub fn print_status(package: &str, entries: &[StatusEntry]) {
     }
 }
 
+/// Prints managed-file status for a package as JSON.
 pub fn print_status_json(package: &str, entries: &[StatusEntry]) {
     let items: Vec<_> = entries
         .iter()

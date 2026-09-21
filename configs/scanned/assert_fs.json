@@ -1,0 +1,70 @@
+{
+  "name": "assert_fs",
+  "description": "Use when writing Rust tests that need to assert on filesystem state \u2014 create temp directories, write fixture files, and verify file contents or structure after operations.",
+  "base_url": "https://docs.rs/assert_fs",
+  "sources": [
+    {
+      "type": "documentation",
+      "base_url": "https://docs.rs/assert_fs",
+      "selectors": {
+        "main_content": "article, main",
+        "title": "h1",
+        "code_blocks": "pre code"
+      },
+      "url_patterns": {
+        "include": [],
+        "exclude": []
+      }
+    },
+    {
+      "type": "github",
+      "repo": "assert-rs/assert_fs",
+      "enable_codebase_analysis": true,
+      "code_analysis_depth": "deep",
+      "fetch_issues": false
+    }
+  ],
+  "categories": {
+    "testing": [
+      "assert",
+      "fixture",
+      "temp",
+      "verify",
+      "snapshot"
+    ],
+    "filesystem": [
+      "file",
+      "directory",
+      "path",
+      "tempdir",
+      "tree"
+    ],
+    "assertions": [
+      "predicate",
+      "match",
+      "contains",
+      "exists",
+      "content"
+    ],
+    "test-setup": [
+      "setup",
+      "scaffold",
+      "create",
+      "write",
+      "teardown"
+    ],
+    "integration-testing": [
+      "integration",
+      "end-to-end",
+      "cli",
+      "command"
+    ]
+  },
+  "rate_limit": 0.5,
+  "max_pages": 250,
+  "metadata": {
+    "version": "1.0.0",
+    "framework": "assert_fs",
+    "detected_version": "1"
+  }
+}

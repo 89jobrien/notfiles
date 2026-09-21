@@ -1,7 +1,10 @@
+//! Home-relative path expansion and default dotfiles paths.
+
 use std::path::PathBuf;
 
 use crate::NotfilesError;
 
+/// Expands `~` and `~/...` against the current home directory.
 pub fn expand_tilde(path: &str) -> Result<PathBuf, NotfilesError> {
     if path == "~" {
         return dirs::home_dir()
@@ -15,6 +18,7 @@ pub fn expand_tilde(path: &str) -> Result<PathBuf, NotfilesError> {
     Ok(PathBuf::from(path))
 }
 
+/// Returns the conventional `$HOME/dotfiles` directory.
 pub fn dotfiles_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join("dotfiles"))
 }

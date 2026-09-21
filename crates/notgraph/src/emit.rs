@@ -1,7 +1,10 @@
+//! Writes notgraph analysis reports in JSON, Markdown, and HTML.
+
 use crate::types::{CrateGraph, GraphStats, HotspotKind, ModuleGraph, SymbolKind, SymbolTable};
 use anyhow::Result;
 use std::path::Path;
 
+/// Writes JSON, Markdown, and HTML reports to the output directory.
 pub fn write_all(
     output_dir: &Path,
     crate_graph: &CrateGraph,

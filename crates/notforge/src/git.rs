@@ -1,3 +1,5 @@
+//! Git CLI adapter for managing remotes and pushing branches.
+
 use std::process::Command;
 
 use crate::error::NotforgeError;

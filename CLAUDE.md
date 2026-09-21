@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 <preflight>
-  Read: 
+  Read:
     - @docs/DESIGN.md
     - @.ctx/HANDOFF.md
 </preflight>
@@ -24,6 +24,7 @@ cargo test -p notsecrets           # test notsecrets only
 cargo test -p nothooks             # test nothooks only
 cargo clippy --workspace           # lint all crates
 cargo fmt --check                  # check formatting
+cargo run -p notgraph              # regenerate target/notgraph (module graph, cycle detection, heatmap)
 ```
 
 ## Workspace Structure

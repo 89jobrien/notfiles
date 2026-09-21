@@ -1,3 +1,5 @@
+//! Unwraps age file keys with SSH Ed25519 identities.
+
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
 use crate::wrap_key::derive_wrap_key;
@@ -15,6 +17,7 @@ pub struct SshEd25519Identity {
 }
 
 impl SshEd25519Identity {
+    /// Creates an identity from an Ed25519 signing key.
     pub fn from_signing_key(signing_key: SigningKey) -> Self {
         Self { signing_key }
     }

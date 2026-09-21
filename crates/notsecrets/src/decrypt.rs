@@ -1,3 +1,5 @@
+//! Authenticates and decrypts age payloads using configured identities.
+
 use crate::error::AgeError;
 use crate::format::{header_bytes_up_to_footer, parse_header};
 use crate::identities::{FileKey, Identity};
@@ -13,10 +15,12 @@ pub struct Decryptor {
 }
 
 impl Decryptor {
+    /// Creates a decryptor that tries the supplied identities in order.
     pub fn with_identities(identities: Vec<Box<dyn Identity>>) -> Self {
         Self { identities }
     }
 
+    /// Authenticates and decrypts an age ciphertext.
     pub fn decrypt(&self, ciphertext: &[u8]) -> Result<Vec<u8>, AgeError> {
         let (header, payload_offset) = parse_header(ciphertext)?;
 

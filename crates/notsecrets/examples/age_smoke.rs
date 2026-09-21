@@ -1,3 +1,5 @@
+//! Demonstrates X25519 age encryption and decryption with API keys from the environment.
+
 use notsecrets::{Decryptor, Encryptor, X25519Identity, X25519Recipient};
 use rand::rngs::OsRng;
 use x25519_dalek::{PublicKey, StaticSecret};

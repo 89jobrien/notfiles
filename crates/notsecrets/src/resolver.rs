@@ -1,8 +1,40 @@
+//! Builds provider chains and resolves configured secrets by priority.
+
 use crate::config::{Provider, ProviderConfig, SecretsConfig};
 use crate::error::SecretsError;
 use crate::ports::{EnumerableSecretSource, SecretSource};
 use crate::sources::*;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+fn expand_provider_path(path: &Path) -> Result<PathBuf, SecretsError> {
+    let value = path.to_str().ok_or_else(|| {
+        SecretsError::Config(format!(
+            "provider path is not valid UTF-8: {}",
+            path.display()
+        ))
+    })?;
+    notcore::expand_tilde(value)
+        .map_err(|error| SecretsError::Config(format!("cannot expand provider path: {error}")))
+}
+
+fn expand_provider_paths(config: &mut SecretsConfig) -> Result<(), SecretsError> {
+    for provider in config.provider.values_mut() {
+        match provider {
+            ProviderConfig::Dotenvx { env_file } => {
+                *env_file = expand_provider_path(env_file)?;
+            }
+            ProviderConfig::Sops { file } => {
+                *file = expand_provider_path(file)?;
+            }
+            ProviderConfig::Dotenvy { path } => {
+                *path = expand_provider_path(path)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
 
 pub struct SecretResolver {
     config: SecretsConfig,
@@ -11,7 +43,10 @@ pub struct SecretResolver {
 }
 
 impl SecretResolver {
-    pub fn from_config(config: SecretsConfig) -> Result<Self, SecretsError> {
+    /// Validates configuration and constructs its provider chain.
+    pub fn from_config(mut config: SecretsConfig) -> Result<Self, SecretsError> {
+        expand_provider_paths(&mut config)?;
+
         // Validate: every binding references a provider in the chain
         for (key, binding) in &config.secrets {
             if !config.providers.contains(&binding.provider()) {
@@ -101,6 +136,7 @@ impl SecretResolver {
         })
     }
 
+    /// Resolves one secret through its binding or the provider chain.
     pub fn resolve(&self, key: &str) -> Result<Option<String>, SecretsError> {
         // 1. Explicit binding
         if let Some(secret_ref) = self.config.secrets.get(key) {
@@ -119,6 +155,7 @@ impl SecretResolver {
         Ok(None)
     }
 
+    /// Merges enumerable providers and overlays explicit bindings.
     pub fn resolve_all(&self) -> Result<HashMap<String, String>, SecretsError> {
         let mut map = HashMap::new();
 
@@ -218,5 +255,52 @@ mod tests {
         };
         let result = SecretResolver::from_config(config);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn resolver_expands_tilde_in_filesystem_provider_paths() {
+        let config = SecretsConfig {
+            providers: vec![Provider::Dotenvx, Provider::Sops, Provider::Dotenvy],
+            provider: HashMap::from([
+                (
+                    Provider::Dotenvx,
+                    ProviderConfig::Dotenvx {
+                        env_file: "~/.config/secrets.env".into(),
+                    },
+                ),
+                (
+                    Provider::Sops,
+                    ProviderConfig::Sops {
+                        file: "~/.config/secrets.sops.env".into(),
+                    },
+                ),
+                (
+                    Provider::Dotenvy,
+                    ProviderConfig::Dotenvy {
+                        path: "~/.config/secrets.dotenv".into(),
+                    },
+                ),
+            ]),
+            secrets: HashMap::new(),
+        };
+
+        let resolver = SecretResolver::from_config(config).unwrap();
+        let home = notcore::expand_tilde("~").unwrap();
+
+        assert!(matches!(
+            resolver.config.provider.get(&Provider::Dotenvx),
+            Some(ProviderConfig::Dotenvx { env_file })
+                if env_file == &home.join(".config/secrets.env")
+        ));
+        assert!(matches!(
+            resolver.config.provider.get(&Provider::Sops),
+            Some(ProviderConfig::Sops { file })
+                if file == &home.join(".config/secrets.sops.env")
+        ));
+        assert!(matches!(
+            resolver.config.provider.get(&Provider::Dotenvy),
+            Some(ProviderConfig::Dotenvy { path })
+                if path == &home.join(".config/secrets.dotenv")
+        ));
     }
 }

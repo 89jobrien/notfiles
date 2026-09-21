@@ -1,3 +1,5 @@
+//! Wraps age file keys for SSH Ed25519 recipients.
+
 use crate::error::AgeError;
 use crate::identities::ssh_ed25519::{HKDF_INFO, ssh_key_fingerprint};
 use crate::identities::{FileKey, Stanza};
@@ -16,6 +18,7 @@ pub struct SshEd25519Recipient {
 }
 
 impl SshEd25519Recipient {
+    /// Creates a recipient from an Ed25519 verifying key.
     pub fn from_verifying_key(verifying_key: VerifyingKey) -> Self {
         Self { verifying_key }
     }

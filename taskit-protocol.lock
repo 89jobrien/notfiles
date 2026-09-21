@@ -3,19 +3,29 @@
   "algorithm": "sha256-normalized-core-contract-v1",
   "surfaces": [
     {
-      "name": "crates/types",
-      "path": "crates/notcore/src/types.rs",
-      "hash": "13aedd3687b09a6d2c3fb23d1fd3ce544b0163369c6749b0644831213efbdd83"
+      "name": "notcore-reporter",
+      "path": "crates/notcore/src/reporter.rs",
+      "hash": "b0ee033b0127c47bf99e4fae20d4003450c7bafa646c51e03be239193a748d7a"
     },
     {
-      "name": "crates/api",
-      "path": "crates/notforge/tests/api.rs",
-      "hash": "a19aded5a1df65536a2a01dd6db890ba39e2ac7878dc3f63fa8abd75eb88861d"
+      "name": "notfiles-ports",
+      "path": "crates/notfiles/src/ports.rs",
+      "hash": "5bd038d0996e0691d506d25045f534959f49810d5d73aa208ea0483b1903700b"
     },
     {
-      "name": "crates/types",
-      "path": "crates/notgraph/src/types.rs",
-      "hash": "13aedd3687b09a6d2c3fb23d1fd3ce544b0163369c6749b0644831213efbdd83"
+      "name": "notsecrets-ports",
+      "path": "crates/notsecrets/src/ports.rs",
+      "hash": "e2ded876addc2cead21fa2df909c52984e32b9d397e4fb1213e14dd76f7f9716"
+    },
+    {
+      "name": "notforge-ports",
+      "path": "crates/notforge/src/ports.rs",
+      "hash": "643ec5951247e1d2d7d28d70909847f576d432b035e7ae22f11f2e8a804d9033"
+    },
+    {
+      "name": "notforge-gitea",
+      "path": "crates/notforge/src/gitea.rs",
+      "hash": "1fb7c338a08a5929a9e37c589de422114a0337bfa6cda05ed694a3c45c48e73b"
     }
   ]
 }

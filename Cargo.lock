@@ -294,6 +294,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete_nushell"
+version = "4.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "933b05d5d83ff65fd7eaf5d106c792f2264908790a2642aca57429767b762ce2"
+dependencies = [
+ "clap",
+ "clap_complete",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1103,6 +1113,7 @@ dependencies = [
  "dirs",
  "globset",
  "notcore",
+ "notshell",
  "serde",
  "serde_json",
  "tempfile",
@@ -1131,6 +1142,8 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "clap",
+ "clap_complete",
+ "clap_complete_nushell",
  "serde",
  "serde_json",
  "syn",
@@ -1144,6 +1157,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "clap_complete",
+ "clap_complete_nushell",
  "notcore",
  "serde",
  "tempfile",
@@ -1187,11 +1202,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "notshell"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "serde",
+ "thiserror 2.0.18",
+ "toml",
+]
+
+[[package]]
 name = "notstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "clap_complete",
+ "clap_complete_nushell",
  "notcore",
  "notfiles",
  "notforge",
@@ -2553,6 +2580,10 @@ dependencies = [
  "spki",
  "tls_codec",
 ]
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
 
 [[package]]
 name = "yoke"

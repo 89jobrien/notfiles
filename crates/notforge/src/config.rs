@@ -1,3 +1,5 @@
+//! Configuration types and TOML loading for managed Gitea repositories.
+
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::Path;
 

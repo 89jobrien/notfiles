@@ -1,3 +1,5 @@
+//! End-to-end CLI tests for init, link, unlink, status, diff, and adopt workflows.
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -609,6 +611,269 @@ fn test_fixture_platform_filter_skips_linux_on_macos() {
     assert!(target.join(".gitconfig").exists());
 }
 
+/// End-to-end: realistic new-machine onboarding scenario.
+///
+/// Simulates the full user journey:
+///   1. A "home" dir already has pre-existing config files (zshrc, gitconfig, ssh/config).
+///   2. `adopt` moves the pre-existing files into dotfiles packages and symlinks back.
+///   3. `link` wires up the remaining package (nushell) that had no pre-existing conflict.
+///   4. `status` confirms every managed file is either linked or copied.
+///   5. The user edits the copy-method ssh config on their machine (simulating local divergence).
+///   6. `diff` surfaces the diverged copy.
+///   7. `unlink` removes all symlinks, preserves the diverged copy, and cleans empty dirs.
+///   8. After unlink the state file is empty (zero entries remain for removed packages).
+#[test]
+fn test_e2e_new_machine_onboarding() {
+    let tmp = TempDir::new().unwrap();
+    let dotfiles = tmp.path().join("dotfiles");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&dotfiles).unwrap();
+    fs::create_dir_all(&home).unwrap();
+
+    // ── Pre-existing files in "home" (as found on a fresh machine) ─────────
+    fs::create_dir_all(home.join(".config/zsh")).unwrap();
+    fs::write(
+        home.join(".config/zsh/zshrc"),
+        "# my existing zshrc\nexport PATH=$PATH:~/.local/bin\n",
+    )
+    .unwrap();
+    fs::write(
+        home.join(".gitconfig"),
+        "[user]\n\tname = Joe\n\temail = joe@example.com\n",
+    )
+    .unwrap();
+    fs::create_dir_all(home.join(".ssh")).unwrap();
+    fs::write(
+        home.join(".ssh/config"),
+        "Host *\n\tAddKeysToAgent yes\n\tIdentityFile ~/.ssh/id_ed25519\n",
+    )
+    .unwrap();
+
+    // ── Dotfiles repo already has a nushell package (no conflict with home) ─
+    let nushell_pkg = dotfiles.join("nushell");
+    fs::create_dir_all(nushell_pkg.join(".config/nushell")).unwrap();
+    fs::write(
+        nushell_pkg.join(".config/nushell/config.nu"),
+        "# nushell config\n$env.config.show_banner = false\n",
+    )
+    .unwrap();
+    fs::write(
+        nushell_pkg.join(".config/nushell/env.nu"),
+        "# nushell env\n$env.EDITOR = \"vim\"\n",
+    )
+    .unwrap();
+
+    // ── Stub packages (adopt will populate zsh, git, ssh) ──────────────────
+    fs::create_dir_all(dotfiles.join("zsh")).unwrap();
+    fs::create_dir_all(dotfiles.join("git")).unwrap();
+    fs::create_dir_all(dotfiles.join("ssh")).unwrap();
+
+    // ── Initial notfiles.toml ───────────────────────────────────────────────
+    let config = format!(
+        r#"[defaults]
+target = "{home}"
+ignore = [".git", ".DS_Store", "README.md", "notfiles.toml", ".notfiles-state.toml"]
+
+[packages.zsh]
+
+[packages.git]
+
+[packages.nushell]
+
+[packages.ssh]
+method = "copy"
+"#,
+        home = home.display(),
+    );
+    fs::write(dotfiles.join("notfiles.toml"), &config).unwrap();
+
+    // ── Step 1: adopt pre-existing files into their packages ───────────────
+    // `adopt` takes paths relative to the target dir, not absolute paths.
+    // It moves home/<rel> → dotfiles/<pkg>/<rel> and creates the symlink back.
+    let (stdout, stderr, ok) = run(&dotfiles, &["adopt", "zsh", ".config/zsh/zshrc"]);
+    assert!(
+        ok,
+        "adopt zsh/zshrc failed: stdout={stdout} stderr={stderr}"
+    );
+    assert!(
+        dotfiles.join("zsh/.config/zsh/zshrc").exists(),
+        "adopt should move zshrc into the package"
+    );
+    let zshrc_link = home.join(".config/zsh/zshrc");
+    assert!(
+        zshrc_link
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "adopt should leave a symlink at the original location"
+    );
+    assert_eq!(
+        fs::read_to_string(&zshrc_link).unwrap(),
+        "# my existing zshrc\nexport PATH=$PATH:~/.local/bin\n",
+        "symlink should resolve to original content"
+    );
+
+    let (stdout, stderr, ok) = run(&dotfiles, &["adopt", "git", ".gitconfig"]);
+    assert!(
+        ok,
+        "adopt git/.gitconfig failed: stdout={stdout} stderr={stderr}"
+    );
+    assert!(dotfiles.join("git/.gitconfig").exists());
+    assert!(
+        home.join(".gitconfig")
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+
+    let (stdout, stderr, ok) = run(&dotfiles, &["adopt", "ssh", ".ssh/config"]);
+    assert!(
+        ok,
+        "adopt ssh config failed: stdout={stdout} stderr={stderr}"
+    );
+    assert!(dotfiles.join("ssh/.ssh/config").exists());
+    // adopt always creates a symlink regardless of the package method — the copy
+    // method only kicks in on subsequent `link` runs, not on adopt.
+    assert!(
+        home.join(".ssh/config")
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+
+    // ── Step 2: link the remaining package (nushell) ───────────────────────
+    let (stdout, stderr, ok) = run(&dotfiles, &["link", "nushell", "--verbose"]);
+    assert!(ok, "link nushell failed: stdout={stdout} stderr={stderr}");
+    let nu_config = home.join(".config/nushell/config.nu");
+    assert!(nu_config.exists(), "nushell config.nu should be linked");
+    assert!(
+        nu_config
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "nushell config.nu should be a symlink"
+    );
+
+    // ── Step 3: status — everything should be linked or copied ─────────────
+    let (stdout, _, ok) = run(&dotfiles, &["status"]);
+    assert!(ok, "status failed");
+    assert!(
+        !stdout.contains("missing"),
+        "all files should be managed after adopt+link, but status shows missing:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("linked"),
+        "status should show linked entries"
+    );
+
+    // ── Step 4: simulate local edit to the copy-method ssh config ──────────
+    // adopt always creates a symlink. To get a real copy on disk (so we can
+    // diverge it), unlink ssh first to clear state, then re-link it via the
+    // copy method. Writing through a symlink writes to the source, so we must
+    // ensure the file is a true copy before mutating it.
+    let (_, _, ok) = run(&dotfiles, &["unlink", "ssh"]);
+    assert!(ok, "unlink ssh before copy-relink failed");
+    let (_, _, ok) = run(&dotfiles, &["link", "ssh"]);
+    assert!(ok, "re-link ssh as copy failed");
+
+    let ssh_config_path = home.join(".ssh/config");
+    assert!(
+        !ssh_config_path
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "ssh config should be a real copy after link with method=copy"
+    );
+    let original = fs::read_to_string(&ssh_config_path).unwrap();
+    fs::write(
+        &ssh_config_path,
+        format!("{original}\nHost bastion\n\tHostName 10.0.0.1\n\tUser joe\n"),
+    )
+    .unwrap();
+
+    // ── Step 5: diff shows the diverged ssh config ──────────────────────────
+    let (stdout, _, ok) = run(&dotfiles, &["diff", "ssh"]);
+    assert!(ok, "diff should succeed even with divergence");
+    assert!(
+        stdout.contains("modified") || stdout.contains("bastion") || stdout.contains("diverged"),
+        "diff should surface the local edit to ssh config, got:\n{stdout}"
+    );
+
+    // ── Step 6: status flags the diverged copy as conflict ──────────────────
+    let (stdout, _, ok) = run(&dotfiles, &["status", "ssh"]);
+    assert!(ok);
+    assert!(
+        stdout.contains("conflict"),
+        "diverged copy-method file should appear as conflict in status:\n{stdout}"
+    );
+
+    // ── Step 7: unlink all — symlinks removed, diverged copy preserved ──────
+    let (stdout, stderr, ok) = run(&dotfiles, &["unlink", "--verbose"]);
+    assert!(ok, "unlink failed: stdout={stdout} stderr={stderr}");
+
+    assert!(
+        !home.join(".config/nushell/config.nu").exists(),
+        "nushell symlink should be removed"
+    );
+    assert!(
+        !home.join(".config/nushell/env.nu").exists(),
+        "nushell env.nu symlink should be removed"
+    );
+    assert!(
+        !home.join(".config/nushell").exists(),
+        "empty .config/nushell dir should be cleaned up"
+    );
+    assert!(
+        !home.join(".gitconfig").exists(),
+        "git symlink should be removed"
+    );
+    assert!(
+        !home.join(".config/zsh/zshrc").exists(),
+        "zsh symlink should be removed"
+    );
+
+    // The diverged ssh copy must NOT be removed — notfiles preserves it
+    assert!(
+        ssh_config_path.exists(),
+        "diverged copy-method file must be preserved during unlink"
+    );
+    assert!(
+        fs::read_to_string(&ssh_config_path)
+            .unwrap()
+            .contains("bastion"),
+        "diverged content must be intact after unlink"
+    );
+
+    // ── Step 8: state file reflects that managed entries were removed ────────
+    let state_path = dotfiles.join(".notfiles-state.toml");
+    if state_path.exists() {
+        let state = fs::read_to_string(&state_path).unwrap();
+        // nushell, git, zsh entries should be gone
+        assert!(
+            !state.contains("config.nu"),
+            "nushell state entry should be cleared after unlink: {state}"
+        );
+        assert!(
+            !state.contains(".gitconfig"),
+            "git state entry should be cleared after unlink: {state}"
+        );
+        assert!(
+            !state.contains("zshrc"),
+            "zsh state entry should be cleared after unlink: {state}"
+        );
+        // ssh entry is retained because unlink skipped the diverged copy
+        assert!(
+            state.contains(".ssh/config"),
+            "ssh state entry must be retained when unlink skips a diverged copy: {state}"
+        );
+    }
+}
+
 #[test]
 fn test_fixture_link_and_unlink_round_trip() {
     let tmp = TempDir::new().unwrap();
@@ -626,4 +891,61 @@ fn test_fixture_link_and_unlink_round_trip() {
     assert!(ok);
     assert!(!target.join(".gitconfig").exists());
     assert!(!target.join(".zshrc").exists());
+}
+
+#[test]
+fn test_link_generates_shell_config_from_ir() {
+    let tmp = TempDir::new().unwrap();
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+    fs::create_dir_all(&dotfiles).unwrap();
+    fs::create_dir_all(&target).unwrap();
+
+    let pkg = dotfiles.join("shared-shell");
+    fs::create_dir_all(pkg.join(".config/nushell/autoload")).unwrap();
+    fs::create_dir_all(pkg.join(".config/fish/conf.d")).unwrap();
+    fs::write(
+        pkg.join("shell.toml"),
+        r#"
+            [[aliases]]
+            name = "m"
+            command = "mise"
+        "#,
+    )
+    .unwrap();
+
+    let config = format!(
+        r#"[defaults]
+target = "{}"
+ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml"]
+
+[packages.shared-shell.shell]
+source = "shell.toml"
+targets = {{ nu = ".config/nushell/autoload/generated.nu", fish = ".config/fish/conf.d/generated.fish" }}
+"#,
+        target.display()
+    );
+    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+
+    let (_, stderr, ok) = run(&dotfiles, &["link"]);
+    assert!(ok, "link failed: {stderr}");
+
+    let nu_generated = pkg.join(".config/nushell/autoload/generated.nu");
+    let fish_generated = pkg.join(".config/fish/conf.d/generated.fish");
+    assert!(nu_generated.exists(), "expected generated nu file");
+    assert!(fish_generated.exists(), "expected generated fish file");
+
+    let nu_contents = fs::read_to_string(&nu_generated).unwrap();
+    assert!(nu_contents.contains("alias m = mise"));
+
+    let fish_contents = fs::read_to_string(&fish_generated).unwrap();
+    assert!(fish_contents.contains("alias m \"mise\""));
+
+    // Generated files are symlinked into target like any other package file.
+    assert!(
+        target
+            .join(".config/nushell/autoload/generated.nu")
+            .exists()
+    );
+    assert!(target.join(".config/fish/conf.d/generated.fish").exists());
 }

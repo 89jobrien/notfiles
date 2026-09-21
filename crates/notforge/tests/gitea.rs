@@ -1,3 +1,5 @@
+//! Integration tests for Gitea request mapping and authentication.
+
 use std::sync::{Arc, Mutex};
 
 use notforge::config::RepoSpec;

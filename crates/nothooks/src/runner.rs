@@ -1,3 +1,5 @@
+//! Executes hook scripts and persists successful setup-hook state.
+
 use crate::HookResult;
 use crate::state::HookState;
 use anyhow::{Context, Result};
@@ -33,6 +35,7 @@ pub struct HookRunner {
 }
 
 impl HookRunner {
+    /// Creates a runner that skips setup hooks already recorded as complete.
     pub fn new(state_dir: PathBuf) -> Self {
         Self {
             state_dir,
@@ -40,6 +43,7 @@ impl HookRunner {
         }
     }
 
+    /// Creates a runner that reruns setup hooks even when already complete.
     pub fn with_force(state_dir: PathBuf) -> Self {
         Self {
             state_dir,

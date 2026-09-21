@@ -1,3 +1,5 @@
+//! Loads an age X25519 identity from YubiKey PIV slot 9c.
+
 use crate::error::AgeError;
 use crate::identities::Identity;
 use crate::ports::IdentitySource;

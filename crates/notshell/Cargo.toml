@@ -1,0 +1,12 @@
+[package]
+name    = "notshell"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Cross-shell config generation (nu/fish/zsh/bash) from a canonical IR"
+
+[dependencies]
+miette    = { workspace = true }
+serde     = { workspace = true }
+thiserror = { workspace = true }
+toml      = { workspace = true }

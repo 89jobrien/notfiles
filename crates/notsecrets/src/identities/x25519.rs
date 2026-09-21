@@ -1,3 +1,5 @@
+//! Unwraps age file keys with native X25519 identities.
+
 use crate::bech32_util::decode_bech32_32;
 use crate::error::AgeError;
 use crate::identities::{FileKey, Identity, Stanza};
@@ -16,10 +18,12 @@ pub struct X25519Identity {
 }
 
 impl X25519Identity {
+    /// Creates an identity from an X25519 static secret.
     pub fn from_static_secret(secret: StaticSecret) -> Self {
         Self { secret }
     }
 
+    /// Parses an age secret key from bech32 text.
     pub fn from_bech32(s: &str) -> Result<Self, AgeError> {
         let bytes = decode_bech32_32(s, IDENTITY_HRP, true)?;
         Ok(Self {
@@ -27,6 +31,7 @@ impl X25519Identity {
         })
     }
 
+    /// Encodes this identity as an uppercase age secret key.
     pub fn to_bech32(&self) -> String {
         let hrp = Hrp::parse(IDENTITY_HRP).expect("static hrp is valid");
         bech32::encode::<Bech32>(hrp, self.secret.as_bytes())

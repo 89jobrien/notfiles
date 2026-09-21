@@ -1,3 +1,5 @@
+//! Configuration loading, validation, package overrides, and starter TOML.
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -67,6 +69,19 @@ pub struct PackageConfig {
     /// Valid values: "macos", "linux".
     #[serde(default)]
     pub platforms: Vec<String>,
+    /// Cross-shell config generation for this package (notshell IR → native files).
+    #[serde(default)]
+    pub shell: Option<ShellPackageConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShellPackageConfig {
+    /// Path to the canonical shell IR file, relative to the package root.
+    pub source: String,
+    /// Maps shell id ("nu", "fish", "zsh", "bash") to the generated file's
+    /// output path, relative to the package root — mirroring the same
+    /// $HOME-relative convention as every other file in the package.
+    pub targets: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -138,6 +153,7 @@ impl Config {
         Self::load_from(&dotfiles_dir.join("notfiles.toml"))
     }
 
+    /// Returns the package's configured link method or the default method.
     pub fn method_for(&self, package: &str) -> Method {
         self.packages
             .get(package)
@@ -145,6 +161,7 @@ impl Config {
             .unwrap_or_default()
     }
 
+    /// Returns the package-specific target or the default target.
     pub fn target_for(&self, package: &str) -> &str {
         self.packages
             .get(package)
@@ -196,6 +213,7 @@ impl Config {
         platforms.iter().any(|p| p == current)
     }
 
+    /// Combines default and package-specific ignore patterns.
     pub fn ignore_patterns_for(&self, package: &str) -> Vec<&str> {
         let mut patterns: Vec<&str> = self.defaults.ignore.iter().map(|s| s.as_str()).collect();
         if let Some(pkg) = self.packages.get(package) {
@@ -224,6 +242,7 @@ pub fn suggest_package<'a>(name: &str, available: &[&'a str]) -> Option<&'a str>
         .map(|(name, _)| name)
 }
 
+/// Returns the starter `notfiles.toml` template.
 pub fn starter_toml() -> &'static str {
     r#"[defaults]
 target = "~"

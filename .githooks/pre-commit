@@ -1,0 +1,4 @@
+#!/bin/sh
+# Delegate to taskit's named pre-commit check.
+# Install: git config core.hooksPath .githooks
+exec taskit check pre-commit

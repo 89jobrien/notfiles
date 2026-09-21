@@ -1,3 +1,5 @@
+//! Exercises bootstrap orchestration across linking, hooks, and age keys.
+
 use notcore::{HookPhase, HookSpec, StepStatus};
 use nothooks::{HookRunner, run_phase};
 use notstrap::{BootstrapOptions, run};
