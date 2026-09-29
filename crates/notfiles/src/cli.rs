@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "notfiles", about = "A modern dotfiles manager")]
+#[command(name = "notfiles", version, about = "A modern dotfiles manager")]
 pub struct Cli {
     /// Path to the dotfiles directory (default: ~/.notfiles)
     #[arg(long, global = true)]
