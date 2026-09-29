@@ -7,7 +7,7 @@ use nothooks::{HookRunner, run_phase};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "nothooks", about = "Bootstrap hook runner")]
+#[command(name = "nothooks", about = "Bootstrap hook runner", version)]
 struct Cli {
     #[command(subcommand)]
     command: Cmd,

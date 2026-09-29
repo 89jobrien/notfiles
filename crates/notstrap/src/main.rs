@@ -5,7 +5,11 @@ use clap::{CommandFactory, Parser};
 use notstrap::{BootstrapOptions, prereqs, run};
 
 #[derive(Parser)]
-#[command(name = "notstrap", about = "Bootstrap a new machine from dotfiles")]
+#[command(
+    name = "notstrap",
+    about = "Bootstrap a new machine from dotfiles",
+    version
+)]
 struct Cli {
     #[command(subcommand)]
     command: Cmd,

@@ -8,7 +8,8 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(
     name = "notgraph",
-    about = "Workspace module graph and symbol analysis"
+    about = "Workspace module graph and symbol analysis",
+    version
 )]
 struct Cli {
     #[arg(long, default_value = "docs/graph")]
