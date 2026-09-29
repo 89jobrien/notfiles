@@ -1,3 +1,3 @@
 fn main() {
-    println!("{}", notforge::VERSION);
+    println!("notforge {}", notforge::VERSION);
 }
