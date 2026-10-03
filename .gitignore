@@ -7,8 +7,11 @@
 .worktrees/
 .claude/worktrees/
 .claude.local.md
-docs/*
-!docs/superpowers/
+# mdbook generated output. Source lives in docs/src, config in docs/book.toml.
+docs/book/
+# Pre-2026-10-01 output dir, superseded by docs/book/. Generated; regenerate with
+# `mdbook build` in docs/ rather than committing.
+docs/dist/
 librust_out.rlib
 .remember/
 

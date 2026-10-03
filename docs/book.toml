@@ -1,0 +1,13 @@
+[book]
+title = "notfiles"
+authors = []
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = ""
+default-theme = "rust"
+preferred-dark-theme = "ayu"
