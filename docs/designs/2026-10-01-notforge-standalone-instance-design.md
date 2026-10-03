@@ -33,7 +33,7 @@ and are excluded here.
 | `crates/notstrap/src/forge.rs`              | `SecretResolverPort` adapter | compiles unchanged; superseded once notforge ships its own SOPS adapter                                                                                                                         |
 | `docs/src/crates/notforge.md`               | crate chapter                | moves to the new repo                                                                                                                                                                           |
 | `docs/src/architecture/overview.md`         | crate table                  | drop the notforge row; correct the false claim that "notgraph and notforge are siblings, not dependents"                                                                                        |
-| `docs/src/README.md`, `docs/src/SUMMARY.md` | book index                   | drop notforge entries; regenerate `docs/dist` via `mdbook build`                                                                                                                                |
+| `docs/src/README.md`, `docs/src/SUMMARY.md` | book index                   | drop notforge entries; regenerate `docs/book` via `mdbook build`                                                                                                                                |
 | `.claude/skills/working-with-notfiles/**`   | skill docs                   | 12 refs across `SKILL.md`, `config_patterns.json`, `documentation_index.json`                                                                                                                   |
 
 `docs/designs/2026-07-08-on-demand-gitea-forge-design.md` stays in place as history.
