@@ -8,6 +8,9 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  # Permissive, OSI-approved. Mozilla chose it for webpki-roots because a root
+  # certificate store is data, not code; it arrives transitively via ureq.
+  "CDLA-Permissive-2.0",
   "ISC",
   "Unicode-3.0",
   "Unicode-DFS-2016",
