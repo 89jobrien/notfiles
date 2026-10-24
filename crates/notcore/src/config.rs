@@ -229,10 +229,16 @@ pub fn suggest_package<'a>(name: &str, available: &[&'a str]) -> Option<&'a str>
         .map(|(name, _)| name)
 }
 
-pub fn starter_toml() -> &'static str {
-    r#"[defaults]
+pub fn starter_toml() -> String {
+    let ignore_list = default_ignore()
+        .iter()
+        .map(|entry| format!("{entry:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        r#"[defaults]
 target = "~"
-ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml", ".nothooks-state.toml"]
+ignore = [{ignore_list}]
 
 # [packages.ssh]
 # method = "copy"
@@ -241,6 +247,7 @@ ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfil
 # [packages.scripts]
 # target = "~/bin"
 "#
+    )
 }
 
 #[cfg(test)]
@@ -258,6 +265,28 @@ mod tests {
         assert!(config.defaults.ignore.contains(&".git".to_string()));
         assert_eq!(config.method_for("anything"), Method::Symlink);
         assert_eq!(config.target_for("anything"), "~");
+    }
+
+    #[test]
+    fn test_default_ignore_includes_build_dirs_and_venvs() {
+        let ignore = default_ignore();
+        for entry in ["target", ".venv", "venv", "node_modules", "__pycache__"] {
+            assert!(
+                ignore.contains(&entry.to_string()),
+                "default_ignore() missing {entry:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_starter_toml_ignore_list_matches_default_ignore() {
+        let config: Config = toml::from_str(&starter_toml()).unwrap();
+        for entry in default_ignore() {
+            assert!(
+                config.defaults.ignore.contains(&entry),
+                "starter_toml()'s ignore list is missing {entry:?} from default_ignore()"
+            );
+        }
     }
 
     #[test]
