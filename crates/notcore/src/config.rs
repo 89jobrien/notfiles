@@ -53,6 +53,11 @@ fn default_ignore() -> Vec<String> {
         "notfiles.toml".to_string(),
         ".notfiles-state.toml".to_string(),
         ".nothooks-state.toml".to_string(),
+        "target".to_string(),
+        ".venv".to_string(),
+        "venv".to_string(),
+        "node_modules".to_string(),
+        "__pycache__".to_string(),
     ]
 }
 
