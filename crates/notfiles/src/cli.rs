@@ -39,9 +39,6 @@ pub struct Cli {
 //   and generates a notfiles.toml for it, then bulk-adopts all packages. Should call
 //   `detect::detect()`, let the user pick a source, and run `adopt` for each package.
 
-// TODO(which): Add `notfiles which <path>` — reverse lookup from a target path (e.g.
-//   ~/.gitconfig) to its source package and file. Walk state entries and check read_link.
-
 // TODO(doctor): Add `notfiles doctor` — holistic drift detection replacing drift-check.sh.
 //   Checks: broken symlinks, unmanaged dotfiles in $HOME, dirty git state, conflicts,
 //   packages in dir not listed in notfiles.toml. Should print a summary like `just doctor`.
@@ -109,5 +106,11 @@ pub enum Command {
         package: String,
         /// File paths (relative to target dir) to adopt
         files: Vec<String>,
+    },
+
+    /// Reverse lookup: find which package/source a managed path came from
+    Which {
+        /// Target path to resolve (e.g. ~/.gitconfig)
+        path: PathBuf,
     },
 }

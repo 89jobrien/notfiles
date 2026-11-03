@@ -247,6 +247,22 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Which { path } => {
+            let fs = &adapters::FileStoreImpl;
+            let state = State::load(&dotfiles_dir, fs)?;
+            match notfiles::which::locate(&path, &dotfiles_dir, &state, fs) {
+                Some(result) => {
+                    if cli.json {
+                        notfiles::which::print_which_json(&result);
+                    } else {
+                        notfiles::which::print_which(&result);
+                    }
+                }
+                None => {
+                    anyhow::bail!("{} is not managed by notfiles", path.display());
+                }
+            }
+        }
     }
 
     Ok(())
