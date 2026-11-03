@@ -1110,6 +1110,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "notfiles-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "notcore",
+ "notfiles",
+ "notstrap",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "notforge"
 version = "0.1.0"
 dependencies = [

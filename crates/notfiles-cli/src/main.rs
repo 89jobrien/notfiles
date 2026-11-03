@@ -17,6 +17,33 @@ fn main() -> Result<()> {
         .dir
         .unwrap_or_else(notcore::config::default_dotfiles_dir);
 
+    // Bootstrap has its own dotfiles/config semantics (notstrap.toml, ~/dotfiles),
+    // independent of notfiles's --dir/--config globals. Handle before the
+    // dotfiles-dir existence check below, which doesn't apply to it.
+    if let Command::Bootstrap {
+        config,
+        force,
+        key_file,
+        dotfiles,
+    } = cli.command
+    {
+        let opts = notstrap::BootstrapOptions {
+            config,
+            force,
+            key_file,
+            dotfiles,
+            tailscale: None,
+            check_prereqs: Some(Box::new(notstrap::prereqs::check_prerequisites)),
+            secrets_config: None,
+        };
+        let report = notstrap::run(opts)?;
+        report.print();
+        if report.has_failures() {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
     // Init is the only command allowed when the dotfiles dir doesn't exist yet.
     if matches!(cli.command, Command::Init) {
         return cmd_init(&dotfiles_dir, cli.config.as_deref());
@@ -54,6 +81,7 @@ fn main() -> Result<()> {
             }
         }
         Command::Init => unreachable!("handled above"),
+        Command::Bootstrap { .. } => unreachable!("handled above"),
         Command::Link {
             force,
             no_backup,

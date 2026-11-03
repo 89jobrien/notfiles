@@ -16,7 +16,7 @@ A modern dotfiles manager written in Rust — a pure Rust alternative to GNU Sto
 
 ```bash
 cargo build                        # build all workspace crates
-cargo build -p notfiles            # build just the notfiles binary
+cargo build -p notfiles-cli        # build just the notfiles binary
 cargo test                         # run all tests across workspace
 cargo test -p notcore              # test notcore only
 cargo test -p notfiles             # test notfiles only
@@ -28,29 +28,35 @@ cargo fmt --check                  # check formatting
 
 ## Workspace Structure
 
-This is a Cargo workspace with 7 crates under `crates/`:
+This is a Cargo workspace with 8 crates under `crates/`:
 
-| Crate        | Purpose                                                                 |
-| ------------ | ----------------------------------------------------------------------- |
-| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,       |
-|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`    |
-| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`, |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`             |
-| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/    |
-|              | decryption, identity management                                         |
-| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence         |
-| `notnet`     | Network utilities — Tailscale integration, YubikeySource                |
-| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together           |
-| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,   |
-|              | heatmap, cycle detection                                                |
+| Crate          | Purpose                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `notcore`      | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,       |
+|                | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`    |
+| `notfiles`     | Dotfiles linker — lib only. CLI types live in `src/cli.rs`; subcommand  |
+|                | logic in `linker`/`package`/`status`/`which`. No `notstrap` dependency. |
+| `notfiles-cli` | Installs as the `notfiles` binary. Depends on `notfiles` + `notstrap`,  |
+|                | dispatches every `notfiles` subcommand including `bootstrap`.           |
+| `notsecrets`   | Multi-provider secret resolution (`SecretResolver`), age encryption/    |
+|                | decryption, identity management                                         |
+| `nothooks`     | Nushell hook runner with dot/setup phases and state persistence         |
+| `notnet`       | Network utilities — Tailscale integration, YubikeySource                |
+| `notstrap`     | New-machine bootstrap orchestrator — ties all crates together           |
+| `notgraph`     | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,   |
+|                | heatmap, cycle detection                                                |
 
 ## Architecture
 
 ### notfiles (primary user-facing tool)
 
-Eight subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
-`adopt`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
-CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
+Ten subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
+`adopt`, `completions`, `which`, `bootstrap`. Global flags: `--dry-run`,
+`--verbose`, `--json`. CLI parsing in `crates/notfiles/src/cli.rs`
+(shared by both crates); dispatch lives in `crates/notfiles-cli/src/main.rs`
+— `notfiles` itself is lib-only, to avoid a dependency cycle with `notstrap`
+(which already depends on `notfiles`). `bootstrap` delegates straight into
+`notstrap::run`.
 
 **Core flow for `link`:** `main` → `config.validate()` →
 `resolve_packages_filtered` (include/exclude + platform filtering) →

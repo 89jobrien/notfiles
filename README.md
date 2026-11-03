@@ -27,17 +27,20 @@ notfiles adopt git .gitconfig
 # Remove symlinks
 notfiles unlink
 
+# Reverse lookup: which package does this path come from?
+notfiles which ~/.gitconfig
+
 # Generate shell completions
 notfiles completions bash > ~/.bash_completion.d/notfiles
 ```
 
 All commands support `--dry-run`, `--verbose`, and `--json` flags.
 
-On a new machine (once `notstrap` ships):
+On a new machine:
 
 ```bash
-cargo install notstrap
-notstrap run
+cargo install notfiles-cli
+notfiles bootstrap --config notstrap.toml
 ```
 
 ---
@@ -48,7 +51,8 @@ notstrap run
 notfiles/
 ├── crates/
 │   ├── notcore/        # shared types, config, paths, errors, Reporter trait
-│   ├── notfiles/       # symlink engine (stow replacement)  ← you are here
+│   ├── notfiles/       # symlink engine (stow replacement), lib only  ← you are here
+│   ├── notfiles-cli/   # installs as the `notfiles` binary; wires in notstrap
 │   ├── notsecrets/     # multi-provider secret resolution + age crypto
 │   ├── nothooks/       # hook execution engine
 │   ├── notnet/         # network utilities (Tailscale, Yubikey)
@@ -63,27 +67,34 @@ notfiles/
 | Crate | Type | Does |
 |-------|------|------|
 | `notcore` | lib | Shared types, config, paths, errors, Reporter trait — no deps on other crates |
-| `notfiles` | lib + bin | Symlink/copy packages into `$HOME`, track state, adopt/diff/check |
+| `notfiles` | lib | Symlink/copy packages into `$HOME`, track state, adopt/diff/check/which |
+| `notfiles-cli` | bin | Installs as the `notfiles` binary. Depends on `notfiles` + `notstrap`; dispatches every subcommand, including `bootstrap` |
 | `notsecrets` | lib | Multi-provider secret resolution, native age encryption/decryption |
 | `nothooks` | lib + bin | Run bootstrap hooks in phases, skip already-run setup hooks |
 | `notnet` | lib | Tailscale integration, Yubikey identity source |
-| `notstrap` | bin | Orchestrate everything on a fresh machine |
+| `notstrap` | lib + bin | Orchestrate everything on a fresh machine |
 | `notgraph` | lib + bin | Rust file dependency/import graph with HTML/Mermaid output |
 
 ### Dependency graph
 
 ```
-notstrap
+notfiles-cli
   ├── notfiles
   │     └── notcore
-  ├── notsecrets
-  │     └── notcore
-  ├── notnet
-  └── nothooks
-        └── notcore
+  └── notstrap
+        ├── notfiles
+        │     └── notcore
+        ├── notsecrets
+        │     └── notcore
+        ├── notnet
+        └── nothooks
+              └── notcore
 ```
 
-`notcore` is the only shared dependency. No circular deps.
+`notcore` is the only shared dependency. `notfiles` never depends on
+`notstrap` — only the top-level `notfiles-cli` binary depends on both,
+which is what lets `notfiles bootstrap` delegate into `notstrap::run`
+without a dependency cycle (`notstrap` already depends on `notfiles`).
 
 ---
 
@@ -273,7 +284,7 @@ Migration is gradual — shell scripts are replaced as Rust equivalents ship:
 |---|---|
 | `pj dot` | `notfiles` (symlink engine) |
 | `pj doctor` | `notstrap` prerequisites check |
-| `pj sync` | `notstrap run` |
+| `pj sync` | `notfiles bootstrap` (delegates to `notstrap::run`) |
 | `pj secret` | `notsecrets` |
 | `pj cache` | planned `notcache` or Cargo workspace tooling |
 | `pj tui` | planned TUI layer on `notstrap` |

@@ -9,10 +9,6 @@ keywords.workspace = true
 categories.workspace = true
 description = "A modern dotfiles manager — pure Rust alternative to GNU Stow"
 
-[[bin]]
-name = "notfiles"
-path = "src/main.rs"
-
 [lib]
 name = "notfiles"
 path = "src/lib.rs"

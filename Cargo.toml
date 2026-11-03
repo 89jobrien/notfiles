@@ -11,6 +11,7 @@ rust-version = "1.87.0"
 members = [
     "crates/notcore",
     "crates/notfiles",
+    "crates/notfiles-cli",
     "crates/notsecrets",
     "crates/nothooks",
     "crates/notnet",
@@ -33,6 +34,7 @@ globset     = "0.4"
 miette      = { version = "7", features = ["derive"] }
 notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
+notfiles-cli = { path = "crates/notfiles-cli" }
 notforge    = { path = "crates/notforge" }
 nothooks    = { path = "crates/nothooks" }
 notnet      = { path = "crates/notnet" }

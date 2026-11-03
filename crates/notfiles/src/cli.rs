@@ -31,10 +31,6 @@ pub struct Cli {
 // TODO(install): `notfiles` is not yet installed on PATH. Add `just install` recipe and
 //   `mise task` so `nf` / `notfiles` is available without `cargo run`. See Justfile.
 
-// TODO(bootstrap): Wire `notstrap` into the CLI as `notfiles bootstrap`. Should clone the
-//   repo, resolve age key (Bitwarden/YubiKey/prompt), decrypt SOPS secrets, link packages,
-//   and run post-hooks. The notstrap crate already models this — needs a CLI entry point.
-
 // TODO(migrate): Add `notfiles migrate <dir>` that takes a stow/chezmoi repo (from `detect`)
 //   and generates a notfiles.toml for it, then bulk-adopts all packages. Should call
 //   `detect::detect()`, let the user pick a source, and run `adopt` for each package.
@@ -112,5 +108,24 @@ pub enum Command {
     Which {
         /// Target path to resolve (e.g. ~/.gitconfig)
         path: PathBuf,
+    },
+
+    /// Bootstrap a new machine: clone dotfiles, resolve secrets, link, run hooks
+    Bootstrap {
+        /// Path to notstrap.toml config
+        #[arg(long, default_value = "notstrap.toml")]
+        config: PathBuf,
+
+        /// Force re-run of setup hooks
+        #[arg(long)]
+        force: bool,
+
+        /// Path to age key file (skips Bitwarden and prompt)
+        #[arg(long)]
+        key_file: Option<PathBuf>,
+
+        /// Path to dotfiles directory (default: ~/dotfiles, per notstrap.toml)
+        #[arg(long)]
+        dotfiles: Option<PathBuf>,
     },
 }

@@ -1,0 +1,26 @@
+[package]
+name    = "notfiles-cli"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "notfiles CLI binary — dotfiles linker plus notstrap bootstrap"
+
+[[bin]]
+name = "notfiles"
+path = "src/main.rs"
+
+[dependencies]
+anyhow   = { workspace = true }
+clap     = { workspace = true }
+clap_complete = { workspace = true }
+notcore  = { workspace = true }
+notfiles = { workspace = true }
+notstrap = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
