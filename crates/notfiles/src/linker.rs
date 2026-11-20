@@ -524,3 +524,210 @@ fn cleanup_empty_parents(path: &Path, fs: &dyn FileStore) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapters::memory::InMemoryFileStore;
+    use notcore::reporter::SilentReporter;
+
+    const DOTFILES: &str = "/dotfiles";
+    const HOME: &str = "/home/test";
+
+    fn config() -> Config {
+        let mut config = Config::default();
+        config.defaults.target = HOME.to_string();
+        config
+    }
+
+    fn opts(force: bool, no_backup: bool, dry_run: bool) -> LinkOptions {
+        LinkOptions {
+            force,
+            no_backup,
+            dry_run,
+            verbose: false,
+        }
+    }
+
+    fn store() -> InMemoryFileStore {
+        let fs = InMemoryFileStore::new();
+        fs.add_file("/dotfiles/git/.gitconfig", b"new");
+        fs.add_file("/dotfiles/zsh/.zshenv", b"zsh");
+        fs.add_dir(HOME);
+        fs
+    }
+
+    fn link(
+        fs: &InMemoryFileStore,
+        package: &str,
+        o: &LinkOptions,
+    ) -> (Result<LinkResult, NotfilesError>, State) {
+        let mut state = State::default();
+        let result = link_package(
+            Path::new(DOTFILES),
+            &config(),
+            &mut state,
+            package,
+            o,
+            fs,
+            &SilentReporter,
+        );
+        (result, state)
+    }
+
+    fn backups(fs: &InMemoryFileStore) -> Vec<PathBuf> {
+        fs.read_dir(Path::new(HOME))
+            .unwrap()
+            .into_iter()
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with(".gitconfig.notfiles-backup-")
+            })
+            .collect()
+    }
+
+    #[test]
+    fn conflict_with_regular_file_errors_without_force() {
+        let fs = store();
+        fs.add_file("/home/test/.gitconfig", b"mine");
+
+        let (result, state) = link(&fs, "git", &opts(false, false, false));
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, NotfilesError::Conflict { .. }));
+        assert!(
+            err.to_string()
+                .contains("already exists (use --force to overwrite)"),
+            "got: {err}"
+        );
+        assert_eq!(
+            fs.read(Path::new("/home/test/.gitconfig")).unwrap(),
+            b"mine"
+        );
+        assert!(!fs.has_symlink(Path::new("/home/test/.gitconfig")));
+        assert!(backups(&fs).is_empty());
+        assert!(state.entries.is_empty());
+    }
+
+    #[test]
+    fn force_backs_up_existing_file_with_timestamp_suffix_then_links() {
+        let fs = store();
+        fs.add_file("/home/test/.gitconfig", b"mine");
+
+        let (result, state) = link(&fs, "git", &opts(true, false, false));
+
+        let result = result.unwrap();
+        assert_eq!(result.linked, 1);
+        assert_eq!(result.backed_up, 1);
+        assert_eq!(
+            fs.symlink_target(Path::new("/home/test/.gitconfig")),
+            Some(PathBuf::from("/dotfiles/git/.gitconfig"))
+        );
+        let found = backups(&fs);
+        assert_eq!(found.len(), 1);
+        let suffix = found[0]
+            .to_string_lossy()
+            .rsplit_once(".notfiles-backup-")
+            .unwrap()
+            .1
+            .to_string();
+        assert_eq!(suffix.len(), 14, "timestamp is YYYYMMDDHHMMSS: {suffix}");
+        assert!(suffix.chars().all(|c| c.is_ascii_digit()));
+        assert_eq!(fs.read(&found[0]).unwrap(), b"mine");
+        assert_eq!(state.entries.len(), 1);
+    }
+
+    #[test]
+    fn force_without_backup_replaces_file_and_leaves_no_backup() {
+        let fs = store();
+        fs.add_file("/home/test/.gitconfig", b"mine");
+
+        let (result, _) = link(&fs, "git", &opts(true, true, false));
+
+        assert_eq!(result.unwrap().backed_up, 0);
+        assert!(fs.has_symlink(Path::new("/home/test/.gitconfig")));
+        assert!(backups(&fs).is_empty());
+    }
+
+    #[test]
+    fn dry_run_on_clean_target_changes_nothing() {
+        let fs = store();
+
+        let (result, state) = link(&fs, "git", &opts(false, false, true));
+
+        let result = result.unwrap();
+        assert_eq!(result.linked, 0);
+        assert!(!fs.exists(Path::new("/home/test/.gitconfig")));
+        assert!(!fs.exists(&Path::new(DOTFILES).join(STATE_FILE)));
+        assert!(state.entries.is_empty());
+    }
+
+    #[test]
+    fn dry_run_with_force_does_not_back_up_or_replace() {
+        let fs = store();
+        fs.add_file("/home/test/.gitconfig", b"mine");
+
+        let (result, state) = link(&fs, "git", &opts(true, false, true));
+
+        let result = result.unwrap();
+        assert_eq!(result.backed_up, 0);
+        assert_eq!(
+            fs.read(Path::new("/home/test/.gitconfig")).unwrap(),
+            b"mine"
+        );
+        assert!(!fs.has_symlink(Path::new("/home/test/.gitconfig")));
+        assert!(backups(&fs).is_empty());
+        assert!(!fs.exists(&Path::new(DOTFILES).join(STATE_FILE)));
+        assert!(state.entries.is_empty());
+    }
+
+    #[test]
+    fn dry_run_conflict_without_force_still_errors_and_writes_nothing() {
+        let fs = store();
+        fs.add_file("/home/test/.gitconfig", b"mine");
+
+        let (result, _) = link(&fs, "git", &opts(false, false, true));
+
+        assert!(matches!(result, Err(NotfilesError::Conflict { .. })));
+        assert_eq!(
+            fs.read(Path::new("/home/test/.gitconfig")).unwrap(),
+            b"mine"
+        );
+        assert!(!fs.exists(&Path::new(DOTFILES).join(STATE_FILE)));
+    }
+
+    #[test]
+    fn linking_one_package_leaves_other_packages_untouched() {
+        let fs = store();
+
+        let (result, state) = link(&fs, "git", &opts(false, false, false));
+
+        assert_eq!(result.unwrap().linked, 1);
+        assert!(fs.has_symlink(Path::new("/home/test/.gitconfig")));
+        assert!(!fs.exists(Path::new("/home/test/.zshenv")));
+        assert!(state.entries.iter().all(|e| e.package == "git"));
+    }
+
+    #[test]
+    fn relinking_correct_symlink_is_skipped_not_a_conflict() {
+        let fs = store();
+        let (first, mut state) = link(&fs, "git", &opts(false, false, false));
+        first.unwrap();
+
+        let second = link_package(
+            Path::new(DOTFILES),
+            &config(),
+            &mut state,
+            "git",
+            &opts(false, false, false),
+            &fs,
+            &SilentReporter,
+        )
+        .unwrap();
+
+        assert_eq!(second.skipped, 1);
+        assert_eq!(second.linked, 0);
+    }
+}
