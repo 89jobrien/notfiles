@@ -222,8 +222,11 @@ pub fn link_package(
                     }
                 }
                 Method::Copy => {
+                    // Carry the executable bit across: a copied script must stay runnable.
                     let content = fs.read(&source)?;
-                    fs.write(&target, &content).map(|_| content.len() as u64)
+                    fs.write(&target, &content)?;
+                    fs.copy_permissions(&source, &target)
+                        .map(|_| content.len() as u64)
                 }
             };
             if let Err(e) = io_result {

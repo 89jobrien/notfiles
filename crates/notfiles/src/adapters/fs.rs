@@ -17,6 +17,10 @@ impl FileStore for FileStoreImpl {
         std::fs::write(path, contents)
     }
 
+    fn copy_permissions(&self, from: &Path, to: &Path) -> Result<(), std::io::Error> {
+        std::fs::set_permissions(to, std::fs::metadata(from)?.permissions())
+    }
+
     fn rename(&self, from: &Path, to: &Path) -> Result<(), std::io::Error> {
         std::fs::rename(from, to)
     }

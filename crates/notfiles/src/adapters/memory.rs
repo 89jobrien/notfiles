@@ -79,6 +79,11 @@ impl FileStore for InMemoryFileStore {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
+    fn copy_permissions(&self, _from: &Path, _to: &Path) -> Result<(), std::io::Error> {
+        // The in-memory store does not model permission bits.
+        Ok(())
+    }
+
     fn write(&self, path: &Path, contents: &[u8]) -> Result<(), std::io::Error> {
         if let Some(parent) = path.parent() {
             self.ensure_parents(parent);
