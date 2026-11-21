@@ -15,6 +15,7 @@ fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
         .unwrap_or("");
     match ext {
         "nu" => Ok("nu".into()),
+        "rs" => Ok("rust-script".into()),
         "sh" => Ok("sh".into()),
         "bash" => Ok("bash".into()),
         "zsh" => Ok("zsh".into()),
@@ -137,5 +138,42 @@ impl HookRunner {
         } else {
             self.state_dir.join(script)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use notcore::HookPhase;
+
+    fn spec(script: &str, interpreter: Option<&str>) -> HookSpec {
+        HookSpec {
+            name: "t".into(),
+            script: script.into(),
+            phase: HookPhase::Setup,
+            interpreter: interpreter.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn infers_interpreter_from_extension() {
+        assert_eq!(resolve_interpreter(&spec("a.nu", None)).unwrap(), "nu");
+        assert_eq!(
+            resolve_interpreter(&spec("a.rs", None)).unwrap(),
+            "rust-script"
+        );
+    }
+
+    #[test]
+    fn explicit_interpreter_wins() {
+        assert_eq!(
+            resolve_interpreter(&spec("a.rs", Some("custom"))).unwrap(),
+            "custom"
+        );
+    }
+
+    #[test]
+    fn unknown_extension_is_an_error() {
+        assert!(resolve_interpreter(&spec("a.xyz", None)).is_err());
     }
 }
