@@ -1104,6 +1104,7 @@ dependencies = [
  "dirs",
  "globset",
  "notcore",
+ "nottools",
  "serde",
  "serde_json",
  "tempfile",
@@ -1205,6 +1206,17 @@ dependencies = [
  "serde",
  "toml",
  "which",
+]
+
+[[package]]
+name = "nottools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "notcore",
+ "serde",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]

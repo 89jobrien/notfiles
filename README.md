@@ -53,22 +53,24 @@ notfiles/
 │   ├── nothooks/       # hook execution engine
 │   ├── notnet/         # network utilities (Tailscale, Yubikey)
 │   ├── notstrap/       # new-machine bootstrap orchestrator
-│   └── notgraph/       # Rust dependency graph visualizer
+│   ├── notgraph/       # Rust dependency graph visualizer
+│   └── nottools/       # tool and alias reconciliation (notfiles doctor)
 ├── notfiles.toml       # symlink package config
 └── notstrap.toml       # bootstrap hook/phase config
 ```
 
 ### Crate responsibilities
 
-| Crate | Type | Does |
-|-------|------|------|
-| `notcore` | lib | Shared types, config, paths, errors, Reporter trait — no deps on other crates |
-| `notfiles` | lib + bin | Symlink/copy packages into `$HOME`, track state, adopt/diff/check |
-| `notsecrets` | lib | Multi-provider secret resolution, native age encryption/decryption |
-| `nothooks` | lib + bin | Run bootstrap hooks in phases, skip already-run setup hooks |
-| `notnet` | lib | Tailscale integration, Yubikey identity source |
-| `notstrap` | bin | Orchestrate everything on a fresh machine |
-| `notgraph` | lib + bin | Rust file dependency/import graph with HTML/Mermaid output |
+| Crate        | Type      | Does                                                                          |
+| ------------ | --------- | ----------------------------------------------------------------------------- |
+| `notcore`    | lib       | Shared types, config, paths, errors, Reporter trait — no deps on other crates |
+| `notfiles`   | lib + bin | Symlink/copy packages into `$HOME`, track state, adopt/diff/check             |
+| `notsecrets` | lib       | Multi-provider secret resolution, native age encryption/decryption            |
+| `nothooks`   | lib + bin | Run bootstrap hooks in phases, skip already-run setup hooks                   |
+| `notnet`     | lib       | Tailscale integration, Yubikey identity source                                |
+| `notstrap`   | bin       | Orchestrate everything on a fresh machine                                     |
+| `notgraph`   | lib + bin | Rust file dependency/import graph with HTML/Mermaid output                    |
+| `nottools`   | lib       | Declared-vs-installed tool and alias reconciliation; powers `notfiles doctor` |
 
 ### Dependency graph
 
@@ -200,9 +202,9 @@ binaries). Supports x25519, SSH ed25519/RSA, and scrypt identities.
 
 `nothooks` runs hooks in two phases defined in `notstrap.toml`:
 
-| Phase | Speed | Re-runnable | Examples |
-|-------|-------|-------------|---------|
-| `dot` | ~seconds | Yes | shell config, git config, AI tool configs |
+| Phase   | Speed    | Re-runnable  | Examples                                     |
+| ------- | -------- | ------------ | -------------------------------------------- |
+| `dot`   | ~seconds | Yes          | shell config, git config, AI tool configs    |
 | `setup` | ~minutes | No (tracked) | Homebrew packages, mise runtimes, op install |
 
 `setup` hooks are tracked in `.nothooks-state.toml` — already-run hooks are skipped unless `--force` is passed. `dot` hooks always re-run (they're idempotent by design).
@@ -255,13 +257,13 @@ phase = "setup"
 
 Migration is gradual — shell scripts are replaced as Rust equivalents ship:
 
-| Phase | Ships | Replaces |
-|-------|-------|---------|
-| 1 | `notfiles` workspace (now) | GNU Stow |
-| 2 | `notsecrets` + `notstrap` skeleton | `setup-secrets.sh`, `install.sh` |
-| 3 | `nothooks` | `bootstrap.sh` hook runner |
-| 4 | Hook-by-hook Rust rewrites | Individual `setup-*.sh` scripts |
-| 5 | `dotfiles/` archived | — |
+| Phase | Ships                              | Replaces                         |
+| ----- | ---------------------------------- | -------------------------------- |
+| 1     | `notfiles` workspace (now)         | GNU Stow                         |
+| 2     | `notsecrets` + `notstrap` skeleton | `setup-secrets.sh`, `install.sh` |
+| 3     | `nothooks`                         | `bootstrap.sh` hook runner       |
+| 4     | Hook-by-hook Rust rewrites         | Individual `setup-*.sh` scripts  |
+| 5     | `dotfiles/` archived               | —                                |
 
 ---
 
@@ -269,14 +271,14 @@ Migration is gradual — shell scripts are replaced as Rust equivalents ship:
 
 `pj` (89jobrien/pj) was a standalone portable dev-environment bootstrap CLI. Its functionality overlaps directly with this workspace:
 
-| `pj` command | `notfiles` equivalent |
-|---|---|
-| `pj dot` | `notfiles` (symlink engine) |
-| `pj doctor` | `notstrap` prerequisites check |
-| `pj sync` | `notstrap run` |
-| `pj secret` | `notsecrets` |
-| `pj cache` | planned `notcache` or Cargo workspace tooling |
-| `pj tui` | planned TUI layer on `notstrap` |
+| `pj` command | `notfiles` equivalent                         |
+| ------------ | --------------------------------------------- |
+| `pj dot`     | `notfiles` (symlink engine)                   |
+| `pj doctor`  | `notstrap` prerequisites check                |
+| `pj sync`    | `notstrap run`                                |
+| `pj secret`  | `notsecrets`                                  |
+| `pj cache`   | planned `notcache` or Cargo workspace tooling |
+| `pj tui`     | planned TUI layer on `notstrap`               |
 
 `pj` is archived. Its remaining functionality (cache management, TUI dashboard, git-config helper) will be folded in as those areas of the workspace mature.
 

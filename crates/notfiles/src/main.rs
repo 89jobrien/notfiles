@@ -215,6 +215,11 @@ fn main() -> Result<()> {
                 );
             }
         }
+        Command::Doctor { fix, adopt } => {
+            if cmd_doctor(&dotfiles_dir, fix, adopt, cli.dry_run, cli.json)? {
+                std::process::exit(1);
+            }
+        }
         Command::Status { packages } => {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
@@ -234,6 +239,62 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Run the tool and alias doctor. Returns true when missing alias targets remain.
+fn cmd_doctor(
+    dotfiles_dir: &std::path::Path,
+    fix: bool,
+    adopt: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<bool> {
+    use nottools::adapters::{SystemFs, SystemInstaller, SystemProbe};
+    use nottools::{DoctorConfig, Fs};
+
+    let fs = SystemFs;
+    let toml_text = fs.read_to_string(&dotfiles_dir.join("notfiles.toml"))?;
+    let cfg = DoctorConfig::parse(&toml_text)?
+        .context("notfiles.toml has no [doctor] table (set mise, brewfiles, alias_files)")?;
+    let home = std::env::var("HOME")
+        .map(std::path::PathBuf::from)
+        .context("HOME is not set")?;
+
+    let report = nottools::run(&cfg, dotfiles_dir, &home, &fs, &SystemProbe)?;
+    if json {
+        println!("{}", serde_json::to_string(&report)?);
+    } else {
+        print!("{}", report.render());
+    }
+
+    let mut actions = Vec::new();
+    if fix {
+        actions.extend(nottools::apply_fixes(&report, &SystemInstaller, dry_run));
+    }
+    if adopt {
+        let mise = cfg
+            .mise_path(dotfiles_dir)?
+            .context("[doctor] mise is not set; nowhere to adopt crates into")?;
+        let done = nottools::adopt(&mise, &report.undeclared, &fs, dry_run)?;
+        actions.extend(done.into_iter().map(|a| (a, true)));
+    }
+    if !json {
+        for (action, ok) in &actions {
+            let tag = match (dry_run, ok) {
+                (true, _) => "(dry run)",
+                (false, true) => "ok",
+                (false, false) => "FAILED",
+            };
+            println!("  {tag} {}", action.describe());
+        }
+    }
+    // A real, fully successful --fix resolves the missing targets found above, unless some
+    // are declared nowhere and so had nothing to install.
+    let fixed = fix
+        && !dry_run
+        && actions.iter().all(|(_, ok)| *ok)
+        && report.missing.iter().all(|m| m.declared_in.is_some());
+    Ok(report.has_failures() && !fixed)
 }
 
 fn cmd_init(dotfiles_dir: &std::path::Path) -> Result<()> {

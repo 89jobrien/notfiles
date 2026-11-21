@@ -22,28 +22,30 @@ cargo fmt --check                  # check formatting
 
 ## Workspace Structure
 
-This is a Cargo workspace with 7 crates under `crates/`:
+This is a Cargo workspace with 8 crates under `crates/`:
 
 | Crate        | Purpose                                                                    |
 | ------------ | -------------------------------------------------------------------------- |
 | `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
 |              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
 | `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `doctor`,                    |
 | `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
-|              | decryption, identity management                                           |
+|              | decryption, identity management                                            |
 | `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
 | `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
 | `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
 | `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
 |              | heatmap, cycle detection                                                   |
+| `nottools`   | Tool reconciliation: declared (mise, Brewfile) vs installed, alias targets |
+|              | and undeclared `cargo install` crates; backs `notfiles doctor`             |
 
 ## Architecture
 
 ### notfiles (primary user-facing tool)
 
-Eight subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
-`adopt`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
+Nine subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
+`adopt`, `doctor`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
 CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
 
 **Core flow for `link`:** `main` → `config.validate()` →
@@ -108,3 +110,13 @@ Rust edition 2024. All hook scripts are Nushell (`.nu`) — no `.sh` scripts.
 
 Workflows live in `.gitea/workflows/` — mirrors `.github/workflows/` for GitHub.
 The `public-ready.yml` workflow checks secrets, private IPs, licenses, and tracked secrets files on every push to main.
+
+### nottools
+
+Hexagonal like `notfiles`: ports (`Fs`, `ToolProbe`, `Installer`) in `ports.rs`, system and in-memory
+adapters in `adapters.rs`, pure domain in `aliases`, `declared`, `doctor` and `fix`. Configured by a
+`[doctor]` table in `notfiles.toml` (`mise`, `brewfiles`, `alias_files`). `notfiles doctor` reports alias
+targets that do not resolve (with the install command when declared in mise or a Brewfile) and
+`cargo install` crates no manifest declares. `--fix` runs the installs; `--adopt` declares
+crates.io crates in the mise config; both honor `--dry-run`. Aliases inside an
+`if command -v <target>; then` guard are treated as optional and skipped.

@@ -15,6 +15,7 @@ members = [
     "crates/notnet",
     "crates/notstrap",
     "crates/notgraph",
+    "crates/nottools",
     "crates/notforge",
     "tests/integration",
 ]
@@ -45,6 +46,7 @@ notsecrets  = { path = "crates/notsecrets" }
 nothooks    = { path = "crates/nothooks" }
 notnet      = { path = "crates/notnet" }
 notforge    = { path = "crates/notforge" }
+nottools    = { path = "crates/nottools" }
 
 [profile.release]
 opt-level = 3
