@@ -46,6 +46,7 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             config.validate()?;
+            notfiles::package::warn_if_auto_discovery(&config, &*reporter);
             let mut state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
             let opts = LinkOptions {
@@ -147,6 +148,7 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             config.validate()?;
+            notfiles::package::warn_if_auto_discovery(&config, &*reporter);
             let all = resolve_packages_filtered_with_store(&dotfiles_dir, &[], &config, fs)?;
 
             if cli.json {
@@ -173,6 +175,7 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             config.validate()?;
+            notfiles::package::warn_if_auto_discovery(&config, &*reporter);
             let state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
 
@@ -224,6 +227,7 @@ fn main() -> Result<()> {
             let fs = &adapters::FileStoreImpl;
             let config = Config::load(&dotfiles_dir)?;
             config.validate()?;
+            notfiles::package::warn_if_auto_discovery(&config, &*reporter);
             let state = State::load(&dotfiles_dir, fs)?;
             let pkgs = resolve_packages_filtered_with_store(&dotfiles_dir, &packages, &config, fs)?;
 

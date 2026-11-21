@@ -95,8 +95,16 @@ The prereq list comes from an optional `[prereqs] required = [...]` table (defau
 
 ## Configuration
 
-`notfiles.toml` lives at the dotfiles directory root. Each subdirectory
-is a "package".
+`notfiles.toml` lives at the dotfiles directory root.
+
+**Package contract:** declare packages explicitly with `packages = [...]` under
+`[defaults]`. Only those top-level directories are packages, so operational
+directories like `scripts/` or `docs/` are never linked. Every entry must be a
+single directory name (no `/`, `..`) that exists as a directory; a typo or a
+non-directory is an error (with a `did you mean` suggestion). When `packages` is
+absent, notfiles falls back to the deprecated auto-discovery of every non-hidden
+top-level directory and prints a deprecation warning once per run (stderr).
+`exclude` still applies on top of either mode.
 
 Global defaults support `include` (allowlist) or `exclude` (blocklist)
 for package filtering — mutually exclusive. Per-package config can

@@ -219,8 +219,14 @@ binaries). Supports x25519, SSH ed25519/RSA, and scrypt identities.
 [defaults]
 method = "symlink"
 target = "~"
-include = ["git", "zsh", "nushell", "starship"]  # allowlist (optional)
+packages = ["git", "zsh", "nushell", "starship"]  # explicit package list (recommended)
+# include = [...]                                 # optional further filter
 # exclude = ["scratch"]                           # or blocklist (mutually exclusive)
+
+# `packages` is the package contract: only the listed top-level directories are
+# packages, so scripts/ or docs/ in a mixed-purpose repo are never linked. Entries
+# must be existing directories (single names, no path separators). Omitting it falls
+# back to deprecated auto-discovery of every top-level directory, with a warning.
 
 [packages.secrets]
 method = "copy"    # copy instead of symlink for sensitive files
