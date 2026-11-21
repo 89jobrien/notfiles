@@ -215,9 +215,8 @@ fn parse_include_list(toml: &str) -> Option<Vec<String>> {
     let line = toml
         .lines()
         .find(|l| l.trim_start().starts_with("include"))?;
-    let bracket_start = line.find('[')?;
-    let bracket_end = line.find(']')?;
-    let inner = &line[bracket_start + 1..bracket_end];
+    let after_open = &line[line.find('[')? + 1..];
+    let inner = &after_open[..after_open.find(']')?];
     let names: Vec<String> = inner
         .split(',')
         .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
@@ -317,6 +316,13 @@ mod tests {
         assert_eq!(parse_include_list("[defaults]\nmethod = \"copy\"\n"), None);
     }
 
+    /// Regression: `]` before `[` made the slice bounds cross and panicked.
+    #[test]
+    fn closing_bracket_before_opening_bracket_is_none() {
+        assert_eq!(parse_include_list("include = ]x["), None);
+        assert_eq!(parse_include_list("include]["), None);
+    }
+
     #[test]
     fn unterminated_list_is_none() {
         assert_eq!(parse_include_list("include = [\"zsh\"\n"), None);
@@ -328,5 +334,36 @@ mod tests {
             parse_include_list("include = [\"a\"]\ninclude = [\"b\"]\n"),
             Some(vec!["a".into()])
         );
+    }
+}
+
+#[cfg(test)]
+mod properties {
+    use super::parse_include_list;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Whatever the manifest holds, parsing must not panic.
+        #[test]
+        fn parse_include_list_never_panics(text in "\\PC*") {
+            let _ = parse_include_list(&text);
+        }
+
+        /// Same, biased towards the bracket and quote characters the parser slices on.
+        #[test]
+        fn parse_include_list_never_panics_on_bracket_soup(soup in "[\\[\\]\",' a-z=\\n]{0,40}") {
+            // Anchor on the `include` key so the bracket slicing is always reached.
+            let _ = parse_include_list(&format!("include{soup}"));
+        }
+
+        /// A well-formed list returns exactly the names written.
+        #[test]
+        fn well_formed_lists_round_trip(
+            names in prop::collection::vec("[a-z][a-z0-9_-]{0,8}", 1..6),
+        ) {
+            let quoted: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
+            let text = format!("include = [{}]\n", quoted.join(", "));
+            prop_assert_eq!(parse_include_list(&text), Some(names));
+        }
     }
 }

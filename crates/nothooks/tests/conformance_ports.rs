@@ -104,3 +104,29 @@ fn process_runner_errors_when_the_interpreter_is_missing() {
         "unstartable process is Err, not a failed exit"
     );
 }
+
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(32))]
+
+        /// Any set of hook names survives a save/load cycle in the real store.
+        #[test]
+        fn fs_state_store_round_trips_any_names(
+            names in prop::collection::hash_set("\\PC{1,24}", 0..8),
+        ) {
+            let dir = TempDir::new().expect("tempdir");
+            let store = FsStateStore::new(dir.path());
+            let mut state = HookState::default();
+            for n in &names {
+                state.mark_done(n);
+            }
+
+            store.save(&state).expect("save");
+
+            prop_assert_eq!(store.load().expect("load"), state);
+        }
+    }
+}

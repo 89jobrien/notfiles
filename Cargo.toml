@@ -39,6 +39,7 @@ ureq        = { version = "2", features = ["json"] }
 which       = "7"
 rpassword   = "7"
 tempfile    = "3"
+proptest    = "1"
 assert_fs   = "1"
 notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
