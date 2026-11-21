@@ -74,7 +74,9 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-fuzz
-      - run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=30
+      # The prebuilt cargo-fuzz binary is a musl build and defaults to that target,
+      # which the address sanitizer cannot link; build for the runner's gnu host.
+      - run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
