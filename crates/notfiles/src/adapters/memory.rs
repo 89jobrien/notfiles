@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 
 use crate::ports::FileStore;
 
+fn not_found(path: &Path) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::NotFound, path.display().to_string())
+}
+
 /// In-memory file system for testing. Not thread-safe.
 pub struct InMemoryFileStore {
     files: RefCell<HashMap<PathBuf, Vec<u8>>>,
@@ -39,6 +43,28 @@ impl InMemoryFileStore {
 
     pub fn symlink_target(&self, link: &Path) -> Option<PathBuf> {
         self.symlinks.borrow().get(link).cloned()
+    }
+
+    /// Direct children of `path` across files, directories and symlinks.
+    fn children(&self, path: &Path) -> Vec<PathBuf> {
+        let mut children: Vec<PathBuf> = self
+            .files
+            .borrow()
+            .keys()
+            .filter(|k| k.parent() == Some(path))
+            .cloned()
+            .collect();
+        let dirs = self.dirs.borrow();
+        let links = self.symlinks.borrow();
+        children.extend(
+            dirs.iter()
+                .filter(|d| d.parent() == Some(path) && *d != path)
+                .chain(links.keys().filter(|k| k.parent() == Some(path)))
+                .filter(|c| !children.contains(c))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        children
     }
 
     fn ensure_parents(&self, path: &Path) {
@@ -126,6 +152,9 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn remove_dir_all(&self, path: &Path) -> Result<(), std::io::Error> {
+        if !self.exists(path) {
+            return Err(not_found(path));
+        }
         let path = path.to_path_buf();
         self.files.borrow_mut().retain(|k, _| !k.starts_with(&path));
         self.dirs.borrow_mut().retain(|k| !k.starts_with(&path));
@@ -136,6 +165,15 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<(), std::io::Error> {
+        if !self.dirs.borrow().contains(path) {
+            return Err(not_found(path));
+        }
+        if !self.children(path).is_empty() {
+            return Err(std::io::Error::other(format!(
+                "directory not empty: {}",
+                path.display()
+            )));
+        }
         self.dirs.borrow_mut().remove(path);
         Ok(())
     }
@@ -176,32 +214,20 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
-        let path = path.to_path_buf();
-        let mut children = Vec::new();
-
-        for key in self.files.borrow().keys() {
-            if key.parent() == Some(&path) {
-                children.push(key.clone());
-            }
+        if !self.dirs.borrow().contains(path) {
+            return Err(not_found(path));
         }
-
-        for dir in self.dirs.borrow().iter() {
-            if dir.parent() == Some(&path) && dir != &path && !children.contains(dir) {
-                children.push(dir.clone());
-            }
-        }
-
-        for key in self.symlinks.borrow().keys() {
-            if key.parent() == Some(&path) && !children.contains(key) {
-                children.push(key.clone());
-            }
-        }
-
-        Ok(children)
+        Ok(self.children(path))
     }
 
     #[cfg(unix)]
     fn symlink(&self, target: &Path, link: &Path) -> Result<(), std::io::Error> {
+        if self.exists(link) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                link.display().to_string(),
+            ));
+        }
         if let Some(parent) = link.parent() {
             self.ensure_parents(parent);
         }
