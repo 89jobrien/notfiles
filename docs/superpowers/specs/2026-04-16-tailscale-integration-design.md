@@ -25,13 +25,17 @@ Owns all Tailscale concerns:
 - Install Tailscale if missing (package manager detection: `apt`/`brew`/`pacman`, fallback to
   official install script)
 - Resolve the auth key via priority chain (see below)
-- Join the tailnet (`tailscale up --authkey=<key>`)
-- Verify the target peer is reachable (ping by Tailscale hostname)
+- Join the tailnet (`tailscale up --auth-key file:<path>`; the key is written to a temp file
+  and passed via the `file:` path convention so it never appears in the process argv —
+  requires tailscale 1.104+, which renamed the flag from `--authkey`)
+- Verify the target peer is reachable (`tailscale ping --c 1 <host>`; retried briefly, since
+  `tailscale up` can return before the node reports as connected)
+- Process runs are bounded by timeouts on the `CommandRunner` port
 
 **Auth key resolution chain:**
 
 1. `TS_AUTHKEY` env var
-2. YubiKey PIV slot 9d (via `yubikey` crate)
+2. YubiKey PIV slot 9d (via the `yubikey` crate, compiled in with the opt-in `yubikey` feature, which needs the system PC/SC library)
 3. Interactive prompt
 
 **Public API:**
@@ -43,9 +47,18 @@ pub struct TailscaleOptions {
     pub install: bool,
 }
 
-/// Ensure this machine is connected to the tailnet and the target peer is reachable.
-/// Returns immediately if Tailscale is already running.
-pub fn ensure_connected(opts: &TailscaleOptions) -> Result<()>;
+/// Returns `Ok(false)` when Tailscale is already running; `Ok(true)` when it joined
+/// now. Peer verification retries briefly, since `tailscale up` can return while
+/// the node still reports as disconnected.
+pub fn ensure_connected(opts: &TailscaleOptions) -> Result<bool, NotnetError>;
+
+/// The flow over explicit adapters (for tests/other harnesses).
+pub fn ensure_connected_with(
+    opts: &TailscaleOptions,
+    tailscale: &dyn Tailscale,
+    installer: &dyn TailscaleInstaller,
+    auth: &dyn AuthKeySource,
+) -> Result<bool, NotnetError>;
 ```
 
 ### `notsecrets` (extended)
@@ -79,11 +92,11 @@ URL instead of `[bootstrap].dotfiles_repo`.
 
 ## YubiKey PIV Slot Layout
 
-| Slot | Purpose                          | Managed by  |
-|------|----------------------------------|-------------|
-| 9a   | SSH authentication               | 1Password   |
-| 9c   | Age private key (dotfiles/SOPS)  | notsecrets  |
-| 9d   | Tailscale auth key               | notnet      |
+| Slot | Purpose                         | Managed by |
+| ---- | ------------------------------- | ---------- |
+| 9a   | SSH authentication              | 1Password  |
+| 9c   | Age private key (dotfiles/SOPS) | notsecrets |
+| 9d   | Tailscale auth key              | notnet     |
 
 Slot 9a is untouched — 1Password agent remains the primary SSH auth for day-to-day use.
 
@@ -106,16 +119,16 @@ install = true
 
 ## Full Bootstrap Sequence
 
-| Step              | Crate         | Skip condition                        |
-|-------------------|---------------|---------------------------------------|
-| 1. Prerequisites  | notstrap      | —                                     |
-| 2. Tailscale      | notnet        | Already on tailnet                    |
-| 3. Clone dotfiles | notstrap/repo | Already cloned                        |
-| 4. Age key        | notsecrets    | —                                     |
-| 5. Decrypt SOPS   | notstrap      | No injector configured                |
-| 6. Link dotfiles  | notfiles      | —                                     |
-| 7. Dot hooks      | nothooks      | —                                     |
-| 8. Setup hooks    | nothooks      | Already run (state file)              |
+| Step              | Crate         | Skip condition           |
+| ----------------- | ------------- | ------------------------ |
+| 1. Prerequisites  | notstrap      | —                        |
+| 2. Tailscale      | notnet        | Already on tailnet       |
+| 3. Clone dotfiles | notstrap/repo | Already cloned           |
+| 4. Age key        | notsecrets    | —                        |
+| 5. Decrypt SOPS   | notstrap      | No injector configured   |
+| 6. Link dotfiles  | notfiles      | —                        |
+| 7. Dot hooks      | nothooks      | —                        |
+| 8. Setup hooks    | nothooks      | Already run (state file) |
 
 ## Error Handling
 
@@ -128,10 +141,11 @@ install = true
 
 ## Dependencies (new)
 
-| Crate       | Used by             | Purpose                        |
-|-------------|---------------------|-------------------------------|
-| `yubikey`   | notnet, notsecrets  | PIV slot access (pure Rust)   |
-| `tailscale` | notnet              | tailscale-rs SDK               |
+| Crate       | Used by            | Purpose                                                                                         |
+| ----------- | ------------------ | ----------------------------------------------------------------------------------------------- |
+| `yubikey`   | notnet, notsecrets | PIV slot access (pure Rust)                                                                     |
+| `tailscale` | notnet             | Tailscale CLI binary (`up`/`ping`/`status`/`version`); the `tailscale-rs` SDK was never adopted |
+| `tempfile`  | notnet             | temp file holding the auth key for `--auth-key file:`                                           |
 
 ## Out of Scope
 

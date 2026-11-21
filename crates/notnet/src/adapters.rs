@@ -1,19 +1,74 @@
 use crate::error::NotnetError;
-use crate::ports::{CommandOutput, CommandRunner, Tailscale, TailscaleInstaller};
+use crate::ports::{
+    CommandOutput, CommandRunner, DEFAULT_COMMAND_TIMEOUT, Tailscale, TailscaleInstaller,
+};
 use std::cell::RefCell;
 use std::io;
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+use tempfile::NamedTempFile;
+
+/// Bound applied to every `tailscale` CLI invocation.
+const TAILSCALE_CMD_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Poll interval while waiting for a child in [`SystemCommandRunner::run_timeout`].
+const RUN_POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+/// Bound applied to package-manager installs: they can take minutes.
+const INSTALL_TIMEOUT: Duration = Duration::from_secs(600);
 
 /// Spawns real child processes.
 pub struct SystemCommandRunner;
 
 impl CommandRunner for SystemCommandRunner {
     fn run(&self, program: &str, args: &[&str]) -> io::Result<CommandOutput> {
-        let output = Command::new(program).args(args).output()?;
-        Ok(CommandOutput {
-            success: output.status.success(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        })
+        self.run_timeout(program, args, DEFAULT_COMMAND_TIMEOUT)
+    }
+
+    /// Bounded run: the child is killed and `Err(ErrorKind::TimedOut)` returned
+    /// when it does not exit within `timeout`.
+    ///
+    /// The child's stdout is nulled: `CommandOutput` carries only stderr, and a
+    /// full stdout pipe could otherwise deadlock a long-running child we meant
+    /// to time out.
+    fn run_timeout(
+        &self,
+        program: &str,
+        args: &[&str],
+        timeout: Duration,
+    ) -> io::Result<CommandOutput> {
+        let mut child = Command::new(program)
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let deadline = Instant::now() + timeout;
+        loop {
+            match child.try_wait()? {
+                Some(status) => {
+                    let mut stderr = Vec::new();
+                    if let Some(mut err) = child.stderr.take() {
+                        err.read_to_end(&mut stderr)?;
+                    }
+                    return Ok(CommandOutput {
+                        success: status.success(),
+                        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+                    });
+                }
+                None => {
+                    if Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("`{program}` did not finish within {timeout:?}"),
+                        ));
+                    }
+                    std::thread::sleep(RUN_POLL_INTERVAL);
+                }
+            }
+        }
     }
 
     fn exists(&self, program: &str) -> bool {
@@ -34,11 +89,13 @@ impl<'a> TailscaleCli<'a> {
         Self { runner }
     }
 
-    fn succeeds(&self, args: &[&str]) -> bool {
+    fn run(&self, args: &[&str]) -> io::Result<CommandOutput> {
         self.runner
-            .run("tailscale", args)
-            .map(|o| o.success)
-            .unwrap_or(false)
+            .run_timeout("tailscale", args, TAILSCALE_CMD_TIMEOUT)
+    }
+
+    fn succeeds(&self, args: &[&str]) -> bool {
+        self.run(args).map(|o| o.success).unwrap_or(false)
     }
 }
 
@@ -52,14 +109,17 @@ impl Tailscale for TailscaleCli<'_> {
     }
 
     fn join(&self, auth_key: &str) -> Result<(), NotnetError> {
-        let flag = format!("--authkey={auth_key}");
         let failed = |detail: String| NotnetError::CommandFailed {
             cmd: "tailscale up".to_string(),
             detail,
         };
+        // Pass the key as `--auth-key file:<path>` instead of `--authkey <key>`:
+        // argv is visible to other processes on the machine.
+        let key_file = NamedTempFile::new()?;
+        std::fs::write(key_file.path(), auth_key)?;
+        let flag = format!("--auth-key=file:{}", key_file.path().display());
         let output = self
-            .runner
-            .run("tailscale", &["up", &flag])
+            .run(&["up", &flag])
             .map_err(|e| failed(e.to_string()))?;
         if output.success {
             Ok(())
@@ -69,13 +129,12 @@ impl Tailscale for TailscaleCli<'_> {
     }
 
     fn verify_peer(&self, hostname: &str) -> Result<(), NotnetError> {
-        let output = self
-            .runner
-            .run("tailscale", &["ping", "--c", "1", hostname])
-            .map_err(|e| NotnetError::CommandFailed {
-                cmd: format!("tailscale ping {hostname}"),
-                detail: e.to_string(),
-            })?;
+        let output =
+            self.run(&["ping", "--c", "1", hostname])
+                .map_err(|e| NotnetError::CommandFailed {
+                    cmd: format!("tailscale ping {hostname}"),
+                    detail: e.to_string(),
+                })?;
         if output.success {
             Ok(())
         } else {
@@ -100,7 +159,7 @@ impl<'a> PackageManagerInstaller<'a> {
     fn run_ok(&self, program: &str, args: &[&str]) -> Result<(), NotnetError> {
         let output = self
             .runner
-            .run(program, args)
+            .run_timeout(program, args, INSTALL_TIMEOUT)
             .map_err(|e| NotnetError::InstallFailed(e.to_string()))?;
         if output.success {
             Ok(())
@@ -156,7 +215,7 @@ impl FakeCommandRunner {
         self
     }
 
-    /// `command_line` exits non-zero with `stderr`.
+    /// `command_line` (matched as a prefix of the recorded line) exits non-zero with `stderr`.
     pub fn failing(mut self, command_line: &str, stderr: &str) -> Self {
         self.failing
             .push((command_line.to_string(), stderr.to_string()));
@@ -187,7 +246,10 @@ impl CommandRunner for FakeCommandRunner {
                 format!("{program}: not found"),
             ));
         }
-        let failure = self.failing.iter().find(|(l, _)| *l == line);
+        let failure = self
+            .failing
+            .iter()
+            .find(|(l, _)| line.starts_with(l.as_str()));
         Ok(CommandOutput {
             success: failure.is_none(),
             stderr: failure.map(|(_, e)| e.clone()).unwrap_or_default(),

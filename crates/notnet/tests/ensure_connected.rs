@@ -1,5 +1,5 @@
 use notnet::ports::{AuthKeySource, Tailscale, TailscaleInstaller};
-use notnet::{NotnetError, TailscaleOptions, ensure_connected_with};
+use notnet::{NotnetError, TailscaleOptions, VERIFY_PEER_RETRIES, ensure_connected_with};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -201,4 +201,20 @@ fn unreachable_peer_is_reported_with_its_hostname() {
     let err = run(ts, &log, Some("k"), false).expect_err("unreachable");
 
     assert!(matches!(err, NotnetError::PeerUnreachable(h) if h == "minibox"));
+}
+
+#[test]
+fn verify_peer_is_retried_before_reporting_unreachable() {
+    let log = Log::default();
+    let mut ts = FakeTailscale::new(&log);
+    ts.peer_reachable = false;
+
+    let err = run(ts, &log, Some("k"), false).expect_err("unreachable");
+
+    assert!(matches!(err, NotnetError::PeerUnreachable(ref h) if h == "minibox"));
+    let verifies = events(&log)
+        .iter()
+        .filter(|e| e.starts_with("verify:"))
+        .count();
+    assert_eq!(verifies, 1 + VERIFY_PEER_RETRIES);
 }
