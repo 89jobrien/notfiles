@@ -86,6 +86,8 @@ pub struct BootstrapOptions {
     /// None = skip tool reconciliation (tests). Some(f) = run f against the dotfiles
     /// checkout after hooks; it returns `None` when there is no `[doctor]` table.
     pub reconcile_tools: Option<ToolsReconciler>,
+    /// How the dotfiles repository is fetched. Production uses `repo::SystemGit`.
+    pub git: Box<dyn repo::GitClone>,
     /// Some = run the interactive wizard before anything else. None = no prompts.
     pub prompter: Option<Box<dyn Prompter>>,
     /// `--yes`: tell hooks not to prompt (exported as `NOTSTRAP_YES=1`).
@@ -170,7 +172,7 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
             "no dotfiles clone URL: set [bootstrap].dotfiles_repo or add a [tailscale] section"
         )
     })?;
-    match repo::clone_if_missing(&clone_url, &dotfiles_dir) {
+    match repo::clone_if_missing(opts.git.as_ref(), &clone_url, &dotfiles_dir) {
         Ok(true) => {
             report.add("clone dotfiles", StepStatus::Ok);
         }
@@ -459,6 +461,7 @@ mod tests {
                 anyhow::bail!("stop here")
             })),
             reconcile_tools: None,
+            git: Box::new(repo::FakeGit::default()),
             prompter: None,
             assume_yes: false,
             secrets_config: None,
@@ -586,5 +589,75 @@ mod tests {
     fn parse_env_line_unquoted_passthrough() {
         let result = parse_env_line("TOKEN=abc123").unwrap();
         assert_eq!(result, Some(("TOKEN".to_string(), "abc123".to_string())));
+    }
+}
+
+#[cfg(test)]
+mod clone_step_tests {
+    use super::*;
+    use repo::FakeGit;
+    use std::path::Path;
+
+    fn opts(config: PathBuf, git: FakeGit) -> BootstrapOptions {
+        BootstrapOptions {
+            config,
+            force: false,
+            key_file: Some(PathBuf::from("/nonexistent/notstrap-test-key")),
+            dotfiles: None,
+            tailscale: Some(None),
+            check_prereqs: None,
+            reconcile_tools: None,
+            git: Box::new(git),
+            prompter: None,
+            assume_yes: false,
+            secrets_config: None,
+        }
+    }
+
+    fn write_config(dir: &Path, dotfiles_dir: &Path) -> PathBuf {
+        let config = dir.join("notstrap.toml");
+        std::fs::write(
+            &config,
+            format!(
+                "[bootstrap]\ndotfiles_repo = \"https://example/dots.git\"\ndotfiles_dir = \"{}\"\n",
+                dotfiles_dir.display()
+            ),
+        )
+        .expect("write config");
+        config
+    }
+
+    fn clone_status(report: &Report) -> Option<&StepStatus> {
+        report
+            .steps
+            .iter()
+            .find(|s| s.name == "clone dotfiles")
+            .map(|s| &s.status)
+    }
+
+    #[test]
+    fn a_failing_clone_is_reported_and_stops_the_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = write_config(dir.path(), &dir.path().join("dots"));
+
+        let report = run(opts(config, FakeGit::failing("network down"))).expect("run");
+
+        assert!(
+            matches!(clone_status(&report), Some(StepStatus::Failed(m)) if m.contains("network down"))
+        );
+        assert!(report.steps.iter().all(|s| s.name != "age key"));
+    }
+
+    #[test]
+    fn an_existing_checkout_skips_the_clone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dots = dir.path().join("dots");
+        std::fs::create_dir(&dots).expect("mkdir");
+        let config = write_config(dir.path(), &dots);
+
+        // The age-key step after the clone cannot succeed here; only the clone step matters.
+        let report = run(opts(config, FakeGit::failing("must not be called"))).expect("run");
+
+        assert!(matches!(clone_status(&report), Some(StepStatus::Skipped)));
     }
 }

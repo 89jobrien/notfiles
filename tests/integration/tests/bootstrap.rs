@@ -72,6 +72,7 @@ fn make_opts(env: &TestEnv, force: bool) -> BootstrapOptions {
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
         reconcile_tools: None,
+        git: Box::new(notstrap::repo::SystemGit),
         prompter: None,
         assume_yes: false,
         secrets_config: None,
@@ -223,6 +224,7 @@ fn test_bootstrap_fails_fast_on_bad_key() {
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
         reconcile_tools: None,
+        git: Box::new(notstrap::repo::SystemGit),
         prompter: None,
         assume_yes: false,
         secrets_config: None,

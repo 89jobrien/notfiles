@@ -62,6 +62,7 @@ fn main() -> Result<()> {
         tailscale: None, // defer to [tailscale] section in config (if present)
         check_prereqs: Some(Box::new(prereqs::check_prerequisites)),
         reconcile_tools: Some(Box::new(tools::reconcile_system)),
+        git: Box::new(notstrap::repo::SystemGit),
         prompter,
         assume_yes: yes,
         secrets_config: None,
