@@ -122,3 +122,13 @@ targets that do not resolve (with the install command when declared in mise or a
 `cargo install` crates no manifest declares. `--fix` runs the installs; `--adopt` declares
 crates.io crates in the mise config; both honor `--dry-run`. Aliases inside an
 `if command -v <target>; then` guard are treated as optional and skipped.
+
+#### notstrap wizard and `--yes`
+
+On a terminal, `notstrap run` first runs a wizard (`wizard.rs`, over the `Prompter` port in `prompt.rs`):
+it asks for the clone URL, the dotfiles directory, whether to join the tailnet (when `[tailscale]` is
+configured) and which hooks to run, prints the plan, and asks to proceed. Answers overlay the loaded
+config; declining cancels before anything changes. `--yes` / `-y` skips the wizard, accepts every
+default, and exports `NOTSTRAP_YES=1` to hooks so they skip their own prompts. Without a terminal
+there are no prompts either, so scripted runs behave as before. nothooks also exports `NOTFILES_DIR`
+(the dotfiles checkout) to every hook and runs `.rs` hooks with `rust-script`.

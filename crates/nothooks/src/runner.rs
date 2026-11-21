@@ -31,6 +31,7 @@ fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
 pub struct HookRunner {
     state_dir: PathBuf,
     force: bool,
+    extra_env: Vec<(String, String)>,
 }
 
 impl HookRunner {
@@ -38,6 +39,7 @@ impl HookRunner {
         Self {
             state_dir,
             force: false,
+            extra_env: Vec::new(),
         }
     }
 
@@ -45,7 +47,14 @@ impl HookRunner {
         Self {
             state_dir,
             force: true,
+            extra_env: Vec::new(),
         }
+    }
+
+    /// Environment variables added to every hook process, e.g. `NOTSTRAP_YES=1`.
+    pub fn with_env(mut self, vars: Vec<(String, String)>) -> Self {
+        self.extra_env = vars;
+        self
     }
 
     /// Run all hooks in `hooks` that match `phase`.
@@ -99,7 +108,12 @@ impl HookRunner {
         // in HookSpec (both come from config, not untrusted shell input). `spec.script` is a
         // filesystem path from config. Both are passed as discrete args with no shell involved,
         // so argument injection is not possible.
-        let result = Command::new(&interp).arg(&script).status();
+        // Hooks locate the dotfiles checkout through NOTFILES_DIR, not their own path.
+        let result = Command::new(&interp)
+            .arg(&script)
+            .env("NOTFILES_DIR", &self.state_dir)
+            .envs(self.extra_env.iter().map(|(k, v)| (k, v)))
+            .status();
 
         match result {
             Ok(status) if status.success() => {

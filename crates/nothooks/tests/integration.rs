@@ -80,3 +80,29 @@ fn test_relative_script_path_resolves_from_state_dir() {
     let result = runner.run_hook(&spec).unwrap();
     assert!(matches!(result, HookResult::Ok));
 }
+
+#[test]
+fn test_hook_receives_notfiles_dir() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("seen");
+    let body = format!("printf %s \"$NOTFILES_DIR\" > {}", out.display());
+    let spec = make_hook_script(&dir, "env-hook", &body);
+    let runner = HookRunner::new(dir.path().to_path_buf());
+    assert!(matches!(runner.run_hook(&spec).unwrap(), HookResult::Ok));
+    assert_eq!(
+        fs::read_to_string(out).unwrap(),
+        dir.path().to_str().unwrap()
+    );
+}
+
+#[test]
+fn test_hook_receives_extra_env() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("seen");
+    let body = format!("printf %s \"$NOTSTRAP_YES\" > {}", out.display());
+    let spec = make_hook_script(&dir, "extra-env-hook", &body);
+    let runner = HookRunner::new(dir.path().to_path_buf())
+        .with_env(vec![("NOTSTRAP_YES".into(), "1".into())]);
+    assert!(matches!(runner.run_hook(&spec).unwrap(), HookResult::Ok));
+    assert_eq!(fs::read_to_string(out).unwrap(), "1");
+}

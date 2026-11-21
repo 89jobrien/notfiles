@@ -6,12 +6,15 @@ use notsecrets::sources::IdentitySource;
 use notsecrets::{
     BitwardenSource, FileSource, PromptSource, SecretResolver, YubikeySource, resolve_identities,
 };
+use prompt::Prompter;
 use serde::Deserialize;
 use std::path::PathBuf;
 
 pub mod prereqs;
+pub mod prompt;
 pub mod repo;
 pub mod tools;
+pub mod wizard;
 
 pub use notnet::TailscaleOptions;
 
@@ -83,6 +86,10 @@ pub struct BootstrapOptions {
     /// None = skip tool reconciliation (tests). Some(f) = run f against the dotfiles
     /// checkout after hooks; it returns `None` when there is no `[doctor]` table.
     pub reconcile_tools: Option<ToolsReconciler>,
+    /// Some = run the interactive wizard before anything else. None = no prompts.
+    pub prompter: Option<Box<dyn Prompter>>,
+    /// `--yes`: tell hooks not to prompt (exported as `NOTSTRAP_YES=1`).
+    pub assume_yes: bool,
     /// Path to notsecrets.toml. None = skip secret resolution.
     pub secrets_config: Option<PathBuf>,
 }
@@ -93,7 +100,25 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     // 1. Load config (read-only; needed for the `[prereqs]` list)
     let config_content = std::fs::read_to_string(&opts.config)
         .with_context(|| format!("cannot read {}", opts.config.display()))?;
-    let cfg: NotstrapConfig = toml::from_str(&config_content)?;
+    let mut cfg: NotstrapConfig = toml::from_str(&config_content)?;
+
+    // Wizard: confirm or adjust the plan before anything happens
+    if let Some(prompter) = &opts.prompter {
+        match wizard::run(&cfg, prompter.as_ref()) {
+            Ok(Some(choices)) => {
+                wizard::apply(&mut cfg, choices);
+                report.add("wizard", StepStatus::Ok);
+            }
+            Ok(None) => {
+                report.add("wizard", StepStatus::Failed("cancelled by user".into()));
+                return Ok(report);
+            }
+            Err(e) => {
+                report.add("wizard", StepStatus::Failed(e.to_string()));
+                return Ok(report);
+            }
+        }
+    }
 
     // 2. Prerequisites
     if let Some(check) = opts.check_prereqs {
@@ -242,11 +267,17 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     // 7. Run hooks
+    let hook_env = if opts.assume_yes {
+        vec![("NOTSTRAP_YES".to_string(), "1".to_string())]
+    } else {
+        Vec::new()
+    };
     let runner = if opts.force {
         HookRunner::with_force(dotfiles_dir.clone())
     } else {
         HookRunner::new(dotfiles_dir.clone())
-    };
+    }
+    .with_env(hook_env);
 
     for (phase, label) in [
         (HookPhase::Dot, "dot hooks"),
@@ -428,6 +459,8 @@ mod tests {
                 anyhow::bail!("stop here")
             })),
             reconcile_tools: None,
+            prompter: None,
+            assume_yes: false,
             secrets_config: None,
         };
         let report = run(opts).unwrap();
