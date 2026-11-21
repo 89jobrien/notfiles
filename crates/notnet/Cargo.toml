@@ -14,8 +14,7 @@ thiserror = { workspace = true }
 yubikey   = { version = "0.8", optional = true, features = ["untested"] }
 
 [features]
-# Enable the YubiKey PIV slot-9d auth-key source by default: without a key in
-# the slot, resolution falls through to the prompt, so the behavior only
-# changes for machines that actually hold a Tailscale auth key there.
-default = ["yubikey"]
+# The YubiKey PIV slot-9d source is opt-in: it links the system PC/SC library
+# (libpcsclite on Linux), which a default build must not require.
+default = []
 yubikey = ["dep:yubikey"]

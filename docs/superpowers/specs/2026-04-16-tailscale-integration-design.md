@@ -35,7 +35,7 @@ Owns all Tailscale concerns:
 **Auth key resolution chain:**
 
 1. `TS_AUTHKEY` env var
-2. YubiKey PIV slot 9d (via the `yubikey` crate, compiled in by default)
+2. YubiKey PIV slot 9d (via the `yubikey` crate, compiled in with the opt-in `yubikey` feature, which needs the system PC/SC library)
 3. Interactive prompt
 
 **Public API:**
