@@ -207,48 +207,21 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     };
 
-    // 5b. Resolve secrets via notsecrets.toml (optional)
-    if let Some(secrets_path) = opts.secrets_config {
-        match notsecrets::load_config(&secrets_path) {
-            Ok(secrets_cfg) => match SecretResolver::from_config(secrets_cfg) {
-                Ok(resolver) => match resolver.resolve_all() {
-                    Ok(env_map) => {
-                        for (k, v) in &env_map {
-                            match parse_env_line(&format!("{k}={v}")) {
-                                Ok(Some((k, v))) => {
-                                    // SAFETY: `notstrap` is a single-threaded bootstrap
-                                    // binary; no other threads exist. Keys are validated
-                                    // by parse_env_line (null bytes and dangerous keys
-                                    // are rejected).
-                                    unsafe {
-                                        std::env::set_var(&k, &v);
-                                    }
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    report.add("secrets", StepStatus::Failed(e.to_string()));
-                                    return Ok(report);
-                                }
-                            }
-                        }
-                        report.add("secrets", StepStatus::Ok);
-                    }
-                    Err(e) => {
-                        report.add("secrets", StepStatus::Failed(e.to_string()));
-                        return Ok(report);
-                    }
-                },
-                Err(e) => {
-                    report.add("secrets", StepStatus::Failed(e.to_string()));
-                    return Ok(report);
-                }
-            },
+    // 5b. Resolve secrets via notsecrets.toml (optional). They go to hooks as environment
+    // variables; the bootstrap process itself is never mutated.
+    let secret_env = match opts.secrets_config {
+        Some(path) => match resolve_secret_env(&path) {
+            Ok(vars) => {
+                report.add("secrets", StepStatus::Ok);
+                vars
+            }
             Err(e) => {
                 report.add("secrets", StepStatus::Failed(e.to_string()));
                 return Ok(report);
             }
-        }
-    }
+        },
+        None => Vec::new(),
+    };
 
     // 6. Link dotfiles
     let link_opts = LinkOptions {
@@ -269,11 +242,10 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     // 7. Run hooks
-    let hook_env = if opts.assume_yes {
-        vec![("NOTSTRAP_YES".to_string(), "1".to_string())]
-    } else {
-        Vec::new()
-    };
+    let mut hook_env = secret_env;
+    if opts.assume_yes {
+        hook_env.push(("NOTSTRAP_YES".to_string(), "1".to_string()));
+    }
     let runner = if opts.force {
         HookRunner::with_force(dotfiles_dir.clone())
     } else {
@@ -380,6 +352,26 @@ fn unquote_env_value(v: &str) -> String {
         }
     }
     v.to_string()
+}
+
+/// Load `notsecrets.toml` and resolve every secret to validated `(key, value)` pairs.
+fn resolve_secret_env(path: &std::path::Path) -> Result<Vec<(String, String)>> {
+    let config = notsecrets::load_config(path)?;
+    let resolver = SecretResolver::from_config(config)?;
+    validated_env(resolver.resolve_all()?)
+}
+
+/// Validate every entry with [`parse_env_line`]; one rejected entry fails the whole set.
+/// Output is sorted by key so hook environments are deterministic.
+fn validated_env(vars: std::collections::HashMap<String, String>) -> Result<Vec<(String, String)>> {
+    let mut out = Vec::with_capacity(vars.len());
+    for (key, value) in &vars {
+        if let Some(pair) = parse_env_line(&format!("{key}={value}"))? {
+            out.push(pair);
+        }
+    }
+    out.sort();
+    Ok(out)
 }
 
 /// Parse and validate a single env line (`KEY=value`), returning `(key, value)` if safe to inject.
@@ -668,5 +660,51 @@ mod clone_step_tests {
         let report = run(opts(config, FakeGit::failing("must not be called"))).expect("run");
 
         assert!(matches!(clone_status(&report), Some(StepStatus::Skipped)));
+    }
+}
+
+#[cfg(test)]
+mod secret_env_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn valid_secrets_are_returned_sorted_by_key() {
+        let vars = validated_env(map(&[("ZED", "1"), ("ALPHA", "2"), ("MID", "3")]))
+            .expect("all keys are safe");
+
+        let keys: Vec<&str> = vars.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, ["ALPHA", "MID", "ZED"]);
+    }
+
+    #[test]
+    fn quoted_values_are_unquoted() {
+        let vars = validated_env(map(&[("TOKEN", "\"abc\"")])).expect("safe");
+        assert_eq!(vars, [("TOKEN".to_string(), "abc".to_string())]);
+    }
+
+    #[test]
+    fn a_blocked_key_fails_the_whole_set() {
+        let err = validated_env(map(&[("OK", "1"), ("LD_PRELOAD", "/evil.so")]))
+            .expect_err("LD_PRELOAD is blocked");
+        assert!(err.to_string().contains("LD_PRELOAD"));
+    }
+
+    #[test]
+    fn a_null_byte_fails_the_whole_set() {
+        let err = validated_env(map(&[("KEY", "va\0lue")])).expect_err("null byte");
+        assert!(err.to_string().contains("null byte"));
+    }
+
+    #[test]
+    fn an_empty_set_is_fine() {
+        assert!(validated_env(HashMap::new()).expect("empty").is_empty());
     }
 }
