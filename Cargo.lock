@@ -1203,7 +1203,9 @@ dependencies = [
  "nothooks",
  "notnet",
  "notsecrets",
+ "nottools",
  "serde",
+ "tempfile",
  "toml",
  "which",
 ]

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use notstrap::{BootstrapOptions, prereqs, run};
+use notstrap::{BootstrapOptions, prereqs, run, tools};
 
 #[derive(Parser)]
 #[command(name = "notstrap", about = "Bootstrap a new machine from dotfiles")]
@@ -46,6 +46,7 @@ fn main() -> Result<()> {
         dotfiles,
         tailscale: None, // defer to [tailscale] section in config (if present)
         check_prereqs: Some(Box::new(prereqs::check_prerequisites)),
+        reconcile_tools: Some(Box::new(tools::reconcile_system)),
         secrets_config: None,
     };
     let report = run(opts)?;

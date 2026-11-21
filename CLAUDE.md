@@ -89,7 +89,9 @@ with x25519, SSH ed25519/RSA, and scrypt identity support. No external
 
 ### notstrap
 
-Orchestrates in order: prereqs check → load config → clone dotfiles → age key → decrypt SOPS → link dotfiles → run hooks → final report. Config file: `notstrap.toml`.
+Orchestrates in order: load config → prereqs check → clone dotfiles → age key → decrypt SOPS → link dotfiles → run hooks → reconcile tools → final report. Config file: `notstrap.toml`.
+
+The prereq list comes from an optional `[prereqs] required = [...]` table (default `nu`, `sops`, `age`); it runs before the clone, so it cannot read the dotfiles manifest. The final `tools` step runs `nottools` against the cloned `notfiles.toml` `[doctor]` table: it installs declared-but-missing tools (`mise install`, `brew install`) and reports alias targets declared nowhere. It fails the bootstrap only when a declared tool is still unresolved, and is skipped when there is no `[doctor]` table.
 
 ## Configuration
 

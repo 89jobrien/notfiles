@@ -20,7 +20,11 @@ notcore     = { workspace = true }
 notfiles    = { workspace = true }
 nothooks    = { workspace = true }
 notnet      = { workspace = true }
+nottools    = { workspace = true }
 notsecrets  = { workspace = true }
 serde       = { workspace = true }
 toml        = { workspace = true }
 which       = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

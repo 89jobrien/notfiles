@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 pub mod prereqs;
 pub mod repo;
+pub mod tools;
 
 pub use notnet::TailscaleOptions;
 
@@ -21,6 +22,23 @@ pub struct NotstrapConfig {
     pub tailscale: Option<TailscaleOptions>,
     #[serde(default)]
     pub hooks: Vec<notcore::HookSpec>,
+    #[serde(default)]
+    pub prereqs: PrereqsSection,
+}
+
+/// `[prereqs]`: commands that must exist before bootstrap starts.
+#[derive(Deserialize)]
+pub struct PrereqsSection {
+    #[serde(default = "prereqs::default_required")]
+    pub required: Vec<String>,
+}
+
+impl Default for PrereqsSection {
+    fn default() -> Self {
+        Self {
+            required: prereqs::default_required(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -42,6 +60,12 @@ pub(crate) fn default_sops_file() -> String {
     "secrets/bootstrap.sops.env".to_string()
 }
 
+/// Checks that the required commands exist; receives the `[prereqs]` list.
+pub type PrereqCheck = Box<dyn Fn(&[String]) -> Result<()>>;
+
+/// Reconciles declared tools for a dotfiles checkout; `None` means no `[doctor]` table.
+pub type ToolsReconciler = Box<dyn Fn(&std::path::Path) -> Result<Option<tools::ToolsSummary>>>;
+
 pub struct BootstrapOptions {
     pub config: PathBuf,
     pub force: bool,
@@ -53,8 +77,12 @@ pub struct BootstrapOptions {
     ///
     /// Encoding: `None` = use config, `Some(None)` = skip, `Some(Some(opts))` = override.
     pub tailscale: Option<Option<TailscaleOptions>>,
-    /// None = skip prereq check (tests). Some(f) = run f().
-    pub check_prereqs: Option<Box<dyn Fn() -> Result<()>>>,
+    /// None = skip prereq check (tests). Some(f) = run f with the required commands
+    /// from `[prereqs]` (or the defaults).
+    pub check_prereqs: Option<PrereqCheck>,
+    /// None = skip tool reconciliation (tests). Some(f) = run f against the dotfiles
+    /// checkout after hooks; it returns `None` when there is no `[doctor]` table.
+    pub reconcile_tools: Option<ToolsReconciler>,
     /// Path to notsecrets.toml. None = skip secret resolution.
     pub secrets_config: Option<PathBuf>,
 }
@@ -62,9 +90,14 @@ pub struct BootstrapOptions {
 pub fn run(opts: BootstrapOptions) -> Result<Report> {
     let mut report = Report::default();
 
-    // 1. Prerequisites
+    // 1. Load config (read-only; needed for the `[prereqs]` list)
+    let config_content = std::fs::read_to_string(&opts.config)
+        .with_context(|| format!("cannot read {}", opts.config.display()))?;
+    let cfg: NotstrapConfig = toml::from_str(&config_content)?;
+
+    // 2. Prerequisites
     if let Some(check) = opts.check_prereqs {
-        match check() {
+        match check(&cfg.prereqs.required) {
             Ok(_) => {
                 report.add("prerequisites", StepStatus::Ok);
             }
@@ -74,11 +107,6 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
             }
         }
     }
-
-    // 2. Load config
-    let config_content = std::fs::read_to_string(&opts.config)
-        .with_context(|| format!("cannot read {}", opts.config.display()))?;
-    let cfg: NotstrapConfig = toml::from_str(&config_content)?;
 
     let dotfiles_dir = match opts.dotfiles {
         Some(d) => d,
@@ -247,7 +275,40 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     }
 
+    // 8. Reconcile tools declared by the dotfiles manifest
+    if let Some(reconcile) = opts.reconcile_tools {
+        match reconcile(&dotfiles_dir) {
+            Ok(None) => report.add("tools", StepStatus::Skipped),
+            Ok(Some(summary)) => add_tools_step(&mut report, &summary),
+            Err(e) => report.add("tools", StepStatus::Failed(e.to_string())),
+        }
+    }
+
     Ok(report)
+}
+
+/// Turn a tool reconciliation summary into one report step.
+fn add_tools_step(report: &mut Report, summary: &tools::ToolsSummary) {
+    let installed = summary.installed.len();
+    let note = if summary.undeclared.is_empty() {
+        String::new()
+    } else {
+        format!("; declared nowhere: {}", summary.undeclared.join(", "))
+    };
+    if summary.unresolved.is_empty() {
+        report.add(
+            format!("tools ({installed} install step(s){note})"),
+            StepStatus::Ok,
+        );
+    } else {
+        report.add(
+            "tools",
+            StepStatus::Failed(format!(
+                "unresolved: {}{note}",
+                summary.unresolved.join(", ")
+            )),
+        );
+    }
 }
 
 /// Strip outer quotes from an env value and unescape inner escape sequences.
@@ -326,6 +387,79 @@ pub fn parse_env_line(line: &str) -> Result<Option<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    fn parse(extra: &str) -> NotstrapConfig {
+        let text = format!("[bootstrap]\ndotfiles_dir = \"~/x\"\n{extra}");
+        toml::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn prereqs_default_when_table_absent() {
+        assert_eq!(parse("").prereqs.required, ["nu", "sops", "age"]);
+    }
+
+    #[test]
+    fn prereqs_read_from_table() {
+        let cfg = parse("[prereqs]\nrequired = [\"nu\", \"mise\"]\n");
+        assert_eq!(cfg.prereqs.required, ["nu", "mise"]);
+    }
+
+    #[test]
+    fn run_passes_configured_prereqs_to_the_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("notstrap.toml");
+        std::fs::write(
+            &config,
+            "[bootstrap]\ndotfiles_dir = \"/nowhere\"\n[prereqs]\nrequired = [\"foo\", \"bar\"]\n",
+        )
+        .unwrap();
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let sink = Rc::clone(&seen);
+        let opts = BootstrapOptions {
+            config,
+            force: false,
+            key_file: None,
+            dotfiles: None,
+            tailscale: Some(None),
+            check_prereqs: Some(Box::new(move |req| {
+                *sink.borrow_mut() = req.to_vec();
+                anyhow::bail!("stop here")
+            })),
+            reconcile_tools: None,
+            secrets_config: None,
+        };
+        let report = run(opts).unwrap();
+        assert_eq!(*seen.borrow(), ["foo", "bar"]);
+        assert!(report.has_failures());
+    }
+
+    #[test]
+    fn tools_step_ok_notes_undeclared_targets() {
+        let mut report = Report::default();
+        let summary = tools::ToolsSummary {
+            installed: vec!["mise install".into()],
+            unresolved: vec![],
+            undeclared: vec!["zb".into(), "pj".into()],
+        };
+        add_tools_step(&mut report, &summary);
+        assert!(!report.has_failures());
+        assert!(report.steps[0].name.contains("1 install step(s)"));
+        assert!(report.steps[0].name.contains("declared nowhere: zb, pj"));
+    }
+
+    #[test]
+    fn tools_step_fails_when_declared_tools_stay_missing() {
+        let mut report = Report::default();
+        let summary = tools::ToolsSummary {
+            installed: vec![],
+            unresolved: vec!["colima".into()],
+            undeclared: vec![],
+        };
+        add_tools_step(&mut report, &summary);
+        assert!(report.has_failures());
+    }
 
     /// Issue #4: null byte in key must be rejected.
     #[test]

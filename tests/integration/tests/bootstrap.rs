@@ -71,6 +71,7 @@ fn make_opts(env: &TestEnv, force: bool) -> BootstrapOptions {
         dotfiles: Some(env.dotfiles.path().to_path_buf()),
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
+        reconcile_tools: None,
         secrets_config: None,
     }
 }
@@ -219,6 +220,7 @@ fn test_bootstrap_fails_fast_on_bad_key() {
         dotfiles: Some(d.to_path_buf()),
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
+        reconcile_tools: None,
         secrets_config: None,
     };
 
