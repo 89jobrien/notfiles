@@ -24,7 +24,10 @@ mod tests {
 
     #[test]
     fn vault_stub_resolve_returns_none() {
-        assert_eq!(VaultSource.resolve("ANY").unwrap(), None);
+        assert_eq!(
+            VaultSource.resolve("ANY").expect("resolve should succeed"),
+            None
+        );
     }
 
     #[test]

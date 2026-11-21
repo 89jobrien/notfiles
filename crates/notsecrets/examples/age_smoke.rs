@@ -35,25 +35,33 @@ fn main() {
     let plaintext = plaintext.as_bytes();
 
     // 3. Encrypt
-    let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)]).unwrap();
-    let ciphertext = encryptor.encrypt(plaintext).unwrap();
+    let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)])
+        .expect("with_recipients should succeed");
+    let ciphertext = encryptor
+        .encrypt(plaintext)
+        .expect("encrypt should succeed");
 
     println!("\nCiphertext: {} bytes", ciphertext.len());
     println!(
         "Header:     {}",
-        std::str::from_utf8(&ciphertext[..22]).unwrap()
+        std::str::from_utf8(&ciphertext[..22]).expect("from_utf8 should succeed")
     );
 
     // 4. Write to file
     let out_path = "/tmp/secrets.age";
-    std::fs::write(out_path, &ciphertext).unwrap();
+    std::fs::write(out_path, &ciphertext).expect("write should succeed");
     println!("Written to: {out_path}");
 
     // 5. Decrypt back
     let decryptor = Decryptor::with_identities(vec![Box::new(identity)]);
-    let decrypted = decryptor.decrypt(&ciphertext).unwrap();
+    let decrypted = decryptor
+        .decrypt(&ciphertext)
+        .expect("decrypt should succeed");
     assert_eq!(decrypted, plaintext);
 
-    println!("\nDecrypted:\n{}", std::str::from_utf8(&decrypted).unwrap());
+    println!(
+        "\nDecrypted:\n{}",
+        std::str::from_utf8(&decrypted).expect("from_utf8 should succeed")
+    );
     println!("\n✓ Round-trip success");
 }

@@ -1,25 +1,105 @@
 project: notfiles
 id: notfile
-updated: 2026-07-08
+updated: 2026-11-21
 items:
+- id: push-pr-nottools-doctor
+  doob_uuid: null
+  name: push-pr-nottools-doctor
+  priority: P1
+  status: open
+  title: Open the PR for feat/nottools-doctor
+  description: |-
+    Branch is pushed to origin (16 commits ahead of main, 12 from the 2026-11-20/21 refactor session) but no PR
+    exists yet. ci.yml triggers on push only for main, feature/*, hotfix/* and chore/*, so feat/* gets no CI until a
+    PR targets main. The new jobs have never run on GitHub Actions: the fuzz matrix job in ci.yml and the
+    rust-script install plus scripts/affected-crates.rs step in release.yml. Watch their first run.
+  files:
+  - .github/workflows/ci.yml
+  - .github/workflows/release.yml
+  - scripts/affected-crates.rs
+  completed: null
+  extra: []
+- id: env-provider-blocked-keys
+  doob_uuid: null
+  name: env-provider-blocked-keys
+  priority: P2
+  status: open
+  title: Decide Env secrets provider policy for blocked keys
+  description: |-
+    The Env provider enumerates the whole process environment and parse_env_line rejects PATH, so a config with
+    providers = ["env"] always fails the notstrap secrets step. Skip blocked keys, or keep failing the step?
+  files:
+  - crates/notstrap/src/lib.rs
+  - crates/notsecrets/src/sources/env.rs
+  completed: null
+  extra: []
+- id: wire-secrets-config-cli
+  doob_uuid: null
+  name: wire-secrets-config-cli
+  priority: P2
+  status: open
+  title: Wire secrets_config into the notstrap CLI
+  description: |-
+    notstrap/src/main.rs passes secrets_config: None, so the secrets path is unreachable from the CLI. Secrets now
+    reach hooks only (HookRunner::with_env), covered by validated_env unit tests but not an end-to-end test.
+  files:
+  - crates/notstrap/src/main.rs
+  completed: null
+  extra: []
+- id: confirm-global-hook-source
+  doob_uuid: null
+  name: confirm-global-hook-source
+  priority: P2
+  status: open
+  title: Confirm where the global pre-commit hook is sourced from
+  description: |-
+    ~/.config/git/hooks/pre-commit was edited in place to exclude nested Cargo.lock from the obfsck scan. If a
+    dotfiles package manages that file, make the same edit at the source or it will be overwritten.
+  files: []
+  completed: null
+  extra: []
+- id: filestore-metadata-contract
+  doob_uuid: null
+  name: filestore-metadata-contract
+  priority: P3
+  status: open
+  title: FileStore metadata returns an unfakeable type
+  description: |-
+    FileStore::metadata and symlink_metadata return std::fs::Metadata, which no double can construct, so they are
+    outside the conformance suite. Replace with a small domain type to cover them. notgraph emit.rs also still mixes
+    rendering with fs::write (low priority).
+  files:
+  - crates/notfiles/src/ports.rs
+  - crates/notgraph/src/emit.rs
+  completed: null
+  extra: []
 - id: uncommitted-work
   doob_uuid: null
   name: uncommitted-work
   priority: P1
-  status: open
-  title: Uncommitted changes (3 files)
+  status: done
+  title: Uncommitted changes
   description: |-
-    Working tree has uncommitted changes:
-    .claude/worktrees/agent-a27fe5f2
-    .claude/settings.local.json
-    .superpowers/brainstorm/72758-1776397235/state/server-stopped
-  files:
-  - .claude/worktrees/agent-a27fe5f2
-  - .claude/settings.local.json
-  - .superpowers/brainstorm/72758-1776397235/state/server-stopped
-  completed: null
+    Resolved: the tree was clean at the end of the 2026-11-21 session apart from the .ctx session reports.
+  files: []
+  completed: 2026-11-21
   extra: []
 log:
+- date: 2026-11-21
+  summary: SOLID ports (nothooks, notnet, notstrap git, notfiles detect), conformance and property tests, fuzz crate, expect() cleanup, Python removed, notstrap secrets without unsafe set_var
+  commits:
+  - d5d0ba3
+  - 6cec7f8
+  - b60378f
+  - 6489ece
+  - 5b0ad8a
+  - 35aa9df
+  - 650e22e
+  - 577bfb3
+  - 3696ae9
+  - 261a973
+  - 3b9b39d
+  - ed6e6bc
 - date: 2026-07-08
   summary: hexagonal architecture refactor with adapters and integration tests, notsecrets cleanup, config payload moved to notfiles-config repo
   commits:

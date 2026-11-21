@@ -1,0 +1,20 @@
+[package]
+name    = "nottools"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+description = "Tool and alias reconciliation for notfiles: declared tools versus what is installed"
+
+[lib]
+name = "nottools"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow     = { workspace = true }
+notcore    = { workspace = true }
+serde      = { workspace = true }
+toml       = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

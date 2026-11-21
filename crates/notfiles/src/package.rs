@@ -138,7 +138,11 @@ fn walk_dir(
     fs: &dyn FileStore,
 ) -> Result<(), NotfilesError> {
     for path in fs.read_dir(current)? {
-        let relative = path.strip_prefix(base).unwrap().to_path_buf();
+        // `FileStore::read_dir` yields direct children of `current`, which is under `base`.
+        let relative = path
+            .strip_prefix(base)
+            .expect("read_dir children are under the walk base")
+            .to_path_buf();
 
         if matcher.is_ignored(&relative) {
             continue;
@@ -161,63 +165,66 @@ mod tests {
 
     #[test]
     fn test_discover_packages() {
-        let tmp = TempDir::new().unwrap();
-        fs::create_dir(tmp.path().join("zsh")).unwrap();
-        fs::create_dir(tmp.path().join("git")).unwrap();
-        fs::create_dir(tmp.path().join(".git")).unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
+        fs::create_dir(tmp.path().join("zsh")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("git")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join(".git")).expect("create_dir should succeed");
 
-        let pkgs = discover_packages(tmp.path()).unwrap();
+        let pkgs = discover_packages(tmp.path()).expect("discover_packages should succeed");
         assert_eq!(pkgs, vec!["git", "zsh"]);
     }
 
     #[test]
     fn test_discover_respects_include_filter() {
-        let tmp = TempDir::new().unwrap();
-        fs::create_dir(tmp.path().join("git")).unwrap();
-        fs::create_dir(tmp.path().join("zsh")).unwrap();
-        fs::create_dir(tmp.path().join("scripts")).unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
+        fs::create_dir(tmp.path().join("git")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("zsh")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("scripts")).expect("create_dir should succeed");
 
         let toml_str = r#"
 [defaults]
 target = "~"
 include = ["git", "zsh"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        let pkgs = discover_packages_filtered(tmp.path(), &config).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
+        let pkgs = discover_packages_filtered(tmp.path(), &config)
+            .expect("discover_packages_filtered should succeed");
         assert_eq!(pkgs, vec!["git", "zsh"]);
     }
 
     #[test]
     fn test_discover_respects_exclude_filter() {
-        let tmp = TempDir::new().unwrap();
-        fs::create_dir(tmp.path().join("git")).unwrap();
-        fs::create_dir(tmp.path().join("scripts")).unwrap();
-        fs::create_dir(tmp.path().join("docs")).unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
+        fs::create_dir(tmp.path().join("git")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("scripts")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("docs")).expect("create_dir should succeed");
 
         let toml_str = r#"
 [defaults]
 target = "~"
 exclude = ["scripts", "docs"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        let pkgs = discover_packages_filtered(tmp.path(), &config).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
+        let pkgs = discover_packages_filtered(tmp.path(), &config)
+            .expect("discover_packages_filtered should succeed");
         assert_eq!(pkgs, vec!["git"]);
     }
 
     #[test]
     fn test_resolve_specific_packages() {
-        let tmp = TempDir::new().unwrap();
-        fs::create_dir(tmp.path().join("zsh")).unwrap();
-        fs::create_dir(tmp.path().join("git")).unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
+        fs::create_dir(tmp.path().join("zsh")).expect("create_dir should succeed");
+        fs::create_dir(tmp.path().join("git")).expect("create_dir should succeed");
 
-        let pkgs = resolve_packages(tmp.path(), &["zsh".into()]).unwrap();
+        let pkgs =
+            resolve_packages(tmp.path(), &["zsh".into()]).expect("resolve_packages should succeed");
         assert_eq!(pkgs, vec!["zsh"]);
     }
 
     #[test]
     fn test_resolve_missing_package() {
-        let tmp = TempDir::new().unwrap();
-        fs::create_dir(tmp.path().join("zsh")).unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
+        fs::create_dir(tmp.path().join("zsh")).expect("create_dir should succeed");
 
         let err = resolve_packages(tmp.path(), &["nope".into()]).unwrap_err();
         assert!(err.to_string().contains("nope"));
@@ -225,15 +232,15 @@ exclude = ["scripts", "docs"]
 
     #[test]
     fn test_collect_files_with_ignore() {
-        let tmp = TempDir::new().unwrap();
+        let tmp = TempDir::new().expect("new should succeed");
         let pkg = tmp.path().join("zsh");
-        fs::create_dir_all(pkg.join(".config/zsh")).unwrap();
-        fs::write(pkg.join(".config/zsh/zshrc"), "# zshrc").unwrap();
-        fs::write(pkg.join("README.md"), "readme").unwrap();
-        fs::write(pkg.join(".DS_Store"), "junk").unwrap();
+        fs::create_dir_all(pkg.join(".config/zsh")).expect("create_dir_all should succeed");
+        fs::write(pkg.join(".config/zsh/zshrc"), "# zshrc").expect("write should succeed");
+        fs::write(pkg.join("README.md"), "readme").expect("write should succeed");
+        fs::write(pkg.join(".DS_Store"), "junk").expect("write should succeed");
 
         let config = Config::default();
-        let files = collect_files(&pkg, &config, "zsh").unwrap();
+        let files = collect_files(&pkg, &config, "zsh").expect("collect_files should succeed");
         assert_eq!(files, vec![PathBuf::from(".config/zsh/zshrc")]);
     }
 }

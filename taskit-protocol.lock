@@ -10,7 +10,7 @@
     {
       "name": "notforge/api",
       "path": "crates/notforge/tests/api.rs",
-      "hash": "a19aded5a1df65536a2a01dd6db890ba39e2ac7878dc3f63fa8abd75eb88861d"
+      "hash": "1594591e9c7a1309d0818702afb1d671d82f6646653acc894d21bdf2e9e94056"
     },
     {
       "name": "notgraph/types",

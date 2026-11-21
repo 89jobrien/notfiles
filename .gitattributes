@@ -1,0 +1,2 @@
+# Fuzz seeds are raw bytes (age ciphertext); never diff or scan them as text.
+fuzz/corpus/** binary

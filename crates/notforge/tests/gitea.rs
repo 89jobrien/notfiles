@@ -31,19 +31,25 @@ impl FakeTransport {
     }
 
     fn requests(&self) -> Vec<RecordedRequest> {
-        self.requests.lock().unwrap().clone()
+        self.requests.lock().expect("lock should succeed").clone()
     }
 }
 
 impl GiteaTransport for FakeTransport {
     fn send(&self, request: GiteaHttpRequest) -> Result<GiteaHttpResponse, NotforgeError> {
-        self.requests.lock().unwrap().push(RecordedRequest {
-            method: request.method,
-            url: request.url,
-            authorization: request.authorization,
-            body: request.body,
-        });
-        self.responses.lock().unwrap().remove(0)
+        self.requests
+            .lock()
+            .expect("lock should succeed")
+            .push(RecordedRequest {
+                method: request.method,
+                url: request.url,
+                authorization: request.authorization,
+                body: request.body,
+            });
+        self.responses
+            .lock()
+            .expect("lock should succeed")
+            .remove(0)
     }
 }
 
@@ -55,7 +61,7 @@ fn version_gets_gitea_server_version() {
     })]);
     let api = GiteaHttpApi::with_transport("http://gitea.local:3000/", transport.clone());
 
-    let version = api.version().unwrap();
+    let version = api.version().expect("version should succeed");
 
     assert_eq!(version.version, "1.22.4");
     let requests = transport.requests();
@@ -85,8 +91,11 @@ fn repo_maps_found_and_not_found_responses() {
     ]);
     let api = GiteaHttpApi::with_transport("http://gitea.local:3000", transport.clone());
 
-    let found = api.repo("joe", "notfiles-config").unwrap().unwrap();
-    let missing = api.repo("joe", "missing").unwrap();
+    let found = api
+        .repo("joe", "notfiles-config")
+        .expect("repo should succeed")
+        .expect("the value should be present");
+    let missing = api.repo("joe", "missing").expect("repo should succeed");
 
     assert_eq!(found.owner, "joe");
     assert_eq!(found.name, "notfiles-config");
@@ -138,7 +147,7 @@ fn create_repo_posts_json_with_token_auth() {
                 token: "redacted".to_string(),
             },
         )
-        .unwrap();
+        .expect("create_repo should succeed");
 
     assert_eq!(repo.owner, "joe");
     let requests = transport.requests();
@@ -186,7 +195,7 @@ fn create_repo_posts_json_with_basic_auth() {
             password: "secret".to_string(),
         },
     )
-    .unwrap();
+    .expect("create_repo should succeed");
 
     let requests = transport.requests();
     assert_eq!(

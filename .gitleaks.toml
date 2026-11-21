@@ -1,0 +1,13 @@
+title = "notfiles gitleaks config"
+
+[extend]
+useDefault = true
+
+# Older integration tests wrote a placeholder age key verbatim ("content doesn't matter").
+# They now derive a throwaway key at run time; this keeps the commit that removes the literal
+# (and later history edits) from being flagged. Only a 20-character fragment unique to that one
+# placeholder is allowlisted, never a pattern. `gitleaks detect --pipe` records no file path,
+# so a path condition cannot be used here.
+[allowlist]
+description = "placeholder age key from legacy integration tests"
+regexes = ['''X3QKFQ4MZQM7LTJ3AX0N''']

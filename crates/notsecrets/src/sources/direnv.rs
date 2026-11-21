@@ -24,7 +24,10 @@ mod tests {
 
     #[test]
     fn direnv_stub_resolve_returns_none() {
-        assert_eq!(DirenvSource.resolve("ANY").unwrap(), None);
+        assert_eq!(
+            DirenvSource.resolve("ANY").expect("resolve should succeed"),
+            None
+        );
     }
 
     #[test]

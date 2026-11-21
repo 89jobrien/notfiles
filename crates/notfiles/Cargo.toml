@@ -25,10 +25,12 @@ clap_complete = { workspace = true }
 dirs     = { workspace = true }
 globset  = { workspace = true }
 notcore  = { workspace = true }
+nottools = { workspace = true }
 serde    = { workspace = true }
 serde_json = { workspace = true }
 toml     = { workspace = true }
 
 [dev-dependencies]
+proptest = { workspace = true }
 assert_fs = { workspace = true }
 tempfile  = { workspace = true }

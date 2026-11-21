@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_basic_ignore() {
-        let m = IgnoreMatcher::new(&[".git", "README.md"]).unwrap();
+        let m = IgnoreMatcher::new(&[".git", "README.md"]).expect("new should succeed");
         assert!(m.is_ignored(Path::new(".git")));
         assert!(m.is_ignored(Path::new("README.md")));
         assert!(!m.is_ignored(Path::new("config")));
@@ -62,14 +62,14 @@ mod tests {
 
     #[test]
     fn test_nested_ignore() {
-        let m = IgnoreMatcher::new(&[".DS_Store"]).unwrap();
+        let m = IgnoreMatcher::new(&[".DS_Store"]).expect("new should succeed");
         assert!(m.is_ignored(Path::new(".DS_Store")));
         assert!(m.is_ignored(Path::new("subdir/.DS_Store")));
     }
 
     #[test]
     fn test_glob_pattern() {
-        let m = IgnoreMatcher::new(&["*.bak"]).unwrap();
+        let m = IgnoreMatcher::new(&["*.bak"]).expect("new should succeed");
         assert!(m.is_ignored(Path::new("file.bak")));
         assert!(m.is_ignored(Path::new("subdir/file.bak")));
         assert!(!m.is_ignored(Path::new("file.txt")));
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_directory_component_ignore() {
-        let m = IgnoreMatcher::new(&[".git"]).unwrap();
+        let m = IgnoreMatcher::new(&[".git"]).expect("new should succeed");
         assert!(m.is_ignored(Path::new(".git/config")));
         assert!(m.is_ignored(Path::new(".git/objects/abc")));
     }

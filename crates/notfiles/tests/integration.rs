@@ -24,19 +24,19 @@ fn run(dotfiles: &Path, args: &[&str]) -> (String, String, bool) {
 fn setup_dotfiles(tmp: &TempDir) {
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
-    fs::create_dir_all(&dotfiles).unwrap();
-    fs::create_dir_all(&target).unwrap();
+    fs::create_dir_all(&dotfiles).expect("create_dir_all should succeed");
+    fs::create_dir_all(&target).expect("create_dir_all should succeed");
 
     // Create a zsh package
     let zsh = dotfiles.join("zsh");
-    fs::create_dir_all(zsh.join(".config/zsh")).unwrap();
-    fs::write(zsh.join(".config/zsh/zshrc"), "# zshrc content").unwrap();
-    fs::write(zsh.join(".zshenv"), "# zshenv content").unwrap();
+    fs::create_dir_all(zsh.join(".config/zsh")).expect("create_dir_all should succeed");
+    fs::write(zsh.join(".config/zsh/zshrc"), "# zshrc content").expect("write should succeed");
+    fs::write(zsh.join(".zshenv"), "# zshenv content").expect("write should succeed");
 
     // Create a git package
     let git = dotfiles.join("git");
-    fs::create_dir_all(&git).unwrap();
-    fs::write(git.join(".gitconfig"), "[user]\nname = Test").unwrap();
+    fs::create_dir_all(&git).expect("create_dir_all should succeed");
+    fs::write(git.join(".gitconfig"), "[user]\nname = Test").expect("write should succeed");
 
     // Write config pointing target to our temp home
     let config = format!(
@@ -46,14 +46,14 @@ ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfil
 "#,
         target.display()
     );
-    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+    fs::write(dotfiles.join("notfiles.toml"), config).expect("write should succeed");
 }
 
 #[test]
 fn test_init_creates_config() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     let dotfiles = tmp.path().join("dotfiles");
-    fs::create_dir_all(&dotfiles).unwrap();
+    fs::create_dir_all(&dotfiles).expect("create_dir_all should succeed");
 
     let (stdout, _, ok) = run(&dotfiles, &["init"]);
     assert!(ok);
@@ -63,9 +63,9 @@ fn test_init_creates_config() {
 
 #[test]
 fn test_init_idempotent() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     let dotfiles = tmp.path().join("dotfiles");
-    fs::create_dir_all(&dotfiles).unwrap();
+    fs::create_dir_all(&dotfiles).expect("create_dir_all should succeed");
 
     run(&dotfiles, &["init"]);
     let (stdout, _, ok) = run(&dotfiles, &["init"]);
@@ -75,7 +75,7 @@ fn test_init_idempotent() {
 
 #[test]
 fn test_link_and_status() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -86,14 +86,20 @@ fn test_link_and_status() {
     // Verify symlinks exist
     let zshrc = target.join(".config/zsh/zshrc");
     assert!(zshrc.exists(), "zshrc should exist");
-    assert!(zshrc.symlink_metadata().unwrap().file_type().is_symlink());
+    assert!(
+        zshrc
+            .symlink_metadata()
+            .expect("symlink_metadata should succeed")
+            .file_type()
+            .is_symlink()
+    );
 
     let gitconfig = target.join(".gitconfig");
     assert!(gitconfig.exists());
     assert!(
         gitconfig
             .symlink_metadata()
-            .unwrap()
+            .expect("symlink_metadata should succeed")
             .file_type()
             .is_symlink()
     );
@@ -109,7 +115,7 @@ fn test_link_and_status() {
 
 #[test]
 fn test_link_idempotent() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
 
@@ -123,7 +129,7 @@ fn test_link_idempotent() {
 
 #[test]
 fn test_link_specific_package() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -137,7 +143,7 @@ fn test_link_specific_package() {
 
 #[test]
 fn test_unlink() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -154,7 +160,7 @@ fn test_unlink() {
 
 #[test]
 fn test_unlink_specific_package() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -171,13 +177,13 @@ fn test_unlink_specific_package() {
 
 #[test]
 fn test_conflict_without_force() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     // Pre-create a conflicting file
-    fs::write(target.join(".gitconfig"), "existing content").unwrap();
+    fs::write(target.join(".gitconfig"), "existing content").expect("write should succeed");
 
     let (_, stderr, ok) = run(&dotfiles, &["link"]);
     assert!(!ok, "should fail on conflict");
@@ -189,13 +195,13 @@ fn test_conflict_without_force() {
 
 #[test]
 fn test_force_with_backup() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     // Pre-create conflicting file
-    fs::write(target.join(".gitconfig"), "old content").unwrap();
+    fs::write(target.join(".gitconfig"), "old content").expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "--force", "--verbose"]);
     assert!(ok);
@@ -205,14 +211,14 @@ fn test_force_with_backup() {
         target
             .join(".gitconfig")
             .symlink_metadata()
-            .unwrap()
+            .expect("symlink_metadata should succeed")
             .file_type()
             .is_symlink()
     );
 
     // A backup should exist
     let backups: Vec<_> = fs::read_dir(&target)
-        .unwrap()
+        .expect("read_dir should succeed")
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.file_name()
@@ -221,25 +227,26 @@ fn test_force_with_backup() {
         })
         .collect();
     assert_eq!(backups.len(), 1);
-    let backup_content = fs::read_to_string(backups[0].path()).unwrap();
+    let backup_content =
+        fs::read_to_string(backups[0].path()).expect("read_to_string should succeed");
     assert_eq!(backup_content, "old content");
 }
 
 #[test]
 fn test_force_no_backup() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
-    fs::write(target.join(".gitconfig"), "old content").unwrap();
+    fs::write(target.join(".gitconfig"), "old content").expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "--force", "--no-backup"]);
     assert!(ok);
 
     // No backup should exist
     let backups: Vec<_> = fs::read_dir(&target)
-        .unwrap()
+        .expect("read_dir should succeed")
         .filter_map(|e| e.ok())
         .filter(|e| e.file_name().to_string_lossy().contains("notfiles-backup"))
         .collect();
@@ -248,15 +255,16 @@ fn test_force_no_backup() {
 
 #[test]
 fn test_copy_method() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     // Create an ssh package with copy method
     let ssh = dotfiles.join("ssh");
-    fs::create_dir_all(ssh.join(".ssh")).unwrap();
-    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes").unwrap();
+    fs::create_dir_all(ssh.join(".ssh")).expect("create_dir_all should succeed");
+    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes")
+        .expect("write should succeed");
 
     // Update config to use copy for ssh
     let config = format!(
@@ -269,7 +277,7 @@ method = "copy"
 "#,
         target.display()
     );
-    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+    fs::write(dotfiles.join("notfiles.toml"), config).expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "ssh", "--verbose"]);
     assert!(ok);
@@ -280,12 +288,12 @@ method = "copy"
     assert!(
         !ssh_config
             .symlink_metadata()
-            .unwrap()
+            .expect("symlink_metadata should succeed")
             .file_type()
             .is_symlink()
     );
     assert_eq!(
-        fs::read_to_string(&ssh_config).unwrap(),
+        fs::read_to_string(&ssh_config).expect("read_to_string should succeed"),
         "Host *\n  AddKeysToAgent yes"
     );
 
@@ -301,14 +309,15 @@ method = "copy"
 
 #[test]
 fn test_status_flags_diverged_copy_as_conflict() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     let ssh = dotfiles.join("ssh");
-    fs::create_dir_all(ssh.join(".ssh")).unwrap();
-    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes").unwrap();
+    fs::create_dir_all(ssh.join(".ssh")).expect("create_dir_all should succeed");
+    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes")
+        .expect("write should succeed");
 
     let config = format!(
         r#"[defaults]
@@ -320,13 +329,13 @@ method = "copy"
 "#,
         target.display()
     );
-    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+    fs::write(dotfiles.join("notfiles.toml"), config).expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "ssh"]);
     assert!(ok);
 
     let ssh_config = target.join(".ssh/config");
-    fs::write(&ssh_config, "Host github.com\n  User joe\n").unwrap();
+    fs::write(&ssh_config, "Host github.com\n  User joe\n").expect("write should succeed");
 
     let (stdout, _, ok) = run(&dotfiles, &["status", "ssh"]);
     assert!(ok);
@@ -338,14 +347,15 @@ method = "copy"
 
 #[test]
 fn test_unlink_preserves_diverged_copy_and_state() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     let ssh = dotfiles.join("ssh");
-    fs::create_dir_all(ssh.join(".ssh")).unwrap();
-    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes").unwrap();
+    fs::create_dir_all(ssh.join(".ssh")).expect("create_dir_all should succeed");
+    fs::write(ssh.join(".ssh/config"), "Host *\n  AddKeysToAgent yes")
+        .expect("write should succeed");
 
     let config = format!(
         r#"[defaults]
@@ -357,13 +367,13 @@ method = "copy"
 "#,
         target.display()
     );
-    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+    fs::write(dotfiles.join("notfiles.toml"), config).expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "ssh"]);
     assert!(ok);
 
     let ssh_config = target.join(".ssh/config");
-    fs::write(&ssh_config, "Host github.com\n  User joe\n").unwrap();
+    fs::write(&ssh_config, "Host github.com\n  User joe\n").expect("write should succeed");
 
     let (stdout, stderr, ok) = run(&dotfiles, &["unlink", "ssh", "--verbose"]);
     assert!(
@@ -375,7 +385,8 @@ method = "copy"
         "diverged copy should not be removed during unlink"
     );
 
-    let state = fs::read_to_string(dotfiles.join(".notfiles-state.toml")).unwrap();
+    let state = fs::read_to_string(dotfiles.join(".notfiles-state.toml"))
+        .expect("read_to_string should succeed");
     assert!(
         state.contains(".ssh/config"),
         "state entry must be retained when unlink skips a diverged copy: {state}"
@@ -384,7 +395,7 @@ method = "copy"
 
 #[test]
 fn test_dry_run() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -401,7 +412,7 @@ fn test_dry_run() {
 
 #[test]
 fn test_status_missing() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
 
@@ -413,14 +424,14 @@ fn test_status_missing() {
 
 #[test]
 fn test_ignore_patterns() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
 
     // Add a README to a package — it should be ignored
-    fs::write(dotfiles.join("zsh/README.md"), "read me").unwrap();
-    fs::write(dotfiles.join("zsh/.DS_Store"), "junk").unwrap();
+    fs::write(dotfiles.join("zsh/README.md"), "read me").expect("write should succeed");
+    fs::write(dotfiles.join("zsh/.DS_Store"), "junk").expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link"]);
     assert!(ok);
@@ -433,7 +444,7 @@ fn test_ignore_patterns() {
 
 #[test]
 fn test_package_not_found() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
 
@@ -444,7 +455,7 @@ fn test_package_not_found() {
 
 #[test]
 fn test_unlink_cleans_empty_dirs() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_dotfiles(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -468,17 +479,17 @@ fn setup_from_fixture(tmp: &TempDir) {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/dotfiles");
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
-    fs::create_dir_all(&target).unwrap();
-    copy_dir_recursive(&fixture, &dotfiles).unwrap();
+    fs::create_dir_all(&target).expect("create_dir_all should succeed");
+    copy_dir_recursive(&fixture, &dotfiles).expect("copy_dir_recursive should succeed");
 
     // Rewrite notfiles.toml to point target at our temp home
     let config_path = dotfiles.join("notfiles.toml");
-    let content = fs::read_to_string(&config_path).unwrap();
+    let content = fs::read_to_string(&config_path).expect("read_to_string should succeed");
     let rewritten = content.replace(
         "target = \"~\"",
         &format!("target = \"{}\"", target.display()),
     );
-    fs::write(&config_path, rewritten).unwrap();
+    fs::write(&config_path, rewritten).expect("write should succeed");
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -498,7 +509,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 #[test]
 fn test_fixture_include_excludes_non_packages() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_from_fixture(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -538,7 +549,7 @@ fn test_fixture_include_excludes_non_packages() {
 
 #[test]
 fn test_fixture_status_shows_all_packages() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_from_fixture(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
 
@@ -563,7 +574,7 @@ fn test_fixture_status_shows_all_packages() {
 
 #[test]
 fn test_fixture_deep_paths_link_correctly() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_from_fixture(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -584,7 +595,7 @@ fn test_fixture_platform_filter_skips_linux_on_macos() {
     if !cfg!(target_os = "macos") {
         return; // This test is macOS-specific
     }
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_from_fixture(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -604,7 +615,7 @@ fn test_fixture_platform_filter_skips_linux_on_macos() {
 
 #[test]
 fn test_fixture_link_and_unlink_round_trip() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     setup_from_fixture(&tmp);
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
@@ -626,16 +637,17 @@ fn test_fixture_link_and_unlink_round_trip() {
 fn test_copy_preserves_executable_bit() {
     use std::os::unix::fs::PermissionsExt;
 
-    let tmp = TempDir::new().unwrap();
+    let tmp = TempDir::new().expect("new should succeed");
     let dotfiles = tmp.path().join("dotfiles");
     let target = tmp.path().join("home");
-    fs::create_dir_all(&target).unwrap();
+    fs::create_dir_all(&target).expect("create_dir_all should succeed");
 
     let bin = dotfiles.join("bin");
-    fs::create_dir_all(bin.join(".local/bin")).unwrap();
+    fs::create_dir_all(bin.join(".local/bin")).expect("create_dir_all should succeed");
     let script = bin.join(".local/bin/tool");
-    fs::write(&script, "#!/bin/sh\necho hi\n").unwrap();
-    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    fs::write(&script, "#!/bin/sh\necho hi\n").expect("write should succeed");
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755))
+        .expect("set_permissions should succeed");
 
     let config = format!(
         r#"[defaults]
@@ -647,12 +659,16 @@ method = "copy"
 "#,
         target.display()
     );
-    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+    fs::write(dotfiles.join("notfiles.toml"), config).expect("write should succeed");
 
     let (_, _, ok) = run(&dotfiles, &["link", "bin"]);
     assert!(ok);
 
     let copied = target.join(".local/bin/tool");
-    let mode = copied.metadata().unwrap().permissions().mode();
+    let mode = copied
+        .metadata()
+        .expect("metadata should succeed")
+        .permissions()
+        .mode();
     assert_eq!(mode & 0o777, 0o755, "copied script lost its executable bit");
 }

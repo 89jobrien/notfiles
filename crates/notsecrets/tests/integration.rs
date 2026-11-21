@@ -11,10 +11,10 @@ fn generate_age_key_str() -> String {
 
 #[test]
 fn test_file_source_loads_valid_key() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let key_file = dir.path().join("age.key");
     let key = generate_age_key_str();
-    fs::write(&key_file, format!("{}\n", key)).unwrap();
+    fs::write(&key_file, format!("{}\n", key)).expect("write should succeed");
 
     let source = FileSource::new(key_file.clone());
     let result = source.load();
@@ -29,13 +29,13 @@ fn test_file_source_missing_returns_err() {
 
 #[test]
 fn test_resolve_identities_uses_file_source() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let key_file = dir.path().join("age.key");
     let key = generate_age_key_str();
-    fs::write(&key_file, format!("{}\n", key)).unwrap();
+    fs::write(&key_file, format!("{}\n", key)).expect("write should succeed");
 
     let sources: Vec<Box<dyn IdentitySource>> = vec![Box::new(FileSource::new(key_file))];
-    let ids = resolve_identities(sources).unwrap();
+    let ids = resolve_identities(sources).expect("resolve_identities should succeed");
     assert_eq!(ids.len(), 1);
 }
 

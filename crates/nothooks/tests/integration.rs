@@ -5,10 +5,10 @@ use tempfile::TempDir;
 
 fn make_hook_script(dir: &TempDir, name: &str, content: &str) -> HookSpec {
     let path = dir.path().join(format!("{name}.sh"));
-    fs::write(&path, content).unwrap();
+    fs::write(&path, content).expect("write should succeed");
     HookSpec {
         name: name.to_string(),
-        script: path.to_str().unwrap().to_string(),
+        script: path.to_str().expect("to_str should succeed").to_string(),
         phase: HookPhase::Dot,
         interpreter: None,
     }
@@ -16,58 +16,58 @@ fn make_hook_script(dir: &TempDir, name: &str, content: &str) -> HookSpec {
 
 #[test]
 fn test_hook_success() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let spec = make_hook_script(&dir, "ok-hook", "echo hello");
     let runner = HookRunner::new(dir.path().to_path_buf());
-    let result = runner.run_hook(&spec).unwrap();
+    let result = runner.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(result, HookResult::Ok));
 }
 
 #[test]
 fn test_hook_failure() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let spec = make_hook_script(&dir, "fail-hook", "exit 1");
     let runner = HookRunner::new(dir.path().to_path_buf());
-    let result = runner.run_hook(&spec).unwrap();
+    let result = runner.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(result, HookResult::Failed(_)));
 }
 
 #[test]
 fn test_setup_hook_skipped_on_rerun() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let mut spec = make_hook_script(&dir, "setup-hook", "echo ran");
     spec.phase = notcore::HookPhase::Setup;
 
     let runner = HookRunner::new(dir.path().to_path_buf());
-    let r1 = runner.run_hook(&spec).unwrap();
+    let r1 = runner.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(r1, HookResult::Ok));
 
     // Second run — should be skipped
-    let r2 = runner.run_hook(&spec).unwrap();
+    let r2 = runner.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(r2, HookResult::Skipped));
 }
 
 #[test]
 fn test_setup_hook_force_reruns() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let mut spec = make_hook_script(&dir, "force-hook", "echo ran");
     spec.phase = notcore::HookPhase::Setup;
 
     let runner = HookRunner::new(dir.path().to_path_buf());
-    runner.run_hook(&spec).unwrap();
+    runner.run_hook(&spec).expect("run_hook should succeed");
 
     let runner2 = HookRunner::with_force(dir.path().to_path_buf());
-    let r2 = runner2.run_hook(&spec).unwrap();
+    let r2 = runner2.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(r2, HookResult::Ok));
 }
 
 #[test]
 fn test_relative_script_path_resolves_from_state_dir() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
     let scripts_dir = dir.path().join("scripts");
-    fs::create_dir_all(&scripts_dir).unwrap();
+    fs::create_dir_all(&scripts_dir).expect("create_dir_all should succeed");
     let script = scripts_dir.join("relative.sh");
-    fs::write(&script, "echo relative-ok").unwrap();
+    fs::write(&script, "echo relative-ok").expect("write should succeed");
 
     let spec = HookSpec {
         name: "relative".to_string(),
@@ -77,6 +77,41 @@ fn test_relative_script_path_resolves_from_state_dir() {
     };
 
     let runner = HookRunner::new(dir.path().to_path_buf());
-    let result = runner.run_hook(&spec).unwrap();
+    let result = runner.run_hook(&spec).expect("run_hook should succeed");
     assert!(matches!(result, HookResult::Ok));
+}
+
+#[test]
+fn test_hook_receives_notfiles_dir() {
+    let dir = TempDir::new().expect("new should succeed");
+    let out = dir.path().join("seen");
+    let body = format!("printf %s \"$NOTFILES_DIR\" > {}", out.display());
+    let spec = make_hook_script(&dir, "env-hook", &body);
+    let runner = HookRunner::new(dir.path().to_path_buf());
+    assert!(matches!(
+        runner.run_hook(&spec).expect("run_hook should succeed"),
+        HookResult::Ok
+    ));
+    assert_eq!(
+        fs::read_to_string(out).expect("read_to_string should succeed"),
+        dir.path().to_str().expect("to_str should succeed")
+    );
+}
+
+#[test]
+fn test_hook_receives_extra_env() {
+    let dir = TempDir::new().expect("new should succeed");
+    let out = dir.path().join("seen");
+    let body = format!("printf %s \"$NOTSTRAP_YES\" > {}", out.display());
+    let spec = make_hook_script(&dir, "extra-env-hook", &body);
+    let runner = HookRunner::new(dir.path().to_path_buf())
+        .with_env(vec![("NOTSTRAP_YES".into(), "1".into())]);
+    assert!(matches!(
+        runner.run_hook(&spec).expect("run_hook should succeed"),
+        HookResult::Ok
+    ));
+    assert_eq!(
+        fs::read_to_string(out).expect("read_to_string should succeed"),
+        "1"
+    );
 }

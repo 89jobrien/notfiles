@@ -4,6 +4,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::ports::FileStore;
+
 use serde_json::json;
 
 /// A dotfile manager detected on disk.
@@ -58,24 +60,22 @@ const CANDIDATE_DIRS: &[&str] = &[
 ];
 
 /// Detect all dotfile managers reachable from `home`.
-pub fn detect(home: &Path) -> Vec<DetectedManager> {
+pub fn detect(store: &dyn FileStore, home: &Path) -> Vec<DetectedManager> {
     let mut found = Vec::new();
 
     for rel in CANDIDATE_DIRS {
         let dir = home.join(rel);
-        if dir.is_dir()
-            && let Some(m) = probe(&dir)
-        {
-            found.push(m);
+        if store.is_dir(&dir) {
+            found.push(probe(store, &dir));
         }
     }
 
     // chezmoi source dir at its default non-standard location
     let chezmoi_src = home.join(".local/share/chezmoi");
-    if chezmoi_src.is_dir() && !found.iter().any(|m| m.root == chezmoi_src) {
+    if store.is_dir(&chezmoi_src) && !found.iter().any(|m| m.root == chezmoi_src) {
         found.push(DetectedManager {
             kind: ManagerKind::Chezmoi,
-            packages: enumerate_chezmoi_packages(&chezmoi_src),
+            packages: enumerate_chezmoi_packages(store, &chezmoi_src),
             root: chezmoi_src,
         });
     }
@@ -83,59 +83,66 @@ pub fn detect(home: &Path) -> Vec<DetectedManager> {
     found
 }
 
-fn probe(dir: &Path) -> Option<DetectedManager> {
-    let kind = classify(dir);
+fn probe(store: &dyn FileStore, dir: &Path) -> DetectedManager {
+    let kind = classify(store, dir);
     let packages = match kind {
-        ManagerKind::Stow | ManagerKind::Unknown => enumerate_stow_packages(dir),
-        ManagerKind::Chezmoi => enumerate_chezmoi_packages(dir),
-        ManagerKind::Notfiles => enumerate_notfiles_packages(dir),
+        ManagerKind::Stow | ManagerKind::Unknown => enumerate_stow_packages(store, dir),
+        ManagerKind::Chezmoi => enumerate_chezmoi_packages(store, dir),
+        ManagerKind::Notfiles => enumerate_notfiles_packages(store, dir),
     };
-    Some(DetectedManager {
+    DetectedManager {
         kind,
         root: dir.to_path_buf(),
         packages,
-    })
+    }
 }
 
-fn classify(dir: &Path) -> ManagerKind {
-    if dir.join("notfiles.toml").exists() {
+fn classify(store: &dyn FileStore, dir: &Path) -> ManagerKind {
+    let has = |name: &str| store.exists(&dir.join(name));
+    if has("notfiles.toml") {
         return ManagerKind::Notfiles;
     }
-    if dir.join(".chezmoi.toml.tmpl").exists()
-        || dir.join(".chezmoi.yaml.tmpl").exists()
-        || dir.join(".chezmoi.json.tmpl").exists()
-        || dir.join(".chezmoi.toml").exists()
-        || dir.join(".chezmoi.yaml").exists()
+    if [
+        ".chezmoi.toml.tmpl",
+        ".chezmoi.yaml.tmpl",
+        ".chezmoi.json.tmpl",
+        ".chezmoi.toml",
+        ".chezmoi.yaml",
+    ]
+    .iter()
+    .any(|n| has(n))
     {
         return ManagerKind::Chezmoi;
     }
-    if dir.join(".stow-local-ignore").exists()
-        || dir.join(".stowrc").exists()
-        || has_stow_structure(dir)
-    {
+    if has(".stow-local-ignore") || has(".stowrc") || has_stow_structure(store, dir) {
         return ManagerKind::Stow;
     }
     ManagerKind::Unknown
 }
 
+/// File or directory name of `path`, lossily decoded.
+fn name_of(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
 /// Heuristic: looks like stow if ≥2 top-level subdirs contain dot-dirs or
 /// known config paths (`.config/`, `.local/`, `Library/`, etc.).
-fn has_stow_structure(dir: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else {
+fn has_stow_structure(store: &dyn FileStore, dir: &Path) -> bool {
+    let Ok(entries) = store.read_dir(dir) else {
         return false;
     };
     let mut stow_like = 0usize;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+    for path in entries {
+        if !store.is_dir(&path) {
             continue;
         }
-        let name = entry.file_name();
-        let s = name.to_string_lossy();
-        if s.starts_with('.') || matches!(s.as_ref(), "target" | "src") {
+        let name = name_of(&path);
+        if name.starts_with('.') || matches!(name.as_str(), "target" | "src") {
             continue;
         }
-        if package_looks_like_stow(&path) {
+        if package_looks_like_stow(store, &path) {
             stow_like += 1;
             if stow_like >= 2 {
                 return true;
@@ -145,43 +152,37 @@ fn has_stow_structure(dir: &Path) -> bool {
     false
 }
 
-fn package_looks_like_stow(pkg_dir: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(pkg_dir) else {
-        return false;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let s = name.to_string_lossy();
-        if s.starts_with('.') || s == "Library" {
-            return true;
-        }
-    }
-    false
+fn package_looks_like_stow(store: &dyn FileStore, pkg_dir: &Path) -> bool {
+    store.read_dir(pkg_dir).is_ok_and(|entries| {
+        entries.iter().any(|p| {
+            let name = name_of(p);
+            name.starts_with('.') || name == "Library"
+        })
+    })
 }
 
-fn enumerate_stow_packages(root: &Path) -> Vec<DetectedPackage> {
-    let Ok(entries) = std::fs::read_dir(root) else {
+fn enumerate_stow_packages(store: &dyn FileStore, root: &Path) -> Vec<DetectedPackage> {
+    let Ok(entries) = store.read_dir(root) else {
         return vec![];
     };
     let mut pkgs = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+    for path in entries {
+        if !store.is_dir(&path) {
             continue;
         }
-        let name = entry.file_name().to_string_lossy().to_string();
+        let name = name_of(&path);
         if name.starts_with('.') || matches!(name.as_str(), "target" | "src" | "docs" | "tests") {
             continue;
         }
-        let files = walk_files(&path, &path);
+        let files = walk_files(store, &path, &path);
         pkgs.push(DetectedPackage { name, files });
     }
     pkgs.sort_by(|a, b| a.name.cmp(&b.name));
     pkgs
 }
 
-fn enumerate_chezmoi_packages(root: &Path) -> Vec<DetectedPackage> {
-    let files = walk_files(root, root);
+fn enumerate_chezmoi_packages(store: &dyn FileStore, root: &Path) -> Vec<DetectedPackage> {
+    let files = walk_files(store, root, root);
     if files.is_empty() {
         vec![]
     } else {
@@ -192,21 +193,21 @@ fn enumerate_chezmoi_packages(root: &Path) -> Vec<DetectedPackage> {
     }
 }
 
-fn enumerate_notfiles_packages(root: &Path) -> Vec<DetectedPackage> {
+fn enumerate_notfiles_packages(store: &dyn FileStore, root: &Path) -> Vec<DetectedPackage> {
     let toml_path = root.join("notfiles.toml");
-    if let Ok(content) = std::fs::read_to_string(&toml_path)
+    if let Ok(content) = store.read_to_string(&toml_path)
         && let Some(names) = parse_include_list(&content)
     {
         return names
             .into_iter()
             .map(|name| {
                 let pkg_dir = root.join(&name);
-                let files = walk_files(&pkg_dir, &pkg_dir);
+                let files = walk_files(store, &pkg_dir, &pkg_dir);
                 DetectedPackage { name, files }
             })
             .collect();
     }
-    enumerate_stow_packages(root)
+    enumerate_stow_packages(store, root)
 }
 
 /// Minimal parse of `include = ["a", "b"]` from TOML.
@@ -214,9 +215,8 @@ fn parse_include_list(toml: &str) -> Option<Vec<String>> {
     let line = toml
         .lines()
         .find(|l| l.trim_start().starts_with("include"))?;
-    let bracket_start = line.find('[')?;
-    let bracket_end = line.find(']')?;
-    let inner = &line[bracket_start + 1..bracket_end];
+    let after_open = &line[line.find('[')? + 1..];
+    let inner = &after_open[..after_open.find(']')?];
     let names: Vec<String> = inner
         .split(',')
         .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
@@ -225,26 +225,25 @@ fn parse_include_list(toml: &str) -> Option<Vec<String>> {
     if names.is_empty() { None } else { Some(names) }
 }
 
-/// Recursively collect file paths relative to `base`.
-fn walk_files(dir: &Path, base: &Path) -> Vec<PathBuf> {
+/// Recursively collect file paths relative to `base`, sorted for stable output.
+fn walk_files(store: &dyn FileStore, dir: &Path, base: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    let Ok(entries) = std::fs::read_dir(dir) else {
+    let Ok(entries) = store.read_dir(dir) else {
         return files;
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-        if matches!(name.as_str(), ".git" | ".DS_Store") {
+    for path in entries {
+        if matches!(name_of(&path).as_str(), ".git" | ".DS_Store") {
             continue;
         }
-        if path.is_dir() {
-            files.extend(walk_files(&path, base));
-        } else if path.is_file()
+        if store.is_dir(&path) {
+            files.extend(walk_files(store, &path, base));
+        } else if store.exists(&path)
             && let Ok(rel) = path.strip_prefix(base)
         {
             files.push(rel.to_path_buf());
         }
     }
+    files.sort();
     files
 }
 
@@ -297,4 +296,74 @@ pub fn print_detected_json(managers: &[DetectedManager]) {
         "{}",
         serde_json::to_string_pretty(&items).unwrap_or_default()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_include_list;
+
+    #[test]
+    fn parses_double_and_single_quoted_names() {
+        assert_eq!(
+            parse_include_list("include = [\"zsh\", 'git' , nu]\n"),
+            Some(vec!["zsh".into(), "git".into(), "nu".into()])
+        );
+    }
+
+    #[test]
+    fn empty_or_missing_include_is_none() {
+        assert_eq!(parse_include_list("include = []\n"), None);
+        assert_eq!(parse_include_list("[defaults]\nmethod = \"copy\"\n"), None);
+    }
+
+    /// Regression: `]` before `[` made the slice bounds cross and panicked.
+    #[test]
+    fn closing_bracket_before_opening_bracket_is_none() {
+        assert_eq!(parse_include_list("include = ]x["), None);
+        assert_eq!(parse_include_list("include]["), None);
+    }
+
+    #[test]
+    fn unterminated_list_is_none() {
+        assert_eq!(parse_include_list("include = [\"zsh\"\n"), None);
+    }
+
+    #[test]
+    fn only_the_first_include_line_counts() {
+        assert_eq!(
+            parse_include_list("include = [\"a\"]\ninclude = [\"b\"]\n"),
+            Some(vec!["a".into()])
+        );
+    }
+}
+
+#[cfg(test)]
+mod properties {
+    use super::parse_include_list;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Whatever the manifest holds, parsing must not panic.
+        #[test]
+        fn parse_include_list_never_panics(text in "\\PC*") {
+            let _ = parse_include_list(&text);
+        }
+
+        /// Same, biased towards the bracket and quote characters the parser slices on.
+        #[test]
+        fn parse_include_list_never_panics_on_bracket_soup(soup in "[\\[\\]\",' a-z=\\n]{0,40}") {
+            // Anchor on the `include` key so the bracket slicing is always reached.
+            let _ = parse_include_list(&format!("include{soup}"));
+        }
+
+        /// A well-formed list returns exactly the names written.
+        #[test]
+        fn well_formed_lists_round_trip(
+            names in prop::collection::vec("[a-z][a-z0-9_-]{0,8}", 1..6),
+        ) {
+            let quoted: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
+            let text = format!("include = [{}]\n", quoted.join(", "));
+            prop_assert_eq!(parse_include_list(&text), Some(names));
+        }
+    }
 }

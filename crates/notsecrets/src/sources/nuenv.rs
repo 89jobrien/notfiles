@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn nuenv_stub_resolve_returns_none() {
         let source = NuenvSource;
-        assert_eq!(source.resolve("ANY").unwrap(), None);
+        assert_eq!(source.resolve("ANY").expect("resolve should succeed"), None);
     }
 
     #[test]

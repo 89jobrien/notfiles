@@ -6,11 +6,15 @@ use notsecrets::sources::IdentitySource;
 use notsecrets::{
     BitwardenSource, FileSource, PromptSource, SecretResolver, YubikeySource, resolve_identities,
 };
+use prompt::Prompter;
 use serde::Deserialize;
 use std::path::PathBuf;
 
 pub mod prereqs;
+pub mod prompt;
 pub mod repo;
+pub mod tools;
+pub mod wizard;
 
 pub use notnet::TailscaleOptions;
 
@@ -21,6 +25,23 @@ pub struct NotstrapConfig {
     pub tailscale: Option<TailscaleOptions>,
     #[serde(default)]
     pub hooks: Vec<notcore::HookSpec>,
+    #[serde(default)]
+    pub prereqs: PrereqsSection,
+}
+
+/// `[prereqs]`: commands that must exist before bootstrap starts.
+#[derive(Deserialize)]
+pub struct PrereqsSection {
+    #[serde(default = "prereqs::default_required")]
+    pub required: Vec<String>,
+}
+
+impl Default for PrereqsSection {
+    fn default() -> Self {
+        Self {
+            required: prereqs::default_required(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -42,6 +63,12 @@ pub(crate) fn default_sops_file() -> String {
     "secrets/bootstrap.sops.env".to_string()
 }
 
+/// Checks that the required commands exist; receives the `[prereqs]` list.
+pub type PrereqCheck = Box<dyn Fn(&[String]) -> Result<()>>;
+
+/// Reconciles declared tools for a dotfiles checkout; `None` means no `[doctor]` table.
+pub type ToolsReconciler = Box<dyn Fn(&std::path::Path) -> Result<Option<tools::ToolsSummary>>>;
+
 pub struct BootstrapOptions {
     pub config: PathBuf,
     pub force: bool,
@@ -53,8 +80,18 @@ pub struct BootstrapOptions {
     ///
     /// Encoding: `None` = use config, `Some(None)` = skip, `Some(Some(opts))` = override.
     pub tailscale: Option<Option<TailscaleOptions>>,
-    /// None = skip prereq check (tests). Some(f) = run f().
-    pub check_prereqs: Option<Box<dyn Fn() -> Result<()>>>,
+    /// None = skip prereq check (tests). Some(f) = run f with the required commands
+    /// from `[prereqs]` (or the defaults).
+    pub check_prereqs: Option<PrereqCheck>,
+    /// None = skip tool reconciliation (tests). Some(f) = run f against the dotfiles
+    /// checkout after hooks; it returns `None` when there is no `[doctor]` table.
+    pub reconcile_tools: Option<ToolsReconciler>,
+    /// How the dotfiles repository is fetched. Production uses `repo::SystemGit`.
+    pub git: Box<dyn repo::GitClone>,
+    /// Some = run the interactive wizard before anything else. None = no prompts.
+    pub prompter: Option<Box<dyn Prompter>>,
+    /// `--yes`: tell hooks not to prompt (exported as `NOTSTRAP_YES=1`).
+    pub assume_yes: bool,
     /// Path to notsecrets.toml. None = skip secret resolution.
     pub secrets_config: Option<PathBuf>,
 }
@@ -62,9 +99,32 @@ pub struct BootstrapOptions {
 pub fn run(opts: BootstrapOptions) -> Result<Report> {
     let mut report = Report::default();
 
-    // 1. Prerequisites
+    // 1. Load config (read-only; needed for the `[prereqs]` list)
+    let config_content = std::fs::read_to_string(&opts.config)
+        .with_context(|| format!("cannot read {}", opts.config.display()))?;
+    let mut cfg: NotstrapConfig = toml::from_str(&config_content)?;
+
+    // Wizard: confirm or adjust the plan before anything happens
+    if let Some(prompter) = &opts.prompter {
+        match wizard::run(&cfg, prompter.as_ref()) {
+            Ok(Some(choices)) => {
+                wizard::apply(&mut cfg, choices);
+                report.add("wizard", StepStatus::Ok);
+            }
+            Ok(None) => {
+                report.add("wizard", StepStatus::Failed("cancelled by user".into()));
+                return Ok(report);
+            }
+            Err(e) => {
+                report.add("wizard", StepStatus::Failed(e.to_string()));
+                return Ok(report);
+            }
+        }
+    }
+
+    // 2. Prerequisites
     if let Some(check) = opts.check_prereqs {
-        match check() {
+        match check(&cfg.prereqs.required) {
             Ok(_) => {
                 report.add("prerequisites", StepStatus::Ok);
             }
@@ -74,11 +134,6 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
             }
         }
     }
-
-    // 2. Load config
-    let config_content = std::fs::read_to_string(&opts.config)
-        .with_context(|| format!("cannot read {}", opts.config.display()))?;
-    let cfg: NotstrapConfig = toml::from_str(&config_content)?;
 
     let dotfiles_dir = match opts.dotfiles {
         Some(d) => d,
@@ -117,7 +172,7 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
             "no dotfiles clone URL: set [bootstrap].dotfiles_repo or add a [tailscale] section"
         )
     })?;
-    match repo::clone_if_missing(&clone_url, &dotfiles_dir) {
+    match repo::clone_if_missing(opts.git.as_ref(), &clone_url, &dotfiles_dir) {
         Ok(true) => {
             report.add("clone dotfiles", StepStatus::Ok);
         }
@@ -152,48 +207,21 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     };
 
-    // 5b. Resolve secrets via notsecrets.toml (optional)
-    if let Some(secrets_path) = opts.secrets_config {
-        match notsecrets::load_config(&secrets_path) {
-            Ok(secrets_cfg) => match SecretResolver::from_config(secrets_cfg) {
-                Ok(resolver) => match resolver.resolve_all() {
-                    Ok(env_map) => {
-                        for (k, v) in &env_map {
-                            match parse_env_line(&format!("{k}={v}")) {
-                                Ok(Some((k, v))) => {
-                                    // SAFETY: `notstrap` is a single-threaded bootstrap
-                                    // binary; no other threads exist. Keys are validated
-                                    // by parse_env_line (null bytes and dangerous keys
-                                    // are rejected).
-                                    unsafe {
-                                        std::env::set_var(&k, &v);
-                                    }
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    report.add("secrets", StepStatus::Failed(e.to_string()));
-                                    return Ok(report);
-                                }
-                            }
-                        }
-                        report.add("secrets", StepStatus::Ok);
-                    }
-                    Err(e) => {
-                        report.add("secrets", StepStatus::Failed(e.to_string()));
-                        return Ok(report);
-                    }
-                },
-                Err(e) => {
-                    report.add("secrets", StepStatus::Failed(e.to_string()));
-                    return Ok(report);
-                }
-            },
+    // 5b. Resolve secrets via notsecrets.toml (optional). They go to hooks as environment
+    // variables; the bootstrap process itself is never mutated.
+    let secret_env = match opts.secrets_config {
+        Some(path) => match resolve_secret_env(&path) {
+            Ok(vars) => {
+                report.add("secrets", StepStatus::Ok);
+                vars
+            }
             Err(e) => {
                 report.add("secrets", StepStatus::Failed(e.to_string()));
                 return Ok(report);
             }
-        }
-    }
+        },
+        None => Vec::new(),
+    };
 
     // 6. Link dotfiles
     let link_opts = LinkOptions {
@@ -214,11 +242,16 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
     }
 
     // 7. Run hooks
+    let mut hook_env = secret_env;
+    if opts.assume_yes {
+        hook_env.push(("NOTSTRAP_YES".to_string(), "1".to_string()));
+    }
     let runner = if opts.force {
         HookRunner::with_force(dotfiles_dir.clone())
     } else {
         HookRunner::new(dotfiles_dir.clone())
-    };
+    }
+    .with_env(hook_env);
 
     for (phase, label) in [
         (HookPhase::Dot, "dot hooks"),
@@ -247,7 +280,40 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         }
     }
 
+    // 8. Reconcile tools declared by the dotfiles manifest
+    if let Some(reconcile) = opts.reconcile_tools {
+        match reconcile(&dotfiles_dir) {
+            Ok(None) => report.add("tools", StepStatus::Skipped),
+            Ok(Some(summary)) => add_tools_step(&mut report, &summary),
+            Err(e) => report.add("tools", StepStatus::Failed(e.to_string())),
+        }
+    }
+
     Ok(report)
+}
+
+/// Turn a tool reconciliation summary into one report step.
+fn add_tools_step(report: &mut Report, summary: &tools::ToolsSummary) {
+    let installed = summary.installed.len();
+    let note = if summary.undeclared.is_empty() {
+        String::new()
+    } else {
+        format!("; declared nowhere: {}", summary.undeclared.join(", "))
+    };
+    if summary.unresolved.is_empty() {
+        report.add(
+            format!("tools ({installed} install step(s){note})"),
+            StepStatus::Ok,
+        );
+    } else {
+        report.add(
+            "tools",
+            StepStatus::Failed(format!(
+                "unresolved: {}{note}",
+                summary.unresolved.join(", ")
+            )),
+        );
+    }
 }
 
 /// Strip outer quotes from an env value and unescape inner escape sequences.
@@ -288,6 +354,26 @@ fn unquote_env_value(v: &str) -> String {
     v.to_string()
 }
 
+/// Load `notsecrets.toml` and resolve every secret to validated `(key, value)` pairs.
+fn resolve_secret_env(path: &std::path::Path) -> Result<Vec<(String, String)>> {
+    let config = notsecrets::load_config(path)?;
+    let resolver = SecretResolver::from_config(config)?;
+    validated_env(resolver.resolve_all()?)
+}
+
+/// Validate every entry with [`parse_env_line`]; one rejected entry fails the whole set.
+/// Output is sorted by key so hook environments are deterministic.
+fn validated_env(vars: std::collections::HashMap<String, String>) -> Result<Vec<(String, String)>> {
+    let mut out = Vec::with_capacity(vars.len());
+    for (key, value) in &vars {
+        if let Some(pair) = parse_env_line(&format!("{key}={value}"))? {
+            out.push(pair);
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
 /// Parse and validate a single env line (`KEY=value`), returning `(key, value)` if safe to inject.
 /// Returns `Ok(None)` for blank lines and comments.
 /// Returns `Err` for null bytes or dangerous keys.
@@ -326,6 +412,82 @@ pub fn parse_env_line(line: &str) -> Result<Option<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    fn parse(extra: &str) -> NotstrapConfig {
+        let text = format!("[bootstrap]\ndotfiles_dir = \"~/x\"\n{extra}");
+        toml::from_str(&text).expect("from_str should succeed")
+    }
+
+    #[test]
+    fn prereqs_default_when_table_absent() {
+        assert_eq!(parse("").prereqs.required, ["nu", "sops", "age"]);
+    }
+
+    #[test]
+    fn prereqs_read_from_table() {
+        let cfg = parse("[prereqs]\nrequired = [\"nu\", \"mise\"]\n");
+        assert_eq!(cfg.prereqs.required, ["nu", "mise"]);
+    }
+
+    #[test]
+    fn run_passes_configured_prereqs_to_the_check() {
+        let dir = tempfile::tempdir().expect("tempdir should succeed");
+        let config = dir.path().join("notstrap.toml");
+        std::fs::write(
+            &config,
+            "[bootstrap]\ndotfiles_dir = \"/nowhere\"\n[prereqs]\nrequired = [\"foo\", \"bar\"]\n",
+        )
+        .expect("write should succeed");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let sink = Rc::clone(&seen);
+        let opts = BootstrapOptions {
+            config,
+            force: false,
+            key_file: None,
+            dotfiles: None,
+            tailscale: Some(None),
+            check_prereqs: Some(Box::new(move |req| {
+                *sink.borrow_mut() = req.to_vec();
+                anyhow::bail!("stop here")
+            })),
+            reconcile_tools: None,
+            git: Box::new(repo::FakeGit::default()),
+            prompter: None,
+            assume_yes: false,
+            secrets_config: None,
+        };
+        let report = run(opts).expect("run should succeed");
+        assert_eq!(*seen.borrow(), ["foo", "bar"]);
+        assert!(report.has_failures());
+    }
+
+    #[test]
+    fn tools_step_ok_notes_undeclared_targets() {
+        let mut report = Report::default();
+        let summary = tools::ToolsSummary {
+            installed: vec!["mise install".into()],
+            unresolved: vec![],
+            undeclared: vec!["zb".into(), "pj".into()],
+        };
+        add_tools_step(&mut report, &summary);
+        assert!(!report.has_failures());
+        assert!(report.steps[0].name.contains("1 install step(s)"));
+        assert!(report.steps[0].name.contains("declared nowhere: zb, pj"));
+    }
+
+    #[test]
+    fn tools_step_fails_when_declared_tools_stay_missing() {
+        let mut report = Report::default();
+        let summary = tools::ToolsSummary {
+            installed: vec![],
+            unresolved: vec!["colima".into()],
+            undeclared: vec![],
+        };
+        add_tools_step(&mut report, &summary);
+        assert!(report.has_failures());
+    }
 
     /// Issue #4: null byte in key must be rejected.
     #[test]
@@ -373,34 +535,43 @@ mod tests {
     /// Normal env lines must pass through unchanged.
     #[test]
     fn parse_env_line_accepts_normal_keys() {
-        let result = parse_env_line("MY_TOKEN=abc123").unwrap();
+        let result = parse_env_line("MY_TOKEN=abc123").expect("parse_env_line should succeed");
         assert_eq!(result, Some(("MY_TOKEN".to_string(), "abc123".to_string())));
     }
 
     /// Blank lines return None.
     #[test]
     fn parse_env_line_ignores_blank() {
-        assert_eq!(parse_env_line("").unwrap(), None);
-        assert_eq!(parse_env_line("   ").unwrap(), None);
+        assert_eq!(
+            parse_env_line("").expect("parse_env_line should succeed"),
+            None
+        );
+        assert_eq!(
+            parse_env_line("   ").expect("parse_env_line should succeed"),
+            None
+        );
     }
 
     /// Comment lines return None.
     #[test]
     fn parse_env_line_ignores_comments() {
-        assert_eq!(parse_env_line("# THIS_IS_A_COMMENT=value").unwrap(), None);
+        assert_eq!(
+            parse_env_line("# THIS_IS_A_COMMENT=value").expect("parse_env_line should succeed"),
+            None
+        );
     }
 
     /// Double-quoted values are unquoted.
     #[test]
     fn parse_env_line_strips_double_quotes() {
-        let result = parse_env_line(r#"API_KEY="secret""#).unwrap();
+        let result = parse_env_line(r#"API_KEY="secret""#).expect("parse_env_line should succeed");
         assert_eq!(result, Some(("API_KEY".to_string(), "secret".to_string())));
     }
 
     /// Single-quoted values are unquoted (no escape processing).
     #[test]
     fn parse_env_line_strips_single_quotes() {
-        let result = parse_env_line("MY_VAR='hello world'").unwrap();
+        let result = parse_env_line("MY_VAR='hello world'").expect("parse_env_line should succeed");
         assert_eq!(
             result,
             Some(("MY_VAR".to_string(), "hello world".to_string()))
@@ -410,14 +581,130 @@ mod tests {
     /// Backslash-escaped double-quote within double-quoted value is handled.
     #[test]
     fn parse_env_line_unescapes_inner_double_quote() {
-        let result = parse_env_line(r#"MSG="val\"ue""#).unwrap();
+        let result = parse_env_line(r#"MSG="val\"ue""#).expect("parse_env_line should succeed");
         assert_eq!(result, Some(("MSG".to_string(), r#"val"ue"#.to_string())));
     }
 
     /// Unquoted values pass through unchanged.
     #[test]
     fn parse_env_line_unquoted_passthrough() {
-        let result = parse_env_line("TOKEN=abc123").unwrap();
+        let result = parse_env_line("TOKEN=abc123").expect("parse_env_line should succeed");
         assert_eq!(result, Some(("TOKEN".to_string(), "abc123".to_string())));
+    }
+}
+
+#[cfg(test)]
+mod clone_step_tests {
+    use super::*;
+    use repo::FakeGit;
+    use std::path::Path;
+
+    fn opts(config: PathBuf, git: FakeGit) -> BootstrapOptions {
+        BootstrapOptions {
+            config,
+            force: false,
+            key_file: Some(PathBuf::from("/nonexistent/notstrap-test-key")),
+            dotfiles: None,
+            tailscale: Some(None),
+            check_prereqs: None,
+            reconcile_tools: None,
+            git: Box::new(git),
+            prompter: None,
+            assume_yes: false,
+            secrets_config: None,
+        }
+    }
+
+    fn write_config(dir: &Path, dotfiles_dir: &Path) -> PathBuf {
+        let config = dir.join("notstrap.toml");
+        std::fs::write(
+            &config,
+            format!(
+                "[bootstrap]\ndotfiles_repo = \"https://example/dots.git\"\ndotfiles_dir = \"{}\"\n",
+                dotfiles_dir.display()
+            ),
+        )
+        .expect("write config");
+        config
+    }
+
+    fn clone_status(report: &Report) -> Option<&StepStatus> {
+        report
+            .steps
+            .iter()
+            .find(|s| s.name == "clone dotfiles")
+            .map(|s| &s.status)
+    }
+
+    #[test]
+    fn a_failing_clone_is_reported_and_stops_the_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = write_config(dir.path(), &dir.path().join("dots"));
+
+        let report = run(opts(config, FakeGit::failing("network down"))).expect("run");
+
+        assert!(
+            matches!(clone_status(&report), Some(StepStatus::Failed(m)) if m.contains("network down"))
+        );
+        assert!(report.steps.iter().all(|s| s.name != "age key"));
+    }
+
+    #[test]
+    fn an_existing_checkout_skips_the_clone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dots = dir.path().join("dots");
+        std::fs::create_dir(&dots).expect("mkdir");
+        let config = write_config(dir.path(), &dots);
+
+        // The age-key step after the clone cannot succeed here; only the clone step matters.
+        let report = run(opts(config, FakeGit::failing("must not be called"))).expect("run");
+
+        assert!(matches!(clone_status(&report), Some(StepStatus::Skipped)));
+    }
+}
+
+#[cfg(test)]
+mod secret_env_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn valid_secrets_are_returned_sorted_by_key() {
+        let vars = validated_env(map(&[("ZED", "1"), ("ALPHA", "2"), ("MID", "3")]))
+            .expect("all keys are safe");
+
+        let keys: Vec<&str> = vars.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, ["ALPHA", "MID", "ZED"]);
+    }
+
+    #[test]
+    fn quoted_values_are_unquoted() {
+        let vars = validated_env(map(&[("TOKEN", "\"abc\"")])).expect("safe");
+        assert_eq!(vars, [("TOKEN".to_string(), "abc".to_string())]);
+    }
+
+    #[test]
+    fn a_blocked_key_fails_the_whole_set() {
+        let err = validated_env(map(&[("OK", "1"), ("LD_PRELOAD", "/evil.so")]))
+            .expect_err("LD_PRELOAD is blocked");
+        assert!(err.to_string().contains("LD_PRELOAD"));
+    }
+
+    #[test]
+    fn a_null_byte_fails_the_whole_set() {
+        let err = validated_env(map(&[("KEY", "va\0lue")])).expect_err("null byte");
+        assert!(err.to_string().contains("null byte"));
+    }
+
+    #[test]
+    fn an_empty_set_is_fine() {
+        assert!(validated_env(HashMap::new()).expect("empty").is_empty());
     }
 }

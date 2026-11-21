@@ -127,7 +127,7 @@ mod tests {
         let unwrapped = identity
             .unwrap_file_key(&stanza)
             .expect("identity should match")
-            .expect("unwrap should succeed");
+            .expect("the value should be present");
         assert_eq!(unwrapped.as_bytes(), file_key.as_bytes());
     }
 

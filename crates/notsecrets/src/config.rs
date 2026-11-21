@@ -92,7 +92,9 @@ mod tests {
 
     #[test]
     fn provider_deserializes_from_string() {
-        let p: Provider = toml::Value::String("op".to_string()).try_into().unwrap();
+        let p: Provider = toml::Value::String("op".to_string())
+            .try_into()
+            .expect("try_into should succeed");
         assert_eq!(p, Provider::Op);
     }
 
@@ -101,7 +103,7 @@ mod tests {
         let toml_str = r#"
             providers = ["env", "op"]
         "#;
-        let cfg: SecretsConfig = toml::from_str(toml_str).unwrap();
+        let cfg: SecretsConfig = toml::from_str(toml_str).expect("from_str should succeed");
         assert_eq!(cfg.providers, vec![Provider::Env, Provider::Op]);
         assert!(cfg.provider.is_empty());
         assert!(cfg.secrets.is_empty());
@@ -133,7 +135,7 @@ mod tests {
             ANTHROPIC_API_KEY = { source = "dotenvx" }
             GCP_TOKEN = { source = "gsm", path = "projects/123/secrets/gcp-token/versions/latest" }
         "#;
-        let cfg: SecretsConfig = toml::from_str(toml_str).unwrap();
+        let cfg: SecretsConfig = toml::from_str(toml_str).expect("from_str should succeed");
         assert_eq!(cfg.providers.len(), 5);
         assert_eq!(cfg.provider.len(), 4);
         assert_eq!(cfg.secrets.len(), 3);
@@ -157,10 +159,10 @@ mod tests {
 
     #[test]
     fn load_config_reads_file() {
-        let dir = tempfile::TempDir::new().unwrap();
+        let dir = tempfile::TempDir::new().expect("new should succeed");
         let path = dir.path().join("notsecrets.toml");
-        std::fs::write(&path, "providers = [\"env\"]\n").unwrap();
-        let cfg = load_config(&path).unwrap();
+        std::fs::write(&path, "providers = [\"env\"]\n").expect("write should succeed");
+        let cfg = load_config(&path).expect("load_config should succeed");
         assert_eq!(cfg.providers, vec![Provider::Env]);
     }
 

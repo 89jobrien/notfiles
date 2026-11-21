@@ -25,18 +25,27 @@ mod tests {
 
     #[test]
     fn test_expand_tilde_home() {
-        let home = dirs::home_dir().unwrap();
-        assert_eq!(expand_tilde("~").unwrap(), home);
+        let home = dirs::home_dir().expect("home_dir should succeed");
+        assert_eq!(
+            expand_tilde("~").expect("expand_tilde should succeed"),
+            home
+        );
     }
 
     #[test]
     fn test_expand_tilde_subpath() {
-        let home = dirs::home_dir().unwrap();
-        assert_eq!(expand_tilde("~/foo/bar").unwrap(), home.join("foo/bar"));
+        let home = dirs::home_dir().expect("home_dir should succeed");
+        assert_eq!(
+            expand_tilde("~/foo/bar").expect("expand_tilde should succeed"),
+            home.join("foo/bar")
+        );
     }
 
     #[test]
     fn test_expand_tilde_absolute() {
-        assert_eq!(expand_tilde("/usr/bin").unwrap(), PathBuf::from("/usr/bin"));
+        assert_eq!(
+            expand_tilde("/usr/bin").expect("expand_tilde should succeed"),
+            PathBuf::from("/usr/bin")
+        );
     }
 }

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Semver version to apply to affected crates, without leading v'
+        description: "Semver version to apply to affected crates, without leading v"
         required: true
         type: string
 
@@ -36,7 +36,7 @@ jobs:
       - name: Install tooling
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-edit,cargo-nextest
+          tool: cargo-edit,cargo-nextest,rust-script
 
       - name: Validate version input
         env:
@@ -68,67 +68,7 @@ jobs:
             git diff --name-only "$range" > changed-files.txt
           fi
 
-          cargo metadata --no-deps --format-version 1 > metadata.json
-
-          python3 <<'PY'
-          import json
-          from collections import defaultdict, deque
-          from pathlib import Path
-
-          changed_files = [line.strip() for line in Path("changed-files.txt").read_text().splitlines() if line.strip()]
-          metadata = json.loads(Path("metadata.json").read_text())
-
-          workspace_ids = set(metadata["workspace_members"])
-          packages = [pkg for pkg in metadata["packages"] if pkg["id"] in workspace_ids]
-
-          package_dirs = {}
-          reverse_deps = defaultdict(set)
-          package_names = set()
-
-          for pkg in packages:
-            name = pkg["name"]
-            package_names.add(name)
-            package_dirs[name] = Path(pkg["manifest_path"]).parent.as_posix()
-
-          for pkg in packages:
-            name = pkg["name"]
-            for dep in pkg.get("dependencies", []):
-              dep_name = dep.get("name")
-              if dep_name in package_names:
-                reverse_deps[dep_name].add(name)
-
-          direct = set()
-          shared_change = False
-
-          for changed in changed_files:
-            matched = False
-            for name, pkg_dir in package_dirs.items():
-              if changed == pkg_dir or changed.startswith(pkg_dir + "/"):
-                direct.add(name)
-                matched = True
-            if not matched and not changed.startswith('.github/workflows/release.yml'):
-              shared_change = True
-
-          if shared_change:
-            direct.update(package_names)
-
-          affected = set(direct)
-          queue = deque(direct)
-          while queue:
-            current = queue.popleft()
-            for dependent in reverse_deps.get(current, ()):
-              if dependent not in affected:
-                affected.add(dependent)
-                queue.append(dependent)
-
-          ignored = {"integration"}
-          affected = sorted(name for name in affected if name not in ignored)
-
-          if not affected:
-            raise SystemExit("No affected crates detected since the last release tag.")
-
-          Path("affected-crates.txt").write_text("\n".join(affected) + "\n")
-          PY
+          rust-script scripts/affected-crates.rs changed-files.txt affected-crates.txt
 
           {
             echo 'crates<<EOF'

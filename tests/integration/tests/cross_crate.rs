@@ -2,6 +2,9 @@ use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
 
+mod support;
+use support::write_throwaway_age_key;
+
 use notcore::{HookPhase, HookSpec};
 use notfiles::{LinkOptions, link};
 use nothooks::{HookResult, HookRunner};
@@ -15,15 +18,11 @@ use notsecrets::{FileSource, resolve_identities};
 /// and running a dot-phase hook both succeed without coupling.
 #[test]
 fn test_nothooks_notsecrets_independent() {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new().expect("new should succeed");
 
-    // Write a fake age key via FileSource
+    // Write a throwaway age key for FileSource to read
     let key_path = dir.path().join("age.key");
-    fs::write(
-        &key_path,
-        "AGE-SECRET-KEY-1X3QKFQ4MZQM7LTJ3AX0N3EM63RGRV4J6N5ZDWPVKCEUCZKJWJSUSU6GYN6\n",
-    )
-    .unwrap();
+    write_throwaway_age_key(&key_path);
 
     let sources: Vec<Box<dyn IdentitySource>> = vec![Box::new(FileSource::new(key_path))];
     let identities = resolve_identities(sources).expect("resolve_identities failed");
@@ -31,11 +30,11 @@ fn test_nothooks_notsecrets_independent() {
 
     // Write a hook that just prints
     let script = dir.path().join("chain.nu");
-    fs::write(&script, "print chain-ok\n").unwrap();
+    fs::write(&script, "print chain-ok\n").expect("write should succeed");
 
     let spec = HookSpec {
         name: "chain".to_string(),
-        script: script.to_str().unwrap().to_string(),
+        script: script.to_str().expect("to_str should succeed").to_string(),
         phase: HookPhase::Dot,
         interpreter: None,
     };
@@ -59,8 +58,10 @@ fn secret_resolver_resolves_env_var_cross_crate() {
         provider: HashMap::new(),
         secrets: HashMap::new(),
     };
-    let resolver = SecretResolver::from_config(config).unwrap();
-    let val = resolver.resolve("NOTFILES_CROSS_CRATE_TEST").unwrap();
+    let resolver = SecretResolver::from_config(config).expect("from_config should succeed");
+    let val = resolver
+        .resolve("NOTFILES_CROSS_CRATE_TEST")
+        .expect("resolve should succeed");
     assert_eq!(val, Some("works".to_string()));
 
     unsafe { std::env::remove_var("NOTFILES_CROSS_CRATE_TEST") };
@@ -72,12 +73,12 @@ fn secret_resolver_resolves_env_var_cross_crate() {
 /// mirroring the real notfiles repo layout.
 fn make_nu_libs_dotfiles(dotfiles: &Path, target_home: &Path) {
     let src = dotfiles.join("nushell/.config/nushell/autoload");
-    fs::create_dir_all(&src).unwrap();
+    fs::create_dir_all(&src).expect("create_dir_all should succeed");
     fs::write(
         src.join("nu_libs.nu"),
         b"const NU_LIBS_AI = \"/Users/joe/dev/nu_libs/lib/ai/mod.nu\"\nuse $NU_LIBS_AI *\n",
     )
-    .unwrap();
+    .expect("write should succeed");
     fs::write(
         dotfiles.join("notfiles.toml"),
         format!(
@@ -86,16 +87,16 @@ fn make_nu_libs_dotfiles(dotfiles: &Path, target_home: &Path) {
         )
         .as_bytes(),
     )
-    .unwrap();
+    .expect("write should succeed");
 }
 
 /// The nu_libs autoload file is symlinked into the correct autoload directory.
 #[test]
 fn nu_libs_autoload_is_linked_to_target() {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("new should succeed");
+    let home = TempDir::new().expect("new should succeed");
     let autoload = home.path().join(".config/nushell/autoload");
-    fs::create_dir_all(&autoload).unwrap();
+    fs::create_dir_all(&autoload).expect("create_dir_all should succeed");
 
     make_nu_libs_dotfiles(dotfiles.path(), home.path());
 
@@ -105,13 +106,13 @@ fn nu_libs_autoload_is_linked_to_target() {
         dry_run: false,
         verbose: false,
     };
-    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+    link(dotfiles.path(), &["nushell".to_string()], &opts).expect("link should succeed");
 
     let link_path = autoload.join("nu_libs.nu");
     assert!(link_path.exists(), "nu_libs.nu should exist at target");
     assert!(link_path.is_symlink(), "nu_libs.nu should be a symlink");
     assert_eq!(
-        fs::read_link(&link_path).unwrap(),
+        fs::read_link(&link_path).expect("read_link should succeed"),
         dotfiles
             .path()
             .join("nushell/.config/nushell/autoload/nu_libs.nu"),
@@ -122,10 +123,10 @@ fn nu_libs_autoload_is_linked_to_target() {
 /// Unlinking removes the symlink but leaves the autoload directory intact.
 #[test]
 fn nu_libs_autoload_is_removed_on_unlink() {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("new should succeed");
+    let home = TempDir::new().expect("new should succeed");
     let autoload = home.path().join(".config/nushell/autoload");
-    fs::create_dir_all(&autoload).unwrap();
+    fs::create_dir_all(&autoload).expect("create_dir_all should succeed");
 
     make_nu_libs_dotfiles(dotfiles.path(), home.path());
 
@@ -135,8 +136,9 @@ fn nu_libs_autoload_is_removed_on_unlink() {
         dry_run: false,
         verbose: false,
     };
-    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
-    notfiles::unlink(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+    link(dotfiles.path(), &["nushell".to_string()], &opts).expect("link should succeed");
+    notfiles::unlink(dotfiles.path(), &["nushell".to_string()], &opts)
+        .expect("unlink should succeed");
 
     assert!(
         !autoload.join("nu_libs.nu").exists(),
@@ -147,11 +149,11 @@ fn nu_libs_autoload_is_removed_on_unlink() {
 /// A pre-existing regular file at the target path causes link to fail without --force.
 #[test]
 fn nu_libs_link_does_not_overwrite_existing_file_without_force() {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("new should succeed");
+    let home = TempDir::new().expect("new should succeed");
     let autoload = home.path().join(".config/nushell/autoload");
-    fs::create_dir_all(&autoload).unwrap();
-    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").unwrap();
+    fs::create_dir_all(&autoload).expect("create_dir_all should succeed");
+    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").expect("write should succeed");
 
     make_nu_libs_dotfiles(dotfiles.path(), home.path());
 
@@ -171,11 +173,11 @@ fn nu_libs_link_does_not_overwrite_existing_file_without_force() {
 /// With --force the existing file is replaced by a symlink.
 #[test]
 fn nu_libs_link_with_force_replaces_existing_file() {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("new should succeed");
+    let home = TempDir::new().expect("new should succeed");
     let autoload = home.path().join(".config/nushell/autoload");
-    fs::create_dir_all(&autoload).unwrap();
-    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").unwrap();
+    fs::create_dir_all(&autoload).expect("create_dir_all should succeed");
+    fs::write(autoload.join("nu_libs.nu"), b"# existing\n").expect("write should succeed");
 
     make_nu_libs_dotfiles(dotfiles.path(), home.path());
 
@@ -185,7 +187,7 @@ fn nu_libs_link_with_force_replaces_existing_file() {
         dry_run: false,
         verbose: false,
     };
-    link(dotfiles.path(), &["nushell".to_string()], &opts).unwrap();
+    link(dotfiles.path(), &["nushell".to_string()], &opts).expect("link should succeed");
 
     assert!(
         autoload.join("nu_libs.nu").is_symlink(),
@@ -198,8 +200,8 @@ fn nu_libs_link_with_force_replaces_existing_file() {
 /// not appear in the returned State.
 #[test]
 fn test_notfiles_respects_default_ignore() {
-    let dotfiles = TempDir::new().unwrap();
-    let home = TempDir::new().unwrap();
+    let dotfiles = TempDir::new().expect("new should succeed");
+    let home = TempDir::new().expect("new should succeed");
     let d = dotfiles.path();
 
     // notfiles.toml — package "pkg" targeting home tempdir
@@ -210,14 +212,14 @@ fn test_notfiles_respects_default_ignore() {
             home.path().display()
         ),
     )
-    .unwrap();
+    .expect("write should succeed");
 
     // Package dir with a normal file and two state files that should be ignored
     let pkg = d.join("pkg");
-    fs::create_dir_all(&pkg).unwrap();
-    fs::write(pkg.join("foo.txt"), "hello\n").unwrap();
-    fs::write(pkg.join(".notfiles-state.toml"), "# state\n").unwrap();
-    fs::write(pkg.join(".nothooks-state.toml"), "# state\n").unwrap();
+    fs::create_dir_all(&pkg).expect("create_dir_all should succeed");
+    fs::write(pkg.join("foo.txt"), "hello\n").expect("write should succeed");
+    fs::write(pkg.join(".notfiles-state.toml"), "# state\n").expect("write should succeed");
+    fs::write(pkg.join(".nothooks-state.toml"), "# state\n").expect("write should succeed");
 
     let opts = LinkOptions {
         force: false,
@@ -250,9 +252,9 @@ fn test_notfiles_respects_default_ignore() {
         .map(|e| {
             Path::new(&e.source)
                 .file_name()
-                .unwrap()
+                .expect("file_name should succeed")
                 .to_str()
-                .unwrap()
+                .expect("to_str should succeed")
                 .to_string()
         })
         .collect();

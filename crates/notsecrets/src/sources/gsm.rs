@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn gsm_source_resolve_without_ref_returns_none() {
         let source = GsmSource::new("my-project".to_string());
-        let result = source.resolve("KEY").unwrap();
+        let result = source.resolve("KEY").expect("resolve should succeed");
         assert_eq!(result, None);
     }
 
@@ -86,7 +86,9 @@ mod tests {
     fn gsm_source_resolve_ref_wrong_variant_delegates() {
         let source = GsmSource::new("my-project".to_string());
         let wrong_ref = SecretRef::Env;
-        let result = source.resolve_ref("KEY", &wrong_ref).unwrap();
+        let result = source
+            .resolve_ref("KEY", &wrong_ref)
+            .expect("resolve_ref should succeed");
         assert_eq!(result, None);
     }
 }

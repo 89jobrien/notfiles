@@ -43,7 +43,7 @@ cargo fmt --check
 echo "── clippy ───────────────────────────"
 cargo clippy --workspace -- -D warnings
 echo "── dep-boundaries ───────────────────"
-python3 scripts/check-dep-boundaries.py
+cargo test -p integration --test dep_boundaries
 echo "── graph-check ──────────────────────"
 cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles
 echo "── test ─────────────────────────────"
@@ -65,7 +65,7 @@ echo "✓ CI setup complete"
 
 [tasks."all:dep-boundaries"]
 description = "Enforce crate dependency boundary rules"
-run = "python3 scripts/check-dep-boundaries.py"
+run = "cargo test -p integration --test dep_boundaries"
 
 [tasks."all:graph"]
 description = "Generate module graph reports (docs/graph/)"

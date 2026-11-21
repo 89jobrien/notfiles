@@ -22,28 +22,30 @@ cargo fmt --check                  # check formatting
 
 ## Workspace Structure
 
-This is a Cargo workspace with 7 crates under `crates/`:
+This is a Cargo workspace with 8 crates under `crates/`:
 
 | Crate        | Purpose                                                                    |
 | ------------ | -------------------------------------------------------------------------- |
 | `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
 |              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
 | `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `doctor`,                    |
 | `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
-|              | decryption, identity management                                           |
+|              | decryption, identity management                                            |
 | `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
 | `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
 | `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
 | `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
 |              | heatmap, cycle detection                                                   |
+| `nottools`   | Tool reconciliation: declared (mise, Brewfile) vs installed, alias targets |
+|              | and undeclared `cargo install` crates; backs `notfiles doctor`             |
 
 ## Architecture
 
 ### notfiles (primary user-facing tool)
 
-Eight subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
-`adopt`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
+Nine subcommands: `init`, `link`, `unlink`, `status`, `check`, `diff`,
+`adopt`, `doctor`, `completions`. Global flags: `--dry-run`, `--verbose`, `--json`.
 CLI parsing in `crates/notfiles/src/cli.rs`; dispatch in `src/main.rs`.
 
 **Core flow for `link`:** `main` → `config.validate()` →
@@ -87,7 +89,9 @@ with x25519, SSH ed25519/RSA, and scrypt identity support. No external
 
 ### notstrap
 
-Orchestrates in order: prereqs check → load config → clone dotfiles → age key → decrypt SOPS → link dotfiles → run hooks → final report. Config file: `notstrap.toml`.
+Orchestrates in order: load config → prereqs check → clone dotfiles → age key → decrypt SOPS → link dotfiles → run hooks → reconcile tools → final report. Config file: `notstrap.toml`.
+
+The prereq list comes from an optional `[prereqs] required = [...]` table (default `nu`, `sops`, `age`); it runs before the clone, so it cannot read the dotfiles manifest. The final `tools` step runs `nottools` against the cloned `notfiles.toml` `[doctor]` table: it installs declared-but-missing tools (`mise install`, `brew install`) and reports alias targets declared nowhere. It fails the bootstrap only when a declared tool is still unresolved, and is skipped when there is no `[doctor]` table.
 
 ## Configuration
 
@@ -108,3 +112,46 @@ Rust edition 2024. All hook scripts are Nushell (`.nu`) — no `.sh` scripts.
 
 Workflows live in `.gitea/workflows/` — mirrors `.github/workflows/` for GitHub.
 The `public-ready.yml` workflow checks secrets, private IPs, licenses, and tracked secrets files on every push to main.
+
+### nottools
+
+Hexagonal like `notfiles`: ports (`Fs`, `ToolProbe`, `Installer`) in `ports.rs`, system and in-memory
+adapters in `adapters.rs`, pure domain in `aliases`, `declared`, `doctor` and `fix`. Configured by a
+`[doctor]` table in `notfiles.toml` (`mise`, `brewfiles`, `alias_files`). `notfiles doctor` reports alias
+targets that do not resolve (with the install command when declared in mise or a Brewfile) and
+`cargo install` crates no manifest declares. `--fix` runs the installs; `--adopt` declares
+crates.io crates in the mise config; both honor `--dry-run`. Aliases inside an
+`if command -v <target>; then` guard are treated as optional and skipped.
+
+#### notstrap wizard and `--yes`
+
+On a terminal, `notstrap run` first runs a wizard (`wizard.rs`, over the `Prompter` port in `prompt.rs`):
+it asks for the clone URL, the dotfiles directory, whether to join the tailnet (when `[tailscale]` is
+configured) and which hooks to run, prints the plan, and asks to proceed. Answers overlay the loaded
+config; declining cancels before anything changes. `--yes` / `-y` skips the wizard, accepts every
+default, and exports `NOTSTRAP_YES=1` to hooks so they skip their own prompts. Without a terminal
+there are no prompts either, so scripted runs behave as before. nothooks also exports `NOTFILES_DIR`
+(the dotfiles checkout) to every hook and runs `.rs` hooks with `rust-script`.
+
+## Testing layers
+
+- **Conformance**: one contract per port, run against every adapter and its double
+  (`notfiles/tests/conformance_file_store.rs`, `nottools/tests/conformance_ports.rs`,
+  `nothooks/tests/conformance_ports.rs`, `notnet/tests/conformance_command_runner.rs`,
+  `notstrap/tests/conformance_git_clone.rs`, `notsecrets/tests/conformance_secret_source.rs`).
+  A new port or adapter gets a contract test; a double that is looser than the real
+  adapter is a bug in the double.
+- **Property** (`proptest`): `notfiles` (`detect`, ignore matcher), `notsecrets` (age header),
+  `nothooks` (state store). Commit `proptest-regressions/`; never delete counterexamples.
+- **Fuzz** (`fuzz/`, excluded from the workspace): age header parsing and decryption. Needs
+  nightly and `cargo-fuzz`: `cargo +nightly fuzz run fuzz_parse_header -- -max_total_time=60`.
+  Seed corpus in `fuzz/corpus/` is committed; regenerate with
+  `cargo run --manifest-path fuzz/Cargo.toml --bin gen_corpus`.
+
+## Policy notes
+
+- No Python anywhere in the repo or its CI. Glue is `rust-script` (`scripts/*.rs`) and checks are
+  `cargo test`: crate dependency boundaries live in `tests/integration/tests/dep_boundaries.rs`,
+  and the release workflow computes affected crates with `scripts/affected-crates.rs`.
+- notstrap never mutates its own process environment. Secrets resolved from `notsecrets.toml`
+  are passed to hooks (and only hooks) as environment variables.

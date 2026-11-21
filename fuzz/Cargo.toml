@@ -1,0 +1,46 @@
+[package]
+name = "notfiles-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+notsecrets    = { path = "../crates/notsecrets" }
+x25519-dalek  = { version = "2", features = ["static_secrets"] }
+
+# Keep the fuzz crate out of the main workspace (see `exclude` in the root Cargo.toml).
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_parse_header"
+path = "fuzz_targets/fuzz_parse_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_header_bytes_up_to_footer"
+path = "fuzz_targets/fuzz_header_bytes_up_to_footer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decrypt"
+path = "fuzz_targets/fuzz_decrypt.rs"
+test = false
+doc = false
+bench = false
+
+# Writes the seed corpus; run on stable: `cargo run --manifest-path fuzz/Cargo.toml --bin gen_corpus`.
+[[bin]]
+name = "gen_corpus"
+path = "src/bin/gen_corpus.rs"
+test = false
+doc = false
+bench = false

@@ -2762,7 +2762,7 @@ Verify `crates/notstrap/Cargo.toml` does not need changes (it already depends on
 Check workspace `Cargo.toml`: remove `which` from `[workspace.dependencies]` if no other crate references it:
 
 ```bash
-cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys; d=json.load(sys.stdin); [print(p['name'],p.get('dependencies',[])) for p in d['packages']]" 2>/dev/null | grep which
+cargo tree -p notsecrets --depth 1 | grep which
 ```
 
 If only `notsecrets` used it, remove from workspace.

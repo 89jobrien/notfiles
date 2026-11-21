@@ -5,6 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
+mod support;
+use support::write_throwaway_age_key;
+
 struct TestEnv {
     dotfiles: TempDir, // kept alive to prevent early drop of temp directory
     home: TempDir,
@@ -17,13 +20,9 @@ fn make_test_env() -> TestEnv {
     let home = TempDir::new().expect("failed to create temp home dir");
     let d = dotfiles.path();
 
-    // age key file (content doesn't matter — FileSource reads it verbatim)
+    // age key file (throwaway identity derived at run time)
     let key_file = d.join("age.key");
-    fs::write(
-        &key_file,
-        "AGE-SECRET-KEY-1X3QKFQ4MZQM7LTJ3AX0N3EM63RGRV4J6N5ZDWPVKCEUCZKJWJSUSU6GYN6\n",
-    )
-    .unwrap();
+    write_throwaway_age_key(&key_file);
 
     // notfiles.toml — one package "shell" targeting home tempdir
     fs::write(
@@ -33,15 +32,15 @@ fn make_test_env() -> TestEnv {
             home.path().display()
         ),
     )
-    .unwrap();
+    .expect("write should succeed");
 
     // a file to link inside a package dir
     let pkg = d.join("shell");
-    fs::create_dir_all(&pkg).unwrap();
-    fs::write(pkg.join(".zshrc"), "# test zshrc\n").unwrap();
+    fs::create_dir_all(&pkg).expect("create_dir_all should succeed");
+    fs::write(pkg.join(".zshrc"), "# test zshrc\n").expect("write should succeed");
 
     // scripts dir for hooks
-    fs::create_dir_all(d.join("scripts")).unwrap();
+    fs::create_dir_all(d.join("scripts")).expect("create_dir_all should succeed");
 
     // notstrap.toml — dotfiles_dir points to existing tempdir so clone is skipped
     let config = d.join("notstrap.toml");
@@ -52,7 +51,7 @@ fn make_test_env() -> TestEnv {
             d.display()
         ),
     )
-    .unwrap();
+    .expect("write should succeed");
 
     TestEnv {
         dotfiles,
@@ -71,6 +70,10 @@ fn make_opts(env: &TestEnv, force: bool) -> BootstrapOptions {
         dotfiles: Some(env.dotfiles.path().to_path_buf()),
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
+        reconcile_tools: None,
+        git: Box::new(notstrap::repo::SystemGit),
+        prompter: None,
+        assume_yes: false,
         secrets_config: None,
     }
 }
@@ -85,7 +88,7 @@ fn test_full_bootstrap_dot_hooks_only() {
 
     // Add a dot hook script
     let script = d.join("scripts/greet.nu");
-    fs::write(&script, "print hello\n").unwrap();
+    fs::write(&script, "print hello\n").expect("write should succeed");
 
     // Rewrite notstrap.toml to include the dot hook
     fs::write(
@@ -102,9 +105,9 @@ fn test_full_bootstrap_dot_hooks_only() {
             script = script.display(),
         ),
     )
-    .unwrap();
+    .expect("write should succeed");
 
-    let report = run(make_opts(&env, false)).unwrap();
+    let report = run(make_opts(&env, false)).expect("run should succeed");
     assert!(
         !report.has_failures(),
         "unexpected failures: {:?}",
@@ -138,7 +141,7 @@ fn test_setup_hooks_skipped_on_rerun() {
     let d = env.dotfiles.path();
 
     let script = d.join("scripts/setup.nu");
-    fs::write(&script, "print setup_ran\n").unwrap();
+    fs::write(&script, "print setup_ran\n").expect("write should succeed");
 
     let config_content = format!(
         "[bootstrap]\n\
@@ -151,10 +154,10 @@ fn test_setup_hooks_skipped_on_rerun() {
         dotfiles = d.display(),
         script = script.display(),
     );
-    fs::write(&env.config, &config_content).unwrap();
+    fs::write(&env.config, &config_content).expect("write should succeed");
 
     // ── First run ──────────────────────────────────────────────────────────
-    let r1 = run(make_opts(&env, false)).unwrap();
+    let r1 = run(make_opts(&env, false)).expect("run should succeed");
     assert!(
         !r1.has_failures(),
         "first run should not fail: {:?}",
@@ -167,14 +170,14 @@ fn test_setup_hooks_skipped_on_rerun() {
         state_file.exists(),
         ".nothooks-state.toml must be written after first run"
     );
-    let state_content = fs::read_to_string(&state_file).unwrap();
+    let state_content = fs::read_to_string(&state_file).expect("read_to_string should succeed");
     assert!(
         state_content.contains(HOOK_NAME),
         "state file should record {HOOK_NAME} as done, got: {state_content}"
     );
 
     // ── Second run ─────────────────────────────────────────────────────────
-    let r2 = run(make_opts(&env, false)).unwrap();
+    let r2 = run(make_opts(&env, false)).expect("run should succeed");
     assert!(
         !r2.has_failures(),
         "second run should not fail: {:?}",
@@ -185,12 +188,13 @@ fn test_setup_hooks_skipped_on_rerun() {
     // the setup hook because state file already marks it done.
     let hook_spec = HookSpec {
         name: HOOK_NAME.to_string(),
-        script: script.to_str().unwrap().to_string(),
+        script: script.to_str().expect("to_str should succeed").to_string(),
         phase: HookPhase::Setup,
         interpreter: None,
     };
     let runner = HookRunner::new(d.to_path_buf());
-    let phase_report = run_phase(&[hook_spec], &HookPhase::Setup, &runner).unwrap();
+    let phase_report =
+        run_phase(&[hook_spec], &HookPhase::Setup, &runner).expect("run_phase should succeed");
     let step = phase_report
         .steps
         .iter()
@@ -219,6 +223,10 @@ fn test_bootstrap_fails_fast_on_bad_key() {
         dotfiles: Some(d.to_path_buf()),
         tailscale: Some(None), // skip Tailscale in tests
         check_prereqs: None,
+        reconcile_tools: None,
+        git: Box::new(notstrap::repo::SystemGit),
+        prompter: None,
+        assume_yes: false,
         secrets_config: None,
     };
 
@@ -254,10 +262,10 @@ fn test_bootstrap_stops_after_link_failure() {
     let d = env.dotfiles.path();
     let home = env.home.path();
 
-    fs::write(home.join(".zshrc"), "local override\n").unwrap();
+    fs::write(home.join(".zshrc"), "local override\n").expect("write should succeed");
 
     let script = d.join("scripts/greet.nu");
-    fs::write(&script, "print hello\n").unwrap();
+    fs::write(&script, "print hello\n").expect("write should succeed");
     fs::write(
         &env.config,
         format!(
@@ -272,9 +280,9 @@ fn test_bootstrap_stops_after_link_failure() {
             script = script.display(),
         ),
     )
-    .unwrap();
+    .expect("write should succeed");
 
-    let report = run(make_opts(&env, false)).unwrap();
+    let report = run(make_opts(&env, false)).expect("run should succeed");
 
     let link_step = report
         .steps

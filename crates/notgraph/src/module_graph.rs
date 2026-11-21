@@ -77,7 +77,7 @@ mod tests {
     fn clean_fixture_has_expected_nodes() {
         let fixture =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clean/src");
-        let graph = build("clean".to_string(), &fixture).unwrap();
+        let graph = build("clean".to_string(), &fixture).expect("build should succeed");
         assert!(graph.nodes.contains(&"clean".to_string()));
         assert!(graph.nodes.contains(&"clean::alpha".to_string()));
         assert!(graph.nodes.contains(&"clean::beta".to_string()));
@@ -87,7 +87,7 @@ mod tests {
     fn clean_fixture_has_edges_from_lib() {
         let fixture =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clean/src");
-        let graph = build("clean".to_string(), &fixture).unwrap();
+        let graph = build("clean".to_string(), &fixture).expect("build should succeed");
         assert!(
             graph
                 .edges

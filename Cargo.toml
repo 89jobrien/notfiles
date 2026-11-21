@@ -15,9 +15,11 @@ members = [
     "crates/notnet",
     "crates/notstrap",
     "crates/notgraph",
+    "crates/nottools",
     "crates/notforge",
     "tests/integration",
 ]
+exclude = ["fuzz"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -38,6 +40,7 @@ ureq        = { version = "2", features = ["json"] }
 which       = "7"
 rpassword   = "7"
 tempfile    = "3"
+proptest    = "1"
 assert_fs   = "1"
 notcore     = { path = "crates/notcore" }
 notfiles    = { path = "crates/notfiles" }
@@ -45,6 +48,7 @@ notsecrets  = { path = "crates/notsecrets" }
 nothooks    = { path = "crates/nothooks" }
 notnet      = { path = "crates/notnet" }
 notforge    = { path = "crates/notforge" }
+nottools    = { path = "crates/nottools" }
 
 [profile.release]
 opt-level = 3

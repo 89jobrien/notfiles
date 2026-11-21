@@ -22,7 +22,10 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let manifest = find_workspace_manifest()?;
-    let workspace_root = manifest.parent().unwrap().to_path_buf();
+    let workspace_root = manifest
+        .parent()
+        .context("workspace manifest path has no parent directory")?
+        .to_path_buf();
 
     let crate_g = crate_graph::build(&manifest).context("failed to build crate graph")?;
 
@@ -40,7 +43,7 @@ fn main() -> Result<()> {
         }
         let src_dir = PathBuf::from(pkg.manifest_path.as_str())
             .parent()
-            .unwrap()
+            .with_context(|| format!("manifest path of {} has no parent directory", pkg.name))?
             .join("src");
         if !src_dir.exists() {
             continue;

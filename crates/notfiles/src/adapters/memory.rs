@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 
 use crate::ports::FileStore;
 
+fn not_found(path: &Path) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::NotFound, path.display().to_string())
+}
+
 /// In-memory file system for testing. Not thread-safe.
 pub struct InMemoryFileStore {
     files: RefCell<HashMap<PathBuf, Vec<u8>>>,
@@ -39,6 +43,28 @@ impl InMemoryFileStore {
 
     pub fn symlink_target(&self, link: &Path) -> Option<PathBuf> {
         self.symlinks.borrow().get(link).cloned()
+    }
+
+    /// Direct children of `path` across files, directories and symlinks.
+    fn children(&self, path: &Path) -> Vec<PathBuf> {
+        let mut children: Vec<PathBuf> = self
+            .files
+            .borrow()
+            .keys()
+            .filter(|k| k.parent() == Some(path))
+            .cloned()
+            .collect();
+        let dirs = self.dirs.borrow();
+        let links = self.symlinks.borrow();
+        children.extend(
+            dirs.iter()
+                .filter(|d| d.parent() == Some(path) && *d != path)
+                .chain(links.keys().filter(|k| k.parent() == Some(path)))
+                .filter(|c| !children.contains(c))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        children
     }
 
     fn ensure_parents(&self, path: &Path) {
@@ -126,6 +152,9 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn remove_dir_all(&self, path: &Path) -> Result<(), std::io::Error> {
+        if !self.exists(path) {
+            return Err(not_found(path));
+        }
         let path = path.to_path_buf();
         self.files.borrow_mut().retain(|k, _| !k.starts_with(&path));
         self.dirs.borrow_mut().retain(|k| !k.starts_with(&path));
@@ -136,6 +165,15 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<(), std::io::Error> {
+        if !self.dirs.borrow().contains(path) {
+            return Err(not_found(path));
+        }
+        if !self.children(path).is_empty() {
+            return Err(std::io::Error::other(format!(
+                "directory not empty: {}",
+                path.display()
+            )));
+        }
         self.dirs.borrow_mut().remove(path);
         Ok(())
     }
@@ -176,32 +214,20 @@ impl FileStore for InMemoryFileStore {
     }
 
     fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
-        let path = path.to_path_buf();
-        let mut children = Vec::new();
-
-        for key in self.files.borrow().keys() {
-            if key.parent() == Some(&path) {
-                children.push(key.clone());
-            }
+        if !self.dirs.borrow().contains(path) {
+            return Err(not_found(path));
         }
-
-        for dir in self.dirs.borrow().iter() {
-            if dir.parent() == Some(&path) && dir != &path && !children.contains(dir) {
-                children.push(dir.clone());
-            }
-        }
-
-        for key in self.symlinks.borrow().keys() {
-            if key.parent() == Some(&path) && !children.contains(key) {
-                children.push(key.clone());
-            }
-        }
-
-        Ok(children)
+        Ok(self.children(path))
     }
 
     #[cfg(unix)]
     fn symlink(&self, target: &Path, link: &Path) -> Result<(), std::io::Error> {
+        if self.exists(link) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                link.display().to_string(),
+            ));
+        }
         if let Some(parent) = link.parent() {
             self.ensure_parents(parent);
         }
@@ -238,9 +264,18 @@ mod tests {
     #[test]
     fn test_read_write_roundtrip() {
         let fs = InMemoryFileStore::new();
-        fs.write(Path::new("/tmp/f.txt"), b"data").unwrap();
-        assert_eq!(fs.read(Path::new("/tmp/f.txt")).unwrap(), b"data");
-        assert_eq!(fs.read_to_string(Path::new("/tmp/f.txt")).unwrap(), "data");
+        fs.write(Path::new("/tmp/f.txt"), b"data")
+            .expect("write should succeed");
+        assert_eq!(
+            fs.read(Path::new("/tmp/f.txt"))
+                .expect("read should succeed"),
+            b"data"
+        );
+        assert_eq!(
+            fs.read_to_string(Path::new("/tmp/f.txt"))
+                .expect("read_to_string should succeed"),
+            "data"
+        );
     }
 
     #[test]
@@ -248,23 +283,32 @@ mod tests {
         let fs = InMemoryFileStore::new();
         fs.add_file("/src/config", b"content");
         fs.symlink(Path::new("/src/config"), Path::new("/home/config"))
-            .unwrap();
+            .expect("symlink should succeed");
         assert!(fs.has_symlink(Path::new("/home/config")));
         assert_eq!(
-            fs.read_link(Path::new("/home/config")).unwrap(),
+            fs.read_link(Path::new("/home/config"))
+                .expect("read_link should succeed"),
             PathBuf::from("/src/config")
         );
         // Reading through symlink
-        assert_eq!(fs.read(Path::new("/home/config")).unwrap(), b"content");
+        assert_eq!(
+            fs.read(Path::new("/home/config"))
+                .expect("read should succeed"),
+            b"content"
+        );
     }
 
     #[test]
     fn test_rename_file() {
         let fs = InMemoryFileStore::new();
         fs.add_file("/a.txt", b"hello");
-        fs.rename(Path::new("/a.txt"), Path::new("/b.txt")).unwrap();
+        fs.rename(Path::new("/a.txt"), Path::new("/b.txt"))
+            .expect("rename should succeed");
         assert!(!fs.exists(Path::new("/a.txt")));
-        assert_eq!(fs.read(Path::new("/b.txt")).unwrap(), b"hello");
+        assert_eq!(
+            fs.read(Path::new("/b.txt")).expect("read should succeed"),
+            b"hello"
+        );
     }
 
     #[test]
@@ -272,7 +316,8 @@ mod tests {
         let fs = InMemoryFileStore::new();
         fs.add_file("/dir/a.txt", b"a");
         fs.add_file("/dir/sub/b.txt", b"b");
-        fs.remove_dir_all(Path::new("/dir")).unwrap();
+        fs.remove_dir_all(Path::new("/dir"))
+            .expect("remove_dir_all should succeed");
         assert!(!fs.exists(Path::new("/dir/a.txt")));
         assert!(!fs.exists(Path::new("/dir/sub/b.txt")));
         assert!(!fs.is_dir(Path::new("/dir")));
@@ -284,7 +329,9 @@ mod tests {
         fs.add_file("/dir/a.txt", b"a");
         fs.add_file("/dir/b.txt", b"b");
         fs.add_dir("/dir/sub");
-        let mut children = fs.read_dir(Path::new("/dir")).unwrap();
+        let mut children = fs
+            .read_dir(Path::new("/dir"))
+            .expect("read_dir should succeed");
         children.sort();
         assert_eq!(
             children,

@@ -108,7 +108,7 @@ mod tests {
     fn fixture_table() -> SymbolTable {
         let fixture =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/symbols/src");
-        build("symbols".to_string(), &fixture).unwrap()
+        build("symbols".to_string(), &fixture).expect("build should succeed")
     }
 
     #[test]
@@ -174,7 +174,11 @@ mod tests {
     #[test]
     fn private_struct_is_not_pub() {
         let t = fixture_table();
-        let p = t.symbols.iter().find(|s| s.name == "Private").unwrap();
+        let p = t
+            .symbols
+            .iter()
+            .find(|s| s.name == "Private")
+            .expect("find should succeed");
         assert!(!p.is_pub);
     }
 }
