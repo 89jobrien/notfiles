@@ -43,6 +43,9 @@ impl Reporter for TerminalReporter {
                     target.display()
                 );
             }
+            LinkEvent::Warning { message } => {
+                eprintln!("\x1b[33mwarning:\x1b[0m {message}");
+            }
         }
     }
 }
@@ -74,6 +77,15 @@ impl Reporter for JsonReporter {
                 target,
             } => {
                 json!({"event": "dry_run", "action": action, "source": source, "target": target.to_string_lossy()})
+            }
+            LinkEvent::Warning { message } => {
+                // Warnings go to stderr so stdout stays a clean NDJSON/JSON stream.
+                eprintln!(
+                    "{}",
+                    serde_json::to_string(&json!({"event": "warning", "message": message}))
+                        .unwrap_or_default()
+                );
+                return;
             }
         };
         println!("{}", serde_json::to_string(&obj).unwrap_or_default());

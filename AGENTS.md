@@ -24,19 +24,19 @@ cargo fmt --check                  # check formatting
 
 This is a Cargo workspace with 7 crates under `crates/`:
 
-| Crate        | Purpose                                                                    |
-| ------------ | -------------------------------------------------------------------------- |
-| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,          |
-|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`       |
-| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`,    |
-|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`               |
-| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/       |
-|              | decryption, identity management                                           |
-| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence            |
-| `notnet`     | Network utilities — Tailscale integration, YubikeySource                   |
-| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together              |
-| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,      |
-|              | heatmap, cycle detection                                                   |
+| Crate        | Purpose                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| `notcore`    | Shared types: `Config`, `NotfilesError`, `Reporter`, `LinkEvent`,       |
+|              | `expand_tilde`, `suggest_package`, `HookPhase`, `HookSpec`, `Report`    |
+| `notfiles`   | Dotfiles linker — lib + `notfiles` binary. Subcommands: `init`, `link`, |
+|              | `unlink`, `status`, `check`, `diff`, `adopt`, `completions`             |
+| `notsecrets` | Multi-provider secret resolution (`SecretResolver`), age encryption/    |
+|              | decryption, identity management                                         |
+| `nothooks`   | Nushell hook runner with dot/setup phases and state persistence         |
+| `notnet`     | Network utilities — Tailscale integration, YubikeySource                |
+| `notstrap`   | New-machine bootstrap orchestrator — ties all crates together           |
+| `notgraph`   | Dependency/import graph for Rust files — HTML/MD/JSON/Mermaid output,   |
+|              | heatmap, cycle detection                                                |
 
 ## Architecture
 
@@ -91,8 +91,16 @@ Orchestrates in order: prereqs check → load config → clone dotfiles → age 
 
 ## Configuration
 
-`notfiles.toml` lives at the dotfiles directory root. Each subdirectory
-is a "package".
+`notfiles.toml` lives at the dotfiles directory root.
+
+**Package contract:** declare packages explicitly with `packages = [...]` under
+`[defaults]`. Only those top-level directories are packages, so operational
+directories like `scripts/` or `docs/` are never linked. Every entry must be a
+single directory name (no `/`, `..`) that exists as a directory; a typo or a
+non-directory is an error (with a `did you mean` suggestion). When `packages` is
+absent, notfiles falls back to the deprecated auto-discovery of every non-hidden
+top-level directory and prints a deprecation warning once per run (stderr).
+`exclude` still applies on top of either mode.
 
 Global defaults support `include` (allowlist) or `exclude` (blocklist)
 for package filtering — mutually exclusive. Per-package config can

@@ -27,6 +27,12 @@ pub struct Defaults {
     /// Mutually exclusive with `include`.
     #[serde(default)]
     pub exclude: Vec<String>,
+    /// Explicit package allowlist. When non-empty, only these top-level
+    /// directories are packages. When empty, notfiles falls back to
+    /// (deprecated) auto-discovery of every non-hidden top-level directory.
+    /// `exclude` and `include` still apply on top of either mode.
+    #[serde(default)]
+    pub packages: Vec<String>,
 }
 
 impl Default for Defaults {
@@ -36,6 +42,7 @@ impl Default for Defaults {
             ignore: default_ignore(),
             include: Vec::new(),
             exclude: Vec::new(),
+            packages: Vec::new(),
         }
     }
 }
@@ -142,6 +149,19 @@ impl Config {
         }
     }
 
+    /// Returns the explicitly declared package list (sorted), or None when
+    /// the config relies on auto-discovery.
+    pub fn declared_packages(&self) -> Option<Vec<&str>> {
+        if self.defaults.packages.is_empty() {
+            None
+        } else {
+            let mut v: Vec<&str> = self.defaults.packages.iter().map(|s| s.as_str()).collect();
+            v.sort();
+            v.dedup();
+            Some(v)
+        }
+    }
+
     /// Returns true if this package name appears in the exclude list.
     pub fn is_package_excluded(&self, name: &str) -> bool {
         self.defaults.exclude.iter().any(|e| e == name)
@@ -154,6 +174,18 @@ impl Config {
             return Err(NotfilesError::Validation(
                 "include and exclude are mutually exclusive".into(),
             ));
+        }
+        for name in &self.defaults.packages {
+            let bad = name.is_empty()
+                || name == "."
+                || name == ".."
+                || name.contains('/')
+                || name.contains('\\');
+            if bad {
+                return Err(NotfilesError::Validation(format!(
+                    "invalid package name {name:?} in `packages`: must be a single top-level directory name"
+                )));
+            }
         }
         Ok(())
     }
@@ -207,6 +239,9 @@ pub fn starter_toml() -> &'static str {
     r#"[defaults]
 target = "~"
 ignore = [".git", ".DS_Store", "README.md", "LICENSE", "notfiles.toml", ".notfiles-state.toml", ".nothooks-state.toml"]
+
+# Explicit package list: only these top-level directories are linked.
+# packages = ["git", "zsh"]
 
 # [packages.ssh]
 # method = "copy"
@@ -272,6 +307,36 @@ exclude = ["scripts"]
 "#;
         let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_declared_packages_parsed_and_sorted() {
+        let config: Config = toml::from_str("[defaults]\npackages = [\"zsh\", \"git\"]\n")
+            .expect("from_str should succeed");
+        assert_eq!(config.declared_packages(), Some(vec!["git", "zsh"]));
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_no_declared_packages_returns_none() {
+        assert_eq!(Config::default().declared_packages(), None);
+    }
+
+    #[test]
+    fn test_declared_packages_reject_path_traversal() {
+        for bad in ["../etc", "a/b", "/abs", "..", ".", "", "a\\\\b"] {
+            let config: Config = toml::from_str(&format!("[defaults]\npackages = [\"{bad}\"]\n"))
+                .expect("from_str should succeed");
+            assert!(config.validate().is_err(), "{bad:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn test_declared_packages_allow_exclude_override() {
+        let config: Config =
+            toml::from_str("[defaults]\npackages = [\"git\"]\nexclude = [\"git\"]\n")
+                .expect("from_str should succeed");
+        assert!(config.validate().is_ok());
     }
 
     #[test]

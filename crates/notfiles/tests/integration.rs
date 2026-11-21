@@ -672,3 +672,69 @@ method = "copy"
         .mode();
     assert_eq!(mode & 0o777, 0o755, "copied script lost its executable bit");
 }
+
+fn write_mixed_repo(
+    tmp: &TempDir,
+    packages_line: &str,
+) -> (std::path::PathBuf, std::path::PathBuf) {
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+    fs::create_dir_all(&target).expect("create_dir_all should succeed");
+    fs::create_dir_all(dotfiles.join("git")).expect("create_dir_all should succeed");
+    fs::write(dotfiles.join("git/.gitconfig"), "[user]\nname = T").expect("write should succeed");
+    fs::create_dir_all(dotfiles.join("scripts")).expect("create_dir_all should succeed");
+    fs::write(dotfiles.join("scripts/deploy.sh"), "#!/bin/sh").expect("write should succeed");
+    fs::create_dir_all(dotfiles.join("docs")).expect("create_dir_all should succeed");
+    fs::write(dotfiles.join("docs/guide.md"), "# guide").expect("write should succeed");
+    fs::write(
+        dotfiles.join("notfiles.toml"),
+        format!(
+            "[defaults]\ntarget = \"{}\"\n{packages_line}\n",
+            target.display()
+        ),
+    )
+    .expect("write should succeed");
+    (dotfiles, target)
+}
+
+#[test]
+fn test_declared_packages_do_not_link_non_package_dirs() {
+    let tmp = TempDir::new().expect("new should succeed");
+    let (dotfiles, target) = write_mixed_repo(&tmp, "packages = [\"git\"]");
+
+    let (_, stderr, ok) = run(&dotfiles, &["link"]);
+    assert!(ok, "{stderr}");
+    assert!(target.join(".gitconfig").exists());
+    assert!(!target.join("deploy.sh").exists(), "scripts/ must not link");
+    assert!(!target.join("guide.md").exists(), "docs/ must not link");
+    assert!(
+        !stderr.contains("deprecated"),
+        "no deprecation warning when packages is declared: {stderr}"
+    );
+
+    let (_, _, ok) = run(&dotfiles, &["link", "scripts"]);
+    assert!(!ok, "requesting a non-declared directory should fail");
+}
+
+#[test]
+fn test_missing_declared_package_is_an_error_with_suggestion() {
+    let tmp = TempDir::new().expect("new should succeed");
+    let (dotfiles, _) = write_mixed_repo(&tmp, "packages = [\"gti\"]");
+
+    let (_, stderr, ok) = run(&dotfiles, &["link"]);
+    assert!(!ok);
+    assert!(stderr.contains("did you mean 'git'"), "{stderr}");
+}
+
+#[test]
+fn test_undeclared_packages_warn_about_deprecated_auto_discovery() {
+    let tmp = TempDir::new().expect("new should succeed");
+    let (dotfiles, target) = write_mixed_repo(&tmp, "");
+
+    let (_, stderr, ok) = run(&dotfiles, &["link"]);
+    assert!(ok, "{stderr}");
+    assert!(stderr.contains("deprecated"), "{stderr}");
+    assert!(stderr.contains("packages"), "{stderr}");
+    // Legacy behavior retained for now.
+    assert!(target.join("deploy.sh").exists());
+}

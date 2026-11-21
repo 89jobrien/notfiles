@@ -30,6 +30,10 @@ pub enum LinkEvent<'a> {
         source: &'a str,
         target: &'a Path,
     },
+    /// A non-fatal warning, e.g. use of a deprecated configuration mode.
+    Warning {
+        message: &'a str,
+    },
 }
 
 /// Port for reporting link/unlink progress. Library code calls this

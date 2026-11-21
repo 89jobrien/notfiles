@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::adapters::FileStoreImpl;
 use crate::ignore::IgnoreMatcher;
 use crate::ports::FileStore;
+use notcore::reporter::{LinkEvent, Reporter};
 use notcore::{Config, NotfilesError};
 
 /// Discover packages filtered by the config's include/exclude lists and
@@ -19,7 +20,10 @@ pub fn discover_packages_filtered_with_store(
     config: &Config,
     fs: &dyn FileStore,
 ) -> Result<Vec<String>, NotfilesError> {
-    let all = discover_packages_with_store(dotfiles_dir, fs)?;
+    let all = match config.declared_packages() {
+        Some(declared) => validate_declared_packages(dotfiles_dir, &declared, fs)?,
+        None => discover_packages_with_store(dotfiles_dir, fs)?,
+    };
     let filtered: Vec<String> = if let Some(include) = config.included_packages() {
         all.into_iter()
             .filter(|p| include.contains(&p.as_str()))
@@ -37,6 +41,48 @@ pub fn discover_packages_filtered_with_store(
     Ok(filtered)
 }
 
+/// Check that every declared package is an existing directory under the
+/// dotfiles dir. Typos get a `did you mean` suggestion.
+fn validate_declared_packages(
+    dotfiles_dir: &Path,
+    declared: &[&str],
+    fs: &dyn FileStore,
+) -> Result<Vec<String>, NotfilesError> {
+    let mut out = Vec::with_capacity(declared.len());
+    for name in declared {
+        let path = dotfiles_dir.join(name);
+        if fs.is_dir(&path) {
+            out.push((*name).to_string());
+        } else if fs.exists(&path) {
+            return Err(NotfilesError::Validation(format!(
+                "declared package '{name}' is not a directory"
+            )));
+        } else {
+            let on_disk = discover_packages_with_store(dotfiles_dir, fs).unwrap_or_default();
+            let refs: Vec<&str> = on_disk.iter().map(|s| s.as_str()).collect();
+            let msg = match notcore::suggest_package(name, &refs) {
+                Some(s) => format!("{name} (did you mean '{s}'?)"),
+                None => (*name).to_string(),
+            };
+            return Err(NotfilesError::PackageNotFound { name: msg });
+        }
+    }
+    Ok(out)
+}
+
+/// Emit a deprecation warning when the config does not declare `packages`
+/// and notfiles must fall back to auto-discovering every top-level directory.
+/// Call once per run.
+pub fn warn_if_auto_discovery(config: &Config, reporter: &dyn Reporter) {
+    if config.declared_packages().is_none() {
+        reporter.report(&LinkEvent::Warning {
+            message: "no `packages` list declared in notfiles.toml; auto-discovering every \
+                      top-level directory is deprecated. Declare `packages = [...]` under \
+                      [defaults] to choose packages explicitly.",
+        });
+    }
+}
+
 /// Discover available packages (subdirectories of the dotfiles dir).
 pub fn discover_packages(dotfiles_dir: &Path) -> Result<Vec<String>, NotfilesError> {
     discover_packages_with_store(dotfiles_dir, &FileStoreImpl)
@@ -47,9 +93,8 @@ pub fn discover_packages_with_store(
     fs: &dyn FileStore,
 ) -> Result<Vec<String>, NotfilesError> {
     let mut packages = Vec::new();
-    // TODO(#19): Replace implicit top-level directory discovery with an explicit
-    // package contract so mixed-purpose repos do not accidentally link
-    // operational directories like scripts/ or docs/.
+    // Auto-discovery fallback (deprecated): declare `packages` in notfiles.toml
+    // to avoid linking operational directories like scripts/ or docs/.
     for path in fs.read_dir(dotfiles_dir)? {
         if fs.is_dir(&path) {
             let name = path
@@ -242,5 +287,92 @@ exclude = ["scripts", "docs"]
         let config = Config::default();
         let files = collect_files(&pkg, &config, "zsh").expect("collect_files should succeed");
         assert_eq!(files, vec![PathBuf::from(".config/zsh/zshrc")]);
+    }
+
+    fn mem_repo(dirs: &[&str]) -> crate::adapters::InMemoryFileStore {
+        let store = crate::adapters::InMemoryFileStore::new();
+        store.add_dir("/repo");
+        for d in dirs {
+            store.add_dir(format!("/repo/{d}"));
+        }
+        store
+    }
+
+    fn cfg(body: &str) -> Config {
+        toml::from_str(&format!("[defaults]\n{body}\n")).expect("config should parse")
+    }
+
+    #[test]
+    fn test_declared_packages_ignore_non_package_dirs() {
+        let store = mem_repo(&["git", "zsh", "scripts", "docs"]);
+        let config = cfg("packages = [\"git\", \"zsh\"]");
+        let pkgs = discover_packages_filtered_with_store(Path::new("/repo"), &config, &store)
+            .expect("should resolve");
+        assert_eq!(pkgs, vec!["git", "zsh"]);
+    }
+
+    #[test]
+    fn test_declared_packages_missing_dir_suggests_typo_fix() {
+        let store = mem_repo(&["git", "zsh"]);
+        let config = cfg("packages = [\"gti\"]");
+        let err = discover_packages_filtered_with_store(Path::new("/repo"), &config, &store)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("gti"), "{err}");
+        assert!(err.contains("did you mean 'git'"), "{err}");
+    }
+
+    #[test]
+    fn test_declared_package_that_is_a_file_is_an_error() {
+        let store = mem_repo(&["git"]);
+        store.add_file("/repo/notes", b"hi");
+        let config = cfg("packages = [\"git\", \"notes\"]");
+        let err = discover_packages_filtered_with_store(Path::new("/repo"), &config, &store)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("notes"), "{err}");
+    }
+
+    #[test]
+    fn test_exclude_overrides_declared_packages() {
+        let store = mem_repo(&["git", "zsh"]);
+        let config = cfg("packages = [\"git\", \"zsh\"]\nexclude = [\"zsh\"]");
+        let pkgs = discover_packages_filtered_with_store(Path::new("/repo"), &config, &store)
+            .expect("should resolve");
+        assert_eq!(pkgs, vec!["git"]);
+    }
+
+    #[test]
+    fn test_resolve_rejects_requested_non_declared_package() {
+        let store = mem_repo(&["git", "scripts"]);
+        let config = cfg("packages = [\"git\"]");
+        let err = resolve_packages_filtered_with_store(
+            Path::new("/repo"),
+            &["scripts".into()],
+            &config,
+            &store,
+        );
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_auto_discovery_warns_once_through_reporter() {
+        use std::cell::RefCell;
+        struct Capture(RefCell<Vec<String>>);
+        impl notcore::reporter::Reporter for Capture {
+            fn report(&self, event: &notcore::reporter::LinkEvent<'_>) {
+                if let notcore::reporter::LinkEvent::Warning { message } = event {
+                    self.0.borrow_mut().push(message.to_string());
+                }
+            }
+        }
+        let rep = Capture(RefCell::new(Vec::new()));
+        warn_if_auto_discovery(&Config::default(), &rep);
+        assert_eq!(rep.0.borrow().len(), 1);
+        assert!(rep.0.borrow()[0].contains("packages"));
+
+        let rep = Capture(RefCell::new(Vec::new()));
+        warn_if_auto_discovery(&cfg("packages = [\"git\"]"), &rep);
+        assert!(rep.0.borrow().is_empty());
     }
 }
