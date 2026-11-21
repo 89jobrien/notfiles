@@ -672,3 +672,77 @@ method = "copy"
         .mode();
     assert_eq!(mode & 0o777, 0o755, "copied script lost its executable bit");
 }
+
+#[test]
+fn test_conflict_error_message_and_target_untouched() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    fs::write(target.join(".gitconfig"), "existing content").unwrap();
+
+    let (_, stderr, ok) = run(&dotfiles, &["link", "git"]);
+    assert!(!ok);
+    assert!(
+        stderr.contains("already exists (use --force to overwrite)"),
+        "stderr: {stderr}"
+    );
+    let meta = target.join(".gitconfig").symlink_metadata().unwrap();
+    assert!(!meta.file_type().is_symlink());
+    assert_eq!(
+        fs::read_to_string(target.join(".gitconfig")).unwrap(),
+        "existing content"
+    );
+}
+
+#[test]
+fn test_dry_run_force_leaves_conflicting_file_and_makes_no_backup() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+
+    fs::write(target.join(".gitconfig"), "old content").unwrap();
+
+    let (_, _, ok) = run(&dotfiles, &["--dry-run", "link", "--force"]);
+    assert!(ok);
+
+    let meta = target.join(".gitconfig").symlink_metadata().unwrap();
+    assert!(!meta.file_type().is_symlink());
+    assert_eq!(
+        fs::read_to_string(target.join(".gitconfig")).unwrap(),
+        "old content"
+    );
+    let names: Vec<String> = fs::read_dir(&target)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    assert_eq!(names, vec![".gitconfig".to_string()], "home: {names:?}");
+    assert!(!dotfiles.join(".notfiles-state.toml").exists());
+}
+
+#[test]
+fn test_link_named_package_records_only_that_package_in_state() {
+    let tmp = TempDir::new().unwrap();
+    setup_dotfiles(&tmp);
+    let dotfiles = tmp.path().join("dotfiles");
+
+    let (_, _, ok) = run(&dotfiles, &["link", "git"]);
+    assert!(ok);
+
+    let state = fs::read_to_string(dotfiles.join(".notfiles-state.toml")).unwrap();
+    assert!(state.contains("package = \"git\""), "state: {state}");
+    assert!(!state.contains("package = \"zsh\""), "state: {state}");
+}
+
+#[test]
+fn test_check_fails_when_dotfiles_dir_missing() {
+    let tmp = TempDir::new().unwrap();
+    let missing = tmp.path().join("no-such-dotfiles");
+
+    let (_, stderr, ok) = run(&missing, &["check"]);
+    assert!(!ok, "check should fail for a missing directory");
+    assert!(!stderr.trim().is_empty(), "expected an error on stderr");
+}
