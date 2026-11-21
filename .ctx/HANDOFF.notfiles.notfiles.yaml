@@ -7,11 +7,12 @@ items:
   name: push-pr-nottools-doctor
   priority: P1
   status: open
-  title: Push feat/nottools-doctor and open the PR
+  title: Open the PR for feat/nottools-doctor
   description: |-
-    Branch is 16 commits ahead of main (12 from the 2026-11-20/21 refactor session). The new CI jobs have never
-    run on GitHub Actions: the fuzz matrix job in .github/workflows/ci.yml and the rust-script install plus
-    scripts/affected-crates.rs step in release.yml. Watch their first run.
+    Branch is pushed to origin (16 commits ahead of main, 12 from the 2026-11-20/21 refactor session) but no PR
+    exists yet. ci.yml triggers on push only for main, feature/*, hotfix/* and chore/*, so feat/* gets no CI until a
+    PR targets main. The new jobs have never run on GitHub Actions: the fuzz matrix job in ci.yml and the
+    rust-script install plus scripts/affected-crates.rs step in release.yml. Watch their first run.
   files:
   - .github/workflows/ci.yml
   - .github/workflows/release.yml
