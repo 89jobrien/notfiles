@@ -4,7 +4,7 @@ use std::fs;
 
 use notcore::Config;
 use notcore::reporter::Reporter;
-use notfiles::adapters::{JsonReporter, TerminalReporter};
+use notfiles::adapters::{FileStoreImpl, JsonReporter, TerminalReporter};
 use notfiles::cli::{Cli, Command};
 use notfiles::detect;
 use notfiles::linker::{LinkOptions, State};
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
             let home = std::env::var("HOME")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|_| dotfiles_dir.clone());
-            let managers = detect::detect(&home);
+            let managers = detect::detect(&FileStoreImpl, &home);
             if cli.json {
                 detect::print_detected_json(&managers);
             } else {
