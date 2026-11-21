@@ -14,6 +14,9 @@ pub trait FileStore {
     /// Write content to file.
     fn write(&self, path: &Path, contents: &[u8]) -> Result<(), std::io::Error>;
 
+    /// Copy the permission bits of `from` onto `to`.
+    fn copy_permissions(&self, from: &Path, to: &Path) -> Result<(), std::io::Error>;
+
     /// Rename a file or directory.
     fn rename(&self, from: &Path, to: &Path) -> Result<(), std::io::Error>;
 

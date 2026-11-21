@@ -5,12 +5,8 @@ use std::process::Command;
 use tempfile::TempDir;
 
 fn notfiles_bin() -> std::path::PathBuf {
-    // Built by `cargo test`
-    let mut path = std::env::current_exe().unwrap();
-    path.pop(); // remove test binary name
-    path.pop(); // remove `deps`
-    path.push("notfiles");
-    path
+    // Set by cargo for integration tests; does not depend on the target directory layout.
+    std::path::PathBuf::from(env!("CARGO_BIN_EXE_notfiles"))
 }
 
 fn run(dotfiles: &Path, args: &[&str]) -> (String, String, bool) {
@@ -623,4 +619,40 @@ fn test_fixture_link_and_unlink_round_trip() {
     assert!(ok);
     assert!(!target.join(".gitconfig").exists());
     assert!(!target.join(".zshrc").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_copy_preserves_executable_bit() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = TempDir::new().unwrap();
+    let dotfiles = tmp.path().join("dotfiles");
+    let target = tmp.path().join("home");
+    fs::create_dir_all(&target).unwrap();
+
+    let bin = dotfiles.join("bin");
+    fs::create_dir_all(bin.join(".local/bin")).unwrap();
+    let script = bin.join(".local/bin/tool");
+    fs::write(&script, "#!/bin/sh\necho hi\n").unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let config = format!(
+        r#"[defaults]
+target = "{}"
+ignore = [".git", ".DS_Store", "notfiles.toml", ".notfiles-state.toml"]
+
+[packages.bin]
+method = "copy"
+"#,
+        target.display()
+    );
+    fs::write(dotfiles.join("notfiles.toml"), config).unwrap();
+
+    let (_, _, ok) = run(&dotfiles, &["link", "bin"]);
+    assert!(ok);
+
+    let copied = target.join(".local/bin/tool");
+    let mode = copied.metadata().unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o755, "copied script lost its executable bit");
 }
