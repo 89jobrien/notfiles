@@ -29,15 +29,23 @@ fn is_installed_runs_tailscale_version() {
 }
 
 #[test]
-fn join_passes_the_auth_key_as_a_flag() {
+fn join_passes_the_auth_key_via_a_file_flag() {
     let runner = FakeCommandRunner::default();
     TailscaleCli::new(&runner).join("tskey-abc").expect("join");
-    assert_eq!(runner.calls(), ["tailscale up --authkey=tskey-abc"]);
+    let calls = runner.calls();
+    assert_eq!(calls.len(), 1);
+    assert!(
+        calls[0].starts_with("tailscale up --auth-key=file:"),
+        "unexpected call: {:?}",
+        calls[0]
+    );
+    // The key itself must not appear in the process arguments.
+    assert!(!calls[0].contains("tskey-abc"));
 }
 
 #[test]
 fn join_failure_carries_stderr() {
-    let runner = FakeCommandRunner::default().failing("tailscale up --authkey=k", "bad key");
+    let runner = FakeCommandRunner::default().failing("tailscale up", "bad key");
     let err = TailscaleCli::new(&runner).join("k").expect_err("fails");
 
     assert!(

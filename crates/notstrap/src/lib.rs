@@ -154,6 +154,9 @@ pub fn run(opts: BootstrapOptions) -> Result<Report> {
         .map(|ts| ts.gitea_url.clone())
         .or_else(|| cfg.bootstrap.dotfiles_repo.clone());
 
+    // TODO (suggested): split this step into "join tailnet" and "verify peer
+    // <host>" phases — `ensure_connected` returns only a bool today, so the
+    // two can't be reported separately when one fails.
     // 3. Tailscale (inserted before clone, skipped when ts_opts is None)
     if let Some(ref ts) = ts_opts {
         match notnet::ensure_connected(ts) {

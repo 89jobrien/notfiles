@@ -9,9 +9,13 @@ description = "Tailscale network presence management for notstrap"
 anyhow    = { workspace = true }
 rpassword = { workspace = true }
 serde     = { workspace = true }
+tempfile  = { workspace = true }
 thiserror = { workspace = true }
-yubikey   = { version = "0.8", optional = true }
+yubikey   = { version = "0.8", optional = true, features = ["untested"] }
 
 [features]
-default = []
+# Enable the YubiKey PIV slot-9d auth-key source by default: without a key in
+# the slot, resolution falls through to the prompt, so the behavior only
+# changes for machines that actually hold a Tailscale auth key there.
+default = ["yubikey"]
 yubikey = ["dep:yubikey"]
