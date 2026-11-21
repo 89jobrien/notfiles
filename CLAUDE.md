@@ -147,3 +147,11 @@ there are no prompts either, so scripted runs behave as before. nothooks also ex
   nightly and `cargo-fuzz`: `cargo +nightly fuzz run fuzz_parse_header -- -max_total_time=60`.
   Seed corpus in `fuzz/corpus/` is committed; regenerate with
   `cargo run --manifest-path fuzz/Cargo.toml --bin gen_corpus`.
+
+## Policy notes
+
+- No Python anywhere in the repo or its CI. Glue is `rust-script` (`scripts/*.rs`) and checks are
+  `cargo test`: crate dependency boundaries live in `tests/integration/tests/dep_boundaries.rs`,
+  and the release workflow computes affected crates with `scripts/affected-crates.rs`.
+- notstrap never mutates its own process environment. Secrets resolved from `notsecrets.toml`
+  are passed to hooks (and only hooks) as environment variables.

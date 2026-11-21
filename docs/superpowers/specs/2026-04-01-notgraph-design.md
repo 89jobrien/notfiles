@@ -21,13 +21,13 @@ Three pipeline stages:
 
 Five modules in `crates/notgraph/src/`:
 
-| Module | Responsibility |
-|--------|---------------|
-| `crate_graph` | Calls `cargo_metadata`, builds crate→crate dep map for workspace members only |
-| `module_graph` | Walks `src/` per crate with `walkdir`, parses `mod` declarations via `syn` to build intra-crate module trees |
-| `symbols` | Parses each `.rs` file with `syn`, extracts public structs/enums/traits/fns/types/consts by module |
-| `analysis` | Fan-in/fan-out counts, cycle detection (Kahn's algorithm), hotspot ranking (top N by fan-in and fan-out separately) |
-| `emit` | Writes `report.md`, `report.json`, `report.html` (self-contained inline CSS+JS via vis.js) |
+| Module         | Responsibility                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `crate_graph`  | Calls `cargo_metadata`, builds crate→crate dep map for workspace members only                                       |
+| `module_graph` | Walks `src/` per crate with `walkdir`, parses `mod` declarations via `syn` to build intra-crate module trees        |
+| `symbols`      | Parses each `.rs` file with `syn`, extracts public structs/enums/traits/fns/types/consts by module                  |
+| `analysis`     | Fan-in/fan-out counts, cycle detection (Kahn's algorithm), hotspot ranking (top N by fan-in and fan-out separately) |
+| `emit`         | Writes `report.md`, `report.json`, `report.html` (self-contained inline CSS+JS via vis.js)                          |
 
 `main.rs` wires collect → analyze → emit, then exits non-zero if cycles detected.
 
@@ -74,6 +74,7 @@ Options:
 **`report.json`** — full `GraphStats` serialised with `serde_json`. Machine-readable, suitable for diffing in CI.
 
 **`report.md`** — sections:
+
 - Crate dependency graph (adjacency list)
 - Per-crate module graph summary (node count, edge count, cycle count)
 - Hotspot tables: top N fan-in and top N fan-out for both crates and modules
@@ -81,6 +82,7 @@ Options:
 - Cycle report (empty section = ✅ clean)
 
 **`report.html`** — self-contained single file:
+
 - vis.js network diagram of the crate graph (interactive, filterable)
 - Collapsible per-crate module graph diagrams
 - Sortable hotspot tables
@@ -104,11 +106,11 @@ anyhow         = "1"
 
 **Integration tests** (`crates/notgraph/tests/integration.rs`) with three fixture sets in `tests/fixtures/`:
 
-| Fixture | Purpose |
-|---------|---------|
-| `clean/` | No cycles, known fan-in/out — assert output matches expected values |
-| `cyclic/` | Two modules that mutually declare each other — assert cycle detected, exit code 1 with `--fail-on-cycles` |
-| `symbols/` | Known public symbols — assert symbol table matches expected inventory |
+| Fixture    | Purpose                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `clean/`   | No cycles, known fan-in/out — assert output matches expected values                                       |
+| `cyclic/`  | Two modules that mutually declare each other — assert cycle detected, exit code 1 with `--fail-on-cycles` |
+| `symbols/` | Known public symbols — assert symbol table matches expected inventory                                     |
 
 ## CI Wiring (`mise.toml`)
 
@@ -132,6 +134,6 @@ run = "cargo run -p notgraph --release -- --output docs/graph --fail-on-cycles"
 
 ## Non-Goals
 
-- Cross-crate module graph (crate boundaries are already enforced by `check-dep-boundaries.py`)
+- Cross-crate module graph (crate boundaries are already enforced by the `dep_boundaries` integration test)
 - Lifetime or type-level analysis
 - Incremental/watch mode

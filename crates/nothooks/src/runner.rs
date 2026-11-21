@@ -20,7 +20,6 @@ fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
         "sh" => Ok("sh".into()),
         "bash" => Ok("bash".into()),
         "zsh" => Ok("zsh".into()),
-        "py" => Ok("python3".into()),
         "rb" => Ok("ruby".into()),
         _ => Err(format!(
             "cannot infer interpreter: no interpreter set and unknown extension {:?}",
@@ -482,5 +481,15 @@ mod tests {
     #[test]
     fn unknown_extension_is_an_error() {
         assert!(resolve_interpreter(&spec("a.xyz", None)).is_err());
+    }
+
+    /// Python is not a supported hook language; it needs an explicit `interpreter`.
+    #[test]
+    fn python_scripts_are_not_inferred() {
+        assert!(resolve_interpreter(&spec("a.py", None)).is_err());
+        assert_eq!(
+            resolve_interpreter(&spec("a.py", Some("custom"))).expect("explicit interpreter"),
+            "custom"
+        );
     }
 }

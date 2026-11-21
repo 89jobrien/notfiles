@@ -19,7 +19,6 @@
       "Bash(rtk gain:*)",
       "Bash(rtk rewrite:*)",
       "Bash(rtk grep:*)",
-      "Bash(nu -c '\nlet result = \\(do { python3 -c \"import json; print\\(json.dumps\\({\\\\\"ok\\\\\": True}\\)\\)\" } | complete\\)\nprint $result.stdout\n')",
       "Bash(echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -n \\\\\"^foo\\\\\" /file.md\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu)",
       "Bash(echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -c pattern file.txt\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu\necho '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"grep -i \\\\\"Hello World\\\\\" /dir/\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu\necho '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git status\"}}' | nu /Users/joe/.claude/hooks/nu/pre/grep-to-grep-tool.nu; echo \"exit: $?\")"
     ]
