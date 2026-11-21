@@ -19,6 +19,7 @@ members = [
     "crates/notforge",
     "tests/integration",
 ]
+exclude = ["fuzz"]
 resolver = "2"
 
 [workspace.dependencies]

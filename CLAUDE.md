@@ -132,3 +132,18 @@ config; declining cancels before anything changes. `--yes` / `-y` skips the wiza
 default, and exports `NOTSTRAP_YES=1` to hooks so they skip their own prompts. Without a terminal
 there are no prompts either, so scripted runs behave as before. nothooks also exports `NOTFILES_DIR`
 (the dotfiles checkout) to every hook and runs `.rs` hooks with `rust-script`.
+
+## Testing layers
+
+- **Conformance**: one contract per port, run against every adapter and its double
+  (`notfiles/tests/conformance_file_store.rs`, `nottools/tests/conformance_ports.rs`,
+  `nothooks/tests/conformance_ports.rs`, `notnet/tests/conformance_command_runner.rs`,
+  `notstrap/tests/conformance_git_clone.rs`, `notsecrets/tests/conformance_secret_source.rs`).
+  A new port or adapter gets a contract test; a double that is looser than the real
+  adapter is a bug in the double.
+- **Property** (`proptest`): `notfiles` (`detect`, ignore matcher), `notsecrets` (age header),
+  `nothooks` (state store). Commit `proptest-regressions/`; never delete counterexamples.
+- **Fuzz** (`fuzz/`, excluded from the workspace): age header parsing and decryption. Needs
+  nightly and `cargo-fuzz`: `cargo +nightly fuzz run fuzz_parse_header -- -max_total_time=60`.
+  Seed corpus in `fuzz/corpus/` is committed; regenerate with
+  `cargo run --manifest-path fuzz/Cargo.toml --bin gen_corpus`.
