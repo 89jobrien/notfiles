@@ -173,18 +173,18 @@ mod tests {
             "/m.toml",
             "[tools]\n\"cargo:nu\" = \"1\"\nnode = \"20\"\n\"cargo:just\" = \"2\"\nother = \"3\"\n",
         )]);
-        adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, false).unwrap();
-        let out = fs.get("/m.toml").unwrap();
+        adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, false).expect("adopt should succeed");
+        let out = fs.get("/m.toml").expect("get should succeed");
         assert!(out.contains("\"cargo:just\" = \"2\"\n\"cargo:bacon\" = \"1.2.3\"\nother"));
     }
 
     #[test]
     fn adopt_falls_back_to_tools_table() {
         let fs = MemoryFs::new(&[("/m.toml", "[tools]\nnode = \"20\"\n")]);
-        adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, false).unwrap();
+        adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, false).expect("adopt should succeed");
         assert!(
             fs.get("/m.toml")
-                .unwrap()
+                .expect("get should succeed")
                 .starts_with("[tools]\n\"cargo:bacon\"")
         );
     }
@@ -192,9 +192,10 @@ mod tests {
     #[test]
     fn adopt_dry_run_does_not_write() {
         let fs = MemoryFs::new(&[("/m.toml", "[tools]\n")]);
-        let acts = adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, true).unwrap();
+        let acts = adopt(Path::new("/m.toml"), &[krate("bacon")], &fs, true)
+            .expect("adopt should succeed");
         assert_eq!(acts.len(), 1);
-        assert_eq!(fs.get("/m.toml").unwrap(), "[tools]\n");
+        assert_eq!(fs.get("/m.toml").expect("get should succeed"), "[tools]\n");
     }
 
     #[test]

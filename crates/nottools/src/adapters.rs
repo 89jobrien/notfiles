@@ -236,7 +236,12 @@ mod tests {
     #[test]
     fn memory_fs_lists_children_only() {
         let fs = MemoryFs::new(&[("/a/x", "1"), ("/a/y", "2"), ("/b/z", "3")]);
-        assert_eq!(fs.list_dir(Path::new("/a")).unwrap().len(), 2);
+        assert_eq!(
+            fs.list_dir(Path::new("/a"))
+                .expect("list_dir should succeed")
+                .len(),
+            2
+        );
         assert!(fs.list_dir(Path::new("/c")).is_err());
     }
 }

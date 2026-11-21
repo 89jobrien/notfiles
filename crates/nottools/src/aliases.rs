@@ -156,8 +156,20 @@ mod tests {
     fn guarded_aliases_are_marked() {
         let text = "if command -v zb >/dev/null 2>&1; then\n  alias zbi='zb install'\nfi\nalias zbs='zb search'\n";
         let s = scan(text, "f");
-        assert!(s.aliases.iter().find(|a| a.name == "zbi").unwrap().guarded);
-        assert!(!s.aliases.iter().find(|a| a.name == "zbs").unwrap().guarded);
+        assert!(
+            s.aliases
+                .iter()
+                .find(|a| a.name == "zbi")
+                .expect("find should succeed")
+                .guarded
+        );
+        assert!(
+            !s.aliases
+                .iter()
+                .find(|a| a.name == "zbs")
+                .expect("find should succeed")
+                .guarded
+        );
     }
 
     #[test]

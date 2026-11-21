@@ -130,7 +130,8 @@ mod tests {
         let public = PublicKey::from(&secret);
         let recipient: Box<dyn crate::recipients::Recipient> =
             Box::new(X25519Recipient::from_public_key(public));
-        let encryptor = Encryptor::with_recipients(vec![recipient]).unwrap();
+        let encryptor =
+            Encryptor::with_recipients(vec![recipient]).expect("with_recipients should succeed");
         let plaintext = b"hello, age!";
         let ciphertext = encryptor
             .encrypt(plaintext)

@@ -104,11 +104,16 @@ mod tests {
     #[test]
     fn decryptor_roundtrip_single_recipient() {
         let (identity, recipient) = make_x25519_pair();
-        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)]).unwrap();
+        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)])
+            .expect("with_recipients should succeed");
         let plaintext = b"the quick brown fox";
-        let ciphertext = encryptor.encrypt(plaintext).unwrap();
+        let ciphertext = encryptor
+            .encrypt(plaintext)
+            .expect("encrypt should succeed");
         let decryptor = Decryptor::with_identities(vec![Box::new(identity)]);
-        let decrypted = decryptor.decrypt(&ciphertext).unwrap();
+        let decrypted = decryptor
+            .decrypt(&ciphertext)
+            .expect("decrypt should succeed");
         assert_eq!(decrypted, plaintext);
     }
 
@@ -117,21 +122,35 @@ mod tests {
         let (identity1, recipient1) = make_x25519_pair();
         let (identity2, recipient2) = make_x25519_pair();
         let encryptor =
-            Encryptor::with_recipients(vec![Box::new(recipient1), Box::new(recipient2)]).unwrap();
+            Encryptor::with_recipients(vec![Box::new(recipient1), Box::new(recipient2)])
+                .expect("with_recipients should succeed");
         let plaintext = b"multi-recipient test";
-        let ciphertext = encryptor.encrypt(plaintext).unwrap();
+        let ciphertext = encryptor
+            .encrypt(plaintext)
+            .expect("encrypt should succeed");
         let decryptor1 = Decryptor::with_identities(vec![Box::new(identity1)]);
-        assert_eq!(decryptor1.decrypt(&ciphertext).unwrap(), plaintext);
+        assert_eq!(
+            decryptor1
+                .decrypt(&ciphertext)
+                .expect("decrypt should succeed"),
+            plaintext
+        );
         let decryptor2 = Decryptor::with_identities(vec![Box::new(identity2)]);
-        assert_eq!(decryptor2.decrypt(&ciphertext).unwrap(), plaintext);
+        assert_eq!(
+            decryptor2
+                .decrypt(&ciphertext)
+                .expect("decrypt should succeed"),
+            plaintext
+        );
     }
 
     #[test]
     fn decryptor_no_matching_identity_returns_no_match() {
         let (_, recipient) = make_x25519_pair();
         let (wrong_identity, _) = make_x25519_pair();
-        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)]).unwrap();
-        let ciphertext = encryptor.encrypt(b"data").unwrap();
+        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)])
+            .expect("with_recipients should succeed");
+        let ciphertext = encryptor.encrypt(b"data").expect("encrypt should succeed");
         let decryptor = Decryptor::with_identities(vec![Box::new(wrong_identity)]);
         let err = decryptor.decrypt(&ciphertext).unwrap_err();
         assert!(matches!(err, crate::error::AgeError::NoMatch));
@@ -140,8 +159,9 @@ mod tests {
     #[test]
     fn decryptor_corrupted_mac_returns_mac_mismatch() {
         let (identity, recipient) = make_x25519_pair();
-        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)]).unwrap();
-        let mut ciphertext = encryptor.encrypt(b"data").unwrap();
+        let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)])
+            .expect("with_recipients should succeed");
+        let mut ciphertext = encryptor.encrypt(b"data").expect("encrypt should succeed");
         // Flip a byte in the MAC region (after "--- ")
         let footer_pos = ciphertext
             .windows(4)

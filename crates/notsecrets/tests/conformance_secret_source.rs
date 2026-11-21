@@ -17,7 +17,7 @@ fn assert_secret_source_contract(source: &dyn SecretSource) {
         result,
     );
     assert_eq!(
-        result.unwrap(),
+        result.expect("result should succeed"),
         None,
         "{}: resolve(unknown) should be None",
         source.name(),

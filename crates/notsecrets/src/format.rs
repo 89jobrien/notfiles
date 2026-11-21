@@ -245,7 +245,7 @@ mod tests {
         let serialized = serialize_header(&header);
         let mut with_payload = serialized;
         with_payload.extend_from_slice(&[0u8; 32]);
-        let (parsed, _) = parse_header(&with_payload).unwrap();
+        let (parsed, _) = parse_header(&with_payload).expect("parse_header should succeed");
         assert_eq!(parsed.recipients[0].body, body);
     }
 

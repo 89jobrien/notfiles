@@ -242,7 +242,7 @@ target = "~"
 ignore = [".git"]
 include = ["git", "zsh", "nushell"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         assert_eq!(
             config.included_packages(),
             Some(vec!["git", "nushell", "zsh"]),
@@ -257,7 +257,7 @@ target = "~"
 ignore = [".git"]
 exclude = ["scripts", "docs", "tests"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         assert!(config.is_package_excluded("scripts"));
         assert!(!config.is_package_excluded("zsh"));
     }
@@ -270,7 +270,7 @@ target = "~"
 include = ["git"]
 exclude = ["scripts"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         assert!(config.validate().is_err());
     }
 
@@ -293,7 +293,7 @@ platforms = ["linux"]
 
 [packages.git]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         // On macOS this should be false, on Linux true
         if cfg!(target_os = "macos") {
             assert!(!config.is_package_for_current_platform("nixos"));
@@ -312,7 +312,7 @@ platforms = ["linux"]
 [packages.vscode]
 platforms = ["macos"]
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         if cfg!(target_os = "macos") {
             assert!(config.is_package_for_current_platform("vscode"));
         } else {
@@ -334,7 +334,7 @@ ignore = ["known_hosts"]
 [packages.scripts]
 target = "~/bin"
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config: Config = toml::from_str(toml_str).expect("from_str should succeed");
         assert_eq!(config.method_for("ssh"), Method::Copy);
         assert_eq!(config.method_for("scripts"), Method::Symlink);
         assert_eq!(config.target_for("scripts"), "~/bin");

@@ -11,7 +11,8 @@ fn fixture_src(name: &str) -> std::path::PathBuf {
 
 #[test]
 fn clean_fixture_has_no_cycles() {
-    let mg = module_graph::build("clean".to_string(), &fixture_src("clean")).unwrap();
+    let mg = module_graph::build("clean".to_string(), &fixture_src("clean"))
+        .expect("build should succeed");
     assert!(
         analysis::detect_cycles(&mg.nodes, &mg.edges).is_empty(),
         "expected no cycles; nodes={:?} edges={:?}",
@@ -41,7 +42,8 @@ fn detect_cycles_finds_cycles_in_synthetic_graph() {
 /// `pub mod` declarations without panicking.
 #[test]
 fn cyclic_fixture_module_graph_builds() {
-    let mg = module_graph::build("cyclic".to_string(), &fixture_src("cyclic")).unwrap();
+    let mg = module_graph::build("cyclic".to_string(), &fixture_src("cyclic"))
+        .expect("build should succeed");
     assert!(
         mg.nodes.contains(&"cyclic".to_string()),
         "expected root module node 'cyclic'"
@@ -62,7 +64,7 @@ fn cyclic_fixture_module_graph_builds() {
 fn write_all_creates_expected_files() {
     use types::{CrateGraph, ModuleGraph};
 
-    let out = TempDir::new().unwrap();
+    let out = TempDir::new().expect("new should succeed");
     let crate_graph = CrateGraph {
         nodes: vec!["alpha".to_string(), "beta".to_string()],
         edges: vec![("beta".to_string(), "alpha".to_string())],
@@ -78,7 +80,7 @@ fn write_all_creates_expected_files() {
         &stats,
         &symbol_tables,
     )
-    .unwrap();
+    .expect("write_all should succeed");
 
     assert!(
         out.path().join("report.html").exists(),
@@ -97,7 +99,7 @@ fn write_all_creates_expected_files() {
 fn write_all_sanitizes_hyphenated_crate_names() {
     use types::{CrateGraph, ModuleGraph};
 
-    let out = TempDir::new().unwrap();
+    let out = TempDir::new().expect("new should succeed");
     let crate_graph = CrateGraph {
         nodes: vec!["my-core".to_string(), "my-app".to_string()],
         edges: vec![("my-app".to_string(), "my-core".to_string())],
@@ -113,9 +115,10 @@ fn write_all_sanitizes_hyphenated_crate_names() {
         &stats,
         &symbol_tables,
     )
-    .unwrap();
+    .expect("write_all should succeed");
 
-    let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
+    let html = std::fs::read_to_string(out.path().join("report.html"))
+        .expect("read_to_string should succeed");
     // Raw hyphenated names must not appear as unquoted node IDs
     assert!(
         !html.contains("my-core["),
@@ -133,7 +136,7 @@ fn write_all_sanitizes_hyphenated_crate_names() {
 fn write_all_heatmap_does_not_panic_for_single_crate() {
     use types::{CrateGraph, ModuleGraph};
 
-    let out = TempDir::new().unwrap();
+    let out = TempDir::new().expect("new should succeed");
     let crate_graph = CrateGraph {
         nodes: vec!["solo".to_string()],
         edges: vec![],
@@ -149,9 +152,10 @@ fn write_all_heatmap_does_not_panic_for_single_crate() {
         &stats,
         &symbol_tables,
     )
-    .unwrap();
+    .expect("write_all should succeed");
 
-    let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
+    let html = std::fs::read_to_string(out.path().join("report.html"))
+        .expect("read_to_string should succeed");
     assert!(
         html.contains("style solo fill:"),
         "heatmap style directive missing for solo crate"
@@ -164,8 +168,9 @@ fn write_all_heatmap_does_not_panic_for_single_crate() {
 fn write_all_renders_per_crate_module_graphs() {
     use types::CrateGraph;
 
-    let out = TempDir::new().unwrap();
-    let mg = module_graph::build("clean".to_string(), &fixture_src("clean")).unwrap();
+    let out = TempDir::new().expect("new should succeed");
+    let mg = module_graph::build("clean".to_string(), &fixture_src("clean"))
+        .expect("build should succeed");
     let crate_graph = CrateGraph {
         nodes: vec!["clean".to_string()],
         edges: vec![],
@@ -173,9 +178,11 @@ fn write_all_renders_per_crate_module_graphs() {
     let stats = analysis::analyse(&crate_graph, std::slice::from_ref(&mg), 3);
     let symbol_tables: Vec<types::SymbolTable> = vec![];
 
-    emit::write_all(out.path(), &crate_graph, &[mg], &stats, &symbol_tables).unwrap();
+    emit::write_all(out.path(), &crate_graph, &[mg], &stats, &symbol_tables)
+        .expect("write_all should succeed");
 
-    let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
+    let html = std::fs::read_to_string(out.path().join("report.html"))
+        .expect("read_to_string should succeed");
     assert!(
         html.contains("<h3>clean</h3>"),
         "expected per-crate <h3>clean</h3> section in HTML"
@@ -192,7 +199,7 @@ fn write_all_renders_per_crate_module_graphs() {
 fn write_all_cycle_callout_appears_in_html() {
     use types::{CrateGraph, ModuleGraph};
 
-    let out = TempDir::new().unwrap();
+    let out = TempDir::new().expect("new should succeed");
     // Build a two-node crate graph with a synthetic cycle
     let crate_graph = CrateGraph {
         nodes: vec!["alpha".to_string(), "beta".to_string()],
@@ -212,9 +219,10 @@ fn write_all_cycle_callout_appears_in_html() {
         &stats,
         &symbol_tables,
     )
-    .unwrap();
+    .expect("write_all should succeed");
 
-    let html = std::fs::read_to_string(out.path().join("report.html")).unwrap();
+    let html = std::fs::read_to_string(out.path().join("report.html"))
+        .expect("read_to_string should succeed");
     assert!(
         html.contains("cycle-entry"),
         "expected cycle-entry element in HTML when cycles are present"
@@ -223,7 +231,8 @@ fn write_all_cycle_callout_appears_in_html() {
 
 #[test]
 fn symbols_fixture_has_six_public_symbols() {
-    let table = symbols::build("symbols".to_string(), &fixture_src("symbols")).unwrap();
+    let table = symbols::build("symbols".to_string(), &fixture_src("symbols"))
+        .expect("build should succeed");
     let pub_count = table.symbols.iter().filter(|s| s.is_pub).count();
     assert_eq!(
         pub_count,

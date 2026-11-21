@@ -145,8 +145,14 @@ mod tests {
             ("b".to_string(), "c".to_string()),
         ];
         let stats = fan_stats(&nodes, &edges);
-        let a = stats.iter().find(|s| s.name == "a").unwrap();
-        let c = stats.iter().find(|s| s.name == "c").unwrap();
+        let a = stats
+            .iter()
+            .find(|s| s.name == "a")
+            .expect("find should succeed");
+        let c = stats
+            .iter()
+            .find(|s| s.name == "c")
+            .expect("find should succeed");
         assert_eq!(a.fan_out, 2);
         assert_eq!(a.fan_in, 0);
         assert_eq!(c.fan_in, 2);
@@ -194,11 +200,14 @@ mod tests {
             },
         ];
         let spots = hotspots(&stats, 1);
-        let fi = spots.iter().find(|h| h.kind == HotspotKind::FanIn).unwrap();
+        let fi = spots
+            .iter()
+            .find(|h| h.kind == HotspotKind::FanIn)
+            .expect("find should succeed");
         let fo = spots
             .iter()
             .find(|h| h.kind == HotspotKind::FanOut)
-            .unwrap();
+            .expect("find should succeed");
         assert_eq!(fi.name, "a");
         assert_eq!(fo.name, "c");
     }

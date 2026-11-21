@@ -106,7 +106,7 @@ mod tests {
             &probe,
             &RecordingInstaller::new(true),
         );
-        assert_eq!(got.unwrap(), None);
+        assert_eq!(got.expect("got should succeed"), None);
     }
 
     #[test]
@@ -114,8 +114,8 @@ mod tests {
         let probe = FakeProbe::new(&[], &[], vec![]);
         let inst = RecordingInstaller::new(true);
         let got = reconcile(Path::new("/d"), Path::new("/h"), &fs(), &probe, &inst)
-            .unwrap()
-            .unwrap();
+            .expect("reconcile should succeed")
+            .expect("the value should be present");
         assert_eq!(inst.calls(), ["mise install", "brew install colima"]);
         assert_eq!(got.installed, ["mise install", "brew install colima"]);
         assert_eq!(got.undeclared, ["zb"]);
@@ -128,8 +128,8 @@ mod tests {
         let probe = FakeProbe::new(&[], &[], vec![]);
         let inst = RecordingInstaller::new(false);
         let got = reconcile(Path::new("/d"), Path::new("/h"), &fs(), &probe, &inst)
-            .unwrap()
-            .unwrap();
+            .expect("reconcile should succeed")
+            .expect("the value should be present");
         assert!(got.installed.is_empty());
         assert_eq!(
             got.unresolved,
@@ -143,8 +143,8 @@ mod tests {
         let probe = FakeProbe::new(&["pyroclear", "colima", "zb"], &[], vec![]);
         let inst = RecordingInstaller::new(true);
         let got = reconcile(Path::new("/d"), Path::new("/h"), &fs(), &probe, &inst)
-            .unwrap()
-            .unwrap();
+            .expect("reconcile should succeed")
+            .expect("the value should be present");
         assert_eq!(got, ToolsSummary::default());
         assert!(inst.calls().is_empty());
     }

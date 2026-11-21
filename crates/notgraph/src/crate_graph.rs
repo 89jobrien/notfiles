@@ -40,12 +40,12 @@ mod tests {
     fn builds_crate_graph_for_workspace() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .unwrap()
+            .expect("parent should succeed")
             .parent()
-            .unwrap()
+            .expect("parent should succeed")
             .join("Cargo.toml");
 
-        let graph = build(&manifest).unwrap();
+        let graph = build(&manifest).expect("build should succeed");
 
         assert!(graph.nodes.contains(&"notgraph".to_string()));
         assert!(graph.nodes.contains(&"notcore".to_string()));

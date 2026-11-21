@@ -139,7 +139,7 @@ mod tests {
         let unwrapped = identity
             .unwrap_file_key(&stanza)
             .expect("identity should match")
-            .expect("unwrap should succeed");
+            .expect("the value should be present");
         assert_eq!(unwrapped.as_bytes(), file_key.as_bytes());
     }
 
@@ -152,7 +152,9 @@ mod tests {
         let identity = SshEd25519Identity::from_signing_key(signing_key2);
 
         let file_key = FileKey::new([0x33u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).unwrap();
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap_file_key should succeed");
         assert!(identity.unwrap_file_key(&stanza).is_none());
     }
 }

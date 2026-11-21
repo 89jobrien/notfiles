@@ -230,7 +230,8 @@ mod tests {
     #[test]
     fn classifies_missing_targets_by_declaration() {
         let probe = FakeProbe::new(&["git", "just"], &[], vec![]);
-        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe).unwrap();
+        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe)
+            .expect("run should succeed");
         let by: Vec<(&str, Option<Backend>)> = r
             .missing
             .iter()
@@ -258,7 +259,8 @@ mod tests {
             &["/home/bin/tool.sh"],
             vec![],
         );
-        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe).unwrap();
+        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe)
+            .expect("run should succeed");
         assert!(r.missing.is_empty(), "{:?}", r.missing);
     }
 
@@ -287,7 +289,8 @@ mod tests {
             },
         ];
         let probe = FakeProbe::new(&[], &[], crates);
-        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe).unwrap();
+        let r = run(&cfg(), Path::new("/d"), Path::new("/home"), &fs(), &probe)
+            .expect("run should succeed");
         assert_eq!(
             r.undeclared
                 .iter()

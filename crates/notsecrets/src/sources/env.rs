@@ -34,7 +34,9 @@ mod tests {
         // SAFETY: test is single-threaded
         unsafe { std::env::set_var("NOTSECRETS_TEST_KEY", "test_value") };
         let source = EnvSource;
-        let result = source.resolve("NOTSECRETS_TEST_KEY").unwrap();
+        let result = source
+            .resolve("NOTSECRETS_TEST_KEY")
+            .expect("resolve should succeed");
         assert_eq!(result, Some("test_value".to_string()));
         unsafe { std::env::remove_var("NOTSECRETS_TEST_KEY") };
     }
@@ -42,14 +44,16 @@ mod tests {
     #[test]
     fn env_source_resolve_missing_key() {
         let source = EnvSource;
-        let result = source.resolve("NOTSECRETS_NONEXISTENT_KEY_12345").unwrap();
+        let result = source
+            .resolve("NOTSECRETS_NONEXISTENT_KEY_12345")
+            .expect("resolve should succeed");
         assert_eq!(result, None);
     }
 
     #[test]
     fn env_source_resolve_all_contains_home_or_user() {
         let source = EnvSource;
-        let map = source.resolve_all().unwrap();
+        let map = source.resolve_all().expect("resolve_all should succeed");
         assert!(map.contains_key("HOME") || map.contains_key("USER"));
     }
 

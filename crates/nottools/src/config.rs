@@ -74,8 +74,8 @@ mod tests {
         let c = DoctorConfig::parse(
             "[defaults]\ntarget = \"~\"\n[doctor]\nmise = \"mise/config.toml\"\nbrewfiles = [\"Brewfile\"]\nalias_files = [\"~/.zshrc\"]\n",
         )
-        .unwrap()
-        .unwrap();
+        .expect("parse should succeed")
+        .expect("the value should be present");
         assert_eq!(c.mise.as_deref(), Some("mise/config.toml"));
         assert_eq!(c.brewfiles, ["Brewfile"]);
         assert_eq!(c.alias_files, ["~/.zshrc"]);
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn absent_table_is_none() {
         assert_eq!(
-            DoctorConfig::parse("[defaults]\ntarget = \"~\"\n").unwrap(),
+            DoctorConfig::parse("[defaults]\ntarget = \"~\"\n").expect("parse should succeed"),
             None
         );
     }
@@ -95,7 +95,10 @@ mod tests {
             mise: Some("mise/c.toml".into()),
             ..Default::default()
         };
-        let got = c.mise_path(Path::new("/d")).unwrap().unwrap();
+        let got = c
+            .mise_path(Path::new("/d"))
+            .expect("mise_path should succeed")
+            .expect("the value should be present");
         assert_eq!(got, Path::new("/d/mise/c.toml"));
     }
 }

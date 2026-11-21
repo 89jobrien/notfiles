@@ -216,10 +216,10 @@ fn section(title: &str) {
 }
 
 fn main() -> Result<()> {
-    let cwd = std::env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap());
+    let cwd = match std::env::args().nth(1) {
+        Some(arg) => PathBuf::from(arg),
+        None => std::env::current_dir().context("cannot determine the current directory")?,
+    };
 
     println!("{}", "╔══════════════════════════════╗".bold());
     println!("{}", "║  preflight context surfacer  ║".bold());

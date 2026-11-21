@@ -92,7 +92,7 @@ mod tests {
         let text = format!(
             "[bootstrap]\ndotfiles_repo = \"https://example.com/d.git\"\ndotfiles_dir = \"~/.notfiles\"\n{extra}"
         );
-        toml::from_str(&text).unwrap()
+        toml::from_str(&text).expect("from_str should succeed")
     }
 
     const HOOKS: &str = "[[hooks]]\nname = \"a\"\nscript = \"a.rs\"\nphase = \"setup\"\n[[hooks]]\nname = \"b\"\nscript = \"b.rs\"\nphase = \"setup\"\n";
@@ -104,7 +104,9 @@ mod tests {
     #[test]
     fn assume_yes_keeps_the_config_as_is() {
         let c = cfg(HOOKS);
-        let got = run(&c, &AssumeYes).unwrap().unwrap();
+        let got = run(&c, &AssumeYes)
+            .expect("run should succeed")
+            .expect("the value should be present");
         assert_eq!(
             got.dotfiles_repo.as_deref(),
             Some("https://example.com/d.git")
@@ -122,8 +124,8 @@ mod tests {
             &c,
             &scripted("https://example.com/other.git\n~/dots\n2\n\n"),
         )
-        .unwrap()
-        .unwrap();
+        .expect("run should succeed")
+        .expect("the value should be present");
         assert_eq!(
             got.dotfiles_repo.as_deref(),
             Some("https://example.com/other.git")
@@ -141,12 +143,17 @@ mod tests {
     #[test]
     fn declining_the_plan_aborts() {
         let c = cfg("");
-        assert!(run(&c, &scripted("\n\nn\n")).unwrap().is_none());
+        assert!(
+            run(&c, &scripted("\n\nn\n"))
+                .expect("run should succeed")
+                .is_none()
+        );
     }
 
     #[test]
     fn empty_repo_is_rejected() {
-        let c: NotstrapConfig = toml::from_str("[bootstrap]\ndotfiles_dir = \"~/x\"\n").unwrap();
+        let c: NotstrapConfig = toml::from_str("[bootstrap]\ndotfiles_dir = \"~/x\"\n")
+            .expect("from_str should succeed");
         assert!(run(&c, &scripted("\n\n")).is_err());
     }
 

@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn op_source_resolve_without_ref_returns_none() {
         let source = OpSource::new("my.1password.com".to_string());
-        let result = source.resolve("SOME_KEY").unwrap();
+        let result = source.resolve("SOME_KEY").expect("resolve should succeed");
         assert_eq!(result, None);
     }
 
@@ -78,7 +78,9 @@ mod tests {
     fn op_source_resolve_ref_wrong_variant_delegates() {
         let source = OpSource::new("my.1password.com".to_string());
         let wrong_ref = SecretRef::Env;
-        let result = source.resolve_ref("KEY", &wrong_ref).unwrap();
+        let result = source
+            .resolve_ref("KEY", &wrong_ref)
+            .expect("resolve_ref should succeed");
         assert_eq!(result, None);
     }
 }

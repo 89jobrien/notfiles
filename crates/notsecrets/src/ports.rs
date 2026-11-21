@@ -56,7 +56,9 @@ mod tests {
     fn default_resolve_ref_delegates_to_resolve() {
         let source = FakeSource;
         let secret_ref = SecretRef::Env;
-        let result = source.resolve_ref("KEY", &secret_ref).unwrap();
+        let result = source
+            .resolve_ref("KEY", &secret_ref)
+            .expect("resolve_ref should succeed");
         assert_eq!(result, Some("val".to_string()));
     }
 }

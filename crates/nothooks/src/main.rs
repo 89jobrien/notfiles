@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use notcore::{HookPhase, HookSpec};
 use nothooks::{HookRunner, run_phase};
@@ -35,9 +35,10 @@ enum Cmd {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let state_dir = cli
-        .state_dir
-        .unwrap_or_else(|| std::env::current_dir().unwrap());
+    let state_dir = match cli.state_dir {
+        Some(dir) => dir,
+        None => std::env::current_dir().context("cannot determine the current directory")?,
+    };
 
     let content = std::fs::read_to_string(&cli.config)
         .map_err(|e| anyhow::anyhow!("cannot read {}: {e}", cli.config.display()))?;

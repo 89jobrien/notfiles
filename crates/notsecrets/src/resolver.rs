@@ -166,16 +166,22 @@ mod tests {
     #[test]
     fn resolver_resolve_env_var() {
         unsafe { std::env::set_var("NOTSECRETS_RESOLVER_TEST", "hello") };
-        let resolver = SecretResolver::from_config(config_with_env_only()).unwrap();
-        let val = resolver.resolve("NOTSECRETS_RESOLVER_TEST").unwrap();
+        let resolver = SecretResolver::from_config(config_with_env_only())
+            .expect("from_config should succeed");
+        let val = resolver
+            .resolve("NOTSECRETS_RESOLVER_TEST")
+            .expect("resolve should succeed");
         assert_eq!(val, Some("hello".to_string()));
         unsafe { std::env::remove_var("NOTSECRETS_RESOLVER_TEST") };
     }
 
     #[test]
     fn resolver_resolve_missing_returns_none() {
-        let resolver = SecretResolver::from_config(config_with_env_only()).unwrap();
-        let val = resolver.resolve("NOTSECRETS_NONEXISTENT_99999").unwrap();
+        let resolver = SecretResolver::from_config(config_with_env_only())
+            .expect("from_config should succeed");
+        let val = resolver
+            .resolve("NOTSECRETS_NONEXISTENT_99999")
+            .expect("resolve should succeed");
         assert_eq!(val, None);
     }
 
@@ -186,8 +192,10 @@ mod tests {
         config
             .secrets
             .insert("NOTSECRETS_BOUND_TEST".to_string(), SecretRef::Env);
-        let resolver = SecretResolver::from_config(config).unwrap();
-        let val = resolver.resolve("NOTSECRETS_BOUND_TEST").unwrap();
+        let resolver = SecretResolver::from_config(config).expect("from_config should succeed");
+        let val = resolver
+            .resolve("NOTSECRETS_BOUND_TEST")
+            .expect("resolve should succeed");
         assert_eq!(val, Some("from_env".to_string()));
         unsafe { std::env::remove_var("NOTSECRETS_BOUND_TEST") };
     }
@@ -195,8 +203,9 @@ mod tests {
     #[test]
     fn resolver_resolve_all_includes_env() {
         unsafe { std::env::set_var("NOTSECRETS_ALL_TEST", "present") };
-        let resolver = SecretResolver::from_config(config_with_env_only()).unwrap();
-        let map = resolver.resolve_all().unwrap();
+        let resolver = SecretResolver::from_config(config_with_env_only())
+            .expect("from_config should succeed");
+        let map = resolver.resolve_all().expect("resolve_all should succeed");
         assert_eq!(
             map.get("NOTSECRETS_ALL_TEST").map(|s| s.as_str()),
             Some("present")

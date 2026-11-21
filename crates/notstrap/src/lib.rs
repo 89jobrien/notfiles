@@ -425,7 +425,7 @@ mod tests {
 
     fn parse(extra: &str) -> NotstrapConfig {
         let text = format!("[bootstrap]\ndotfiles_dir = \"~/x\"\n{extra}");
-        toml::from_str(&text).unwrap()
+        toml::from_str(&text).expect("from_str should succeed")
     }
 
     #[test]
@@ -441,13 +441,13 @@ mod tests {
 
     #[test]
     fn run_passes_configured_prereqs_to_the_check() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir should succeed");
         let config = dir.path().join("notstrap.toml");
         std::fs::write(
             &config,
             "[bootstrap]\ndotfiles_dir = \"/nowhere\"\n[prereqs]\nrequired = [\"foo\", \"bar\"]\n",
         )
-        .unwrap();
+        .expect("write should succeed");
         let seen = Rc::new(RefCell::new(Vec::new()));
         let sink = Rc::clone(&seen);
         let opts = BootstrapOptions {
@@ -466,7 +466,7 @@ mod tests {
             assume_yes: false,
             secrets_config: None,
         };
-        let report = run(opts).unwrap();
+        let report = run(opts).expect("run should succeed");
         assert_eq!(*seen.borrow(), ["foo", "bar"]);
         assert!(report.has_failures());
     }
@@ -543,34 +543,43 @@ mod tests {
     /// Normal env lines must pass through unchanged.
     #[test]
     fn parse_env_line_accepts_normal_keys() {
-        let result = parse_env_line("MY_TOKEN=abc123").unwrap();
+        let result = parse_env_line("MY_TOKEN=abc123").expect("parse_env_line should succeed");
         assert_eq!(result, Some(("MY_TOKEN".to_string(), "abc123".to_string())));
     }
 
     /// Blank lines return None.
     #[test]
     fn parse_env_line_ignores_blank() {
-        assert_eq!(parse_env_line("").unwrap(), None);
-        assert_eq!(parse_env_line("   ").unwrap(), None);
+        assert_eq!(
+            parse_env_line("").expect("parse_env_line should succeed"),
+            None
+        );
+        assert_eq!(
+            parse_env_line("   ").expect("parse_env_line should succeed"),
+            None
+        );
     }
 
     /// Comment lines return None.
     #[test]
     fn parse_env_line_ignores_comments() {
-        assert_eq!(parse_env_line("# THIS_IS_A_COMMENT=value").unwrap(), None);
+        assert_eq!(
+            parse_env_line("# THIS_IS_A_COMMENT=value").expect("parse_env_line should succeed"),
+            None
+        );
     }
 
     /// Double-quoted values are unquoted.
     #[test]
     fn parse_env_line_strips_double_quotes() {
-        let result = parse_env_line(r#"API_KEY="secret""#).unwrap();
+        let result = parse_env_line(r#"API_KEY="secret""#).expect("parse_env_line should succeed");
         assert_eq!(result, Some(("API_KEY".to_string(), "secret".to_string())));
     }
 
     /// Single-quoted values are unquoted (no escape processing).
     #[test]
     fn parse_env_line_strips_single_quotes() {
-        let result = parse_env_line("MY_VAR='hello world'").unwrap();
+        let result = parse_env_line("MY_VAR='hello world'").expect("parse_env_line should succeed");
         assert_eq!(
             result,
             Some(("MY_VAR".to_string(), "hello world".to_string()))
@@ -580,14 +589,14 @@ mod tests {
     /// Backslash-escaped double-quote within double-quoted value is handled.
     #[test]
     fn parse_env_line_unescapes_inner_double_quote() {
-        let result = parse_env_line(r#"MSG="val\"ue""#).unwrap();
+        let result = parse_env_line(r#"MSG="val\"ue""#).expect("parse_env_line should succeed");
         assert_eq!(result, Some(("MSG".to_string(), r#"val"ue"#.to_string())));
     }
 
     /// Unquoted values pass through unchanged.
     #[test]
     fn parse_env_line_unquoted_passthrough() {
-        let result = parse_env_line("TOKEN=abc123").unwrap();
+        let result = parse_env_line("TOKEN=abc123").expect("parse_env_line should succeed");
         assert_eq!(result, Some(("TOKEN".to_string(), "abc123".to_string())));
     }
 }

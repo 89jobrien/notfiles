@@ -18,7 +18,7 @@ fn notforge_error_implements_miette_diagnostic() {
 
 #[test]
 fn config_parses_vm_systemd_gitea_mode() {
-    let dir = tempfile::TempDir::new().unwrap();
+    let dir = tempfile::TempDir::new().expect("new should succeed");
     let config_path = dir.path().join("notforge.toml");
     std::fs::write(
         &config_path,
@@ -49,9 +49,9 @@ fn config_parses_vm_systemd_gitea_mode() {
             remote_name = "gitea"
         "#,
     )
-    .unwrap();
+    .expect("write should succeed");
 
-    let config = load_config(&config_path).unwrap();
+    let config = load_config(&config_path).expect("load_config should succeed");
 
     assert_eq!(config.gitea.base_url, "http://gitea.local:3000");
     assert_eq!(config.gitea.owner, "joe");
@@ -94,7 +94,7 @@ fn config_defaults_repositories_to_empty() {
             mode = "existing"
         "#,
     )
-    .unwrap();
+    .expect("from_str should succeed");
 
     assert!(config.repositories.is_empty());
     assert_eq!(config.gitea.auth, ForgeAuthConfig::default());
@@ -184,7 +184,10 @@ fn ports_are_object_safe_for_adapters() {
     let git: &dyn GitRemoteManager = &FakeGit;
     let secrets: &dyn SecretResolverPort = &FakeSecrets;
 
-    assert_eq!(api.version().unwrap().version, "1.0.0");
+    assert_eq!(
+        api.version().expect("version should succeed").version,
+        "1.0.0"
+    );
     assert_eq!(
         lifecycle
             .ensure_available(&ForgeConfig {
@@ -198,7 +201,7 @@ fn ports_are_object_safe_for_adapters() {
                 },
                 repositories: Vec::new(),
             })
-            .unwrap(),
+            .expect("ensure_available should succeed"),
         LifecycleStatus::AlreadyAvailable
     );
     assert_eq!(
@@ -208,7 +211,7 @@ fn ports_are_object_safe_for_adapters() {
             },
             "gitea"
         )
-        .unwrap(),
+        .expect("remote_url should succeed"),
         None
     );
     assert_eq!(
@@ -216,7 +219,7 @@ fn ports_are_object_safe_for_adapters() {
             .resolve(&ForgeSecretRef::Env {
                 key: "GITEA_TOKEN".to_string()
             })
-            .unwrap(),
+            .expect("resolve should succeed"),
         "secret"
     );
 }

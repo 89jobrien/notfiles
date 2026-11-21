@@ -24,7 +24,12 @@ mod tests {
 
     #[test]
     fn dotenvy_stub_resolve_returns_none() {
-        assert_eq!(DotenvySource.resolve("ANY").unwrap(), None);
+        assert_eq!(
+            DotenvySource
+                .resolve("ANY")
+                .expect("resolve should succeed"),
+            None
+        );
     }
 
     #[test]

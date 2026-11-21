@@ -82,7 +82,7 @@ mod tests {
         let unwrapped = identity
             .unwrap_file_key(&stanza)
             .expect("identity should match")
-            .expect("unwrap should succeed");
+            .expect("the value should be present");
         assert_eq!(unwrapped.as_bytes(), file_key.as_bytes());
     }
 
@@ -92,7 +92,9 @@ mod tests {
         let identity = ScryptIdentity::new("wrong".to_string());
 
         let file_key = FileKey::new([0x11u8; 16]);
-        let stanza = recipient.wrap_file_key(&file_key).unwrap();
+        let stanza = recipient
+            .wrap_file_key(&file_key)
+            .expect("wrap_file_key should succeed");
 
         let result = identity
             .unwrap_file_key(&stanza)

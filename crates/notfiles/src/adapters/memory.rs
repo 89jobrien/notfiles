@@ -264,9 +264,18 @@ mod tests {
     #[test]
     fn test_read_write_roundtrip() {
         let fs = InMemoryFileStore::new();
-        fs.write(Path::new("/tmp/f.txt"), b"data").unwrap();
-        assert_eq!(fs.read(Path::new("/tmp/f.txt")).unwrap(), b"data");
-        assert_eq!(fs.read_to_string(Path::new("/tmp/f.txt")).unwrap(), "data");
+        fs.write(Path::new("/tmp/f.txt"), b"data")
+            .expect("write should succeed");
+        assert_eq!(
+            fs.read(Path::new("/tmp/f.txt"))
+                .expect("read should succeed"),
+            b"data"
+        );
+        assert_eq!(
+            fs.read_to_string(Path::new("/tmp/f.txt"))
+                .expect("read_to_string should succeed"),
+            "data"
+        );
     }
 
     #[test]
@@ -274,23 +283,32 @@ mod tests {
         let fs = InMemoryFileStore::new();
         fs.add_file("/src/config", b"content");
         fs.symlink(Path::new("/src/config"), Path::new("/home/config"))
-            .unwrap();
+            .expect("symlink should succeed");
         assert!(fs.has_symlink(Path::new("/home/config")));
         assert_eq!(
-            fs.read_link(Path::new("/home/config")).unwrap(),
+            fs.read_link(Path::new("/home/config"))
+                .expect("read_link should succeed"),
             PathBuf::from("/src/config")
         );
         // Reading through symlink
-        assert_eq!(fs.read(Path::new("/home/config")).unwrap(), b"content");
+        assert_eq!(
+            fs.read(Path::new("/home/config"))
+                .expect("read should succeed"),
+            b"content"
+        );
     }
 
     #[test]
     fn test_rename_file() {
         let fs = InMemoryFileStore::new();
         fs.add_file("/a.txt", b"hello");
-        fs.rename(Path::new("/a.txt"), Path::new("/b.txt")).unwrap();
+        fs.rename(Path::new("/a.txt"), Path::new("/b.txt"))
+            .expect("rename should succeed");
         assert!(!fs.exists(Path::new("/a.txt")));
-        assert_eq!(fs.read(Path::new("/b.txt")).unwrap(), b"hello");
+        assert_eq!(
+            fs.read(Path::new("/b.txt")).expect("read should succeed"),
+            b"hello"
+        );
     }
 
     #[test]
@@ -298,7 +316,8 @@ mod tests {
         let fs = InMemoryFileStore::new();
         fs.add_file("/dir/a.txt", b"a");
         fs.add_file("/dir/sub/b.txt", b"b");
-        fs.remove_dir_all(Path::new("/dir")).unwrap();
+        fs.remove_dir_all(Path::new("/dir"))
+            .expect("remove_dir_all should succeed");
         assert!(!fs.exists(Path::new("/dir/a.txt")));
         assert!(!fs.exists(Path::new("/dir/sub/b.txt")));
         assert!(!fs.is_dir(Path::new("/dir")));
@@ -310,7 +329,9 @@ mod tests {
         fs.add_file("/dir/a.txt", b"a");
         fs.add_file("/dir/b.txt", b"b");
         fs.add_dir("/dir/sub");
-        let mut children = fs.read_dir(Path::new("/dir")).unwrap();
+        let mut children = fs
+            .read_dir(Path::new("/dir"))
+            .expect("read_dir should succeed");
         children.sort();
         assert_eq!(
             children,

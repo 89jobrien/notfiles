@@ -142,21 +142,51 @@ mod tests {
 
     #[test]
     fn confirm_uses_default_on_empty_and_parses_answers() {
-        assert!(prompter("\n").confirm("ok?", true).unwrap());
-        assert!(!prompter("\n").confirm("ok?", false).unwrap());
-        assert!(prompter("YES\n").confirm("ok?", false).unwrap());
-        assert!(!prompter("n\n").confirm("ok?", true).unwrap());
+        assert!(
+            prompter("\n")
+                .confirm("ok?", true)
+                .expect("confirm should succeed")
+        );
+        assert!(
+            !prompter("\n")
+                .confirm("ok?", false)
+                .expect("confirm should succeed")
+        );
+        assert!(
+            prompter("YES\n")
+                .confirm("ok?", false)
+                .expect("confirm should succeed")
+        );
+        assert!(
+            !prompter("n\n")
+                .confirm("ok?", true)
+                .expect("confirm should succeed")
+        );
     }
 
     #[test]
     fn confirm_reasks_on_garbage() {
-        assert!(prompter("maybe\ny\n").confirm("ok?", false).unwrap());
+        assert!(
+            prompter("maybe\ny\n")
+                .confirm("ok?", false)
+                .expect("confirm should succeed")
+        );
     }
 
     #[test]
     fn input_uses_default_on_empty() {
-        assert_eq!(prompter("\n").input("dir", "~/x").unwrap(), "~/x");
-        assert_eq!(prompter("~/y\n").input("dir", "~/x").unwrap(), "~/y");
+        assert_eq!(
+            prompter("\n")
+                .input("dir", "~/x")
+                .expect("input should succeed"),
+            "~/x"
+        );
+        assert_eq!(
+            prompter("~/y\n")
+                .input("dir", "~/x")
+                .expect("input should succeed"),
+            "~/y"
+        );
     }
 
     #[test]
@@ -178,17 +208,20 @@ mod tests {
     #[test]
     fn multi_select_reasks_until_valid() {
         let items = vec!["a".to_string(), "b".to_string()];
-        let got = prompter("9\n2\n").multi_select("pick", &items).unwrap();
+        let got = prompter("9\n2\n")
+            .multi_select("pick", &items)
+            .expect("multi_select should succeed");
         assert_eq!(got, [1]);
     }
 
     #[test]
     fn assume_yes_accepts_everything() {
         let p = AssumeYes;
-        assert!(p.confirm("q", false).unwrap());
-        assert_eq!(p.input("q", "d").unwrap(), "d");
+        assert!(p.confirm("q", false).expect("confirm should succeed"));
+        assert_eq!(p.input("q", "d").expect("input should succeed"), "d");
         assert_eq!(
-            p.multi_select("q", &["a".into(), "b".into()]).unwrap(),
+            p.multi_select("q", &["a".into(), "b".into()])
+                .expect("multi_select should succeed"),
             [0, 1]
         );
     }
