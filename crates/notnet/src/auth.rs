@@ -47,3 +47,12 @@ fn prompt_auth_key() -> Result<String, NotnetError> {
         Ok(key)
     }
 }
+
+/// The production `AuthKeySource`: env var, then YubiKey, then an interactive prompt.
+pub struct ChainedAuthKey;
+
+impl crate::ports::AuthKeySource for ChainedAuthKey {
+    fn auth_key(&self) -> Result<String, NotnetError> {
+        resolve_auth_key()
+    }
+}
