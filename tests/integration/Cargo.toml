@@ -13,9 +13,15 @@ path = "tests/bootstrap.rs"
 name = "cross_crate"
 path = "tests/cross_crate.rs"
 
+[[test]]
+name = "dep_boundaries"
+path = "tests/dep_boundaries.rs"
+
 [dev-dependencies]
 anyhow    = { workspace = true }
 assert_fs = { workspace = true }
+cargo_metadata = "0.18"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
 notcore   = { path = "../../crates/notcore" }
 notfiles  = { path = "../../crates/notfiles" }
 nothooks  = { path = "../../crates/nothooks" }

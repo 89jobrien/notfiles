@@ -1030,12 +1030,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_fs",
+ "cargo_metadata",
  "notcore",
  "notfiles",
  "nothooks",
  "notsecrets",
  "notstrap",
  "tempfile",
+ "x25519-dalek",
 ]
 
 [[package]]
