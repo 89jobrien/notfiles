@@ -1,9 +1,10 @@
 use crate::HookResult;
+use crate::adapters::{FsStateStore, ProcessRunner};
+use crate::ports::{ScriptInvocation, ScriptRunner, StateStore};
 use crate::state::HookState;
 use anyhow::{Context, Result};
 use notcore::{HookPhase, HookSpec, Report, StepStatus};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn resolve_interpreter(spec: &HookSpec) -> Result<String, String> {
     if let Some(interp) = &spec.interpreter {
@@ -32,23 +33,39 @@ pub struct HookRunner {
     state_dir: PathBuf,
     force: bool,
     extra_env: Vec<(String, String)>,
+    scripts: Box<dyn ScriptRunner>,
+    store: Box<dyn StateStore>,
 }
 
 impl HookRunner {
     pub fn new(state_dir: PathBuf) -> Self {
+        let store = Box::new(FsStateStore::new(&state_dir));
+        Self::with_ports(state_dir, Box::new(ProcessRunner), store)
+    }
+
+    pub fn with_force(state_dir: PathBuf) -> Self {
+        Self::new(state_dir).forced()
+    }
+
+    /// Build a runner over explicit adapters; `new` wires the real ones.
+    pub fn with_ports(
+        state_dir: PathBuf,
+        scripts: Box<dyn ScriptRunner>,
+        store: Box<dyn StateStore>,
+    ) -> Self {
         Self {
             state_dir,
             force: false,
             extra_env: Vec::new(),
+            scripts,
+            store,
         }
     }
 
-    pub fn with_force(state_dir: PathBuf) -> Self {
-        Self {
-            state_dir,
-            force: true,
-            extra_env: Vec::new(),
-        }
+    /// Re-run setup hooks even when they already completed.
+    pub fn forced(mut self) -> Self {
+        self.force = true;
+        self
     }
 
     /// Environment variables added to every hook process, e.g. `NOTSTRAP_YES=1`.
@@ -63,8 +80,7 @@ impl HookRunner {
     /// at least one Setup hook completed successfully), avoiding N file reads
     /// and writes per phase.
     pub fn run_phase(&self, hooks: &[HookSpec], phase: &HookPhase) -> Result<Report> {
-        let mut state = HookState::load(&self.state_dir)
-            .with_context(|| format!("loading hook state from {}", self.state_dir.display()))?;
+        let mut state = self.load_state()?;
         let mut state_dirty = false;
         let mut report = Report::default();
 
@@ -79,9 +95,7 @@ impl HookRunner {
         }
 
         if state_dirty {
-            state
-                .save(&self.state_dir)
-                .with_context(|| format!("saving hook state into {}", self.state_dir.display()))?;
+            self.save_state(&state)?;
         }
 
         Ok(report)
@@ -104,28 +118,43 @@ impl HookRunner {
             Err(msg) => return HookResult::Failed(msg),
         };
         let script = self.resolve_script_path(&spec.script);
-        // SAFETY: `interp` is derived from the file extension or an explicit `interpreter` field
-        // in HookSpec (both come from config, not untrusted shell input). `spec.script` is a
-        // filesystem path from config. Both are passed as discrete args with no shell involved,
-        // so argument injection is not possible.
         // Hooks locate the dotfiles checkout through NOTFILES_DIR, not their own path.
-        let result = Command::new(&interp)
-            .arg(&script)
-            .env("NOTFILES_DIR", &self.state_dir)
-            .envs(self.extra_env.iter().map(|(k, v)| (k, v)))
-            .status();
+        // Extra env goes last so it can override.
+        let mut env = vec![(
+            "NOTFILES_DIR".to_string(),
+            self.state_dir.to_string_lossy().into_owned(),
+        )];
+        env.extend(self.extra_env.iter().cloned());
+
+        let result = self.scripts.run(&ScriptInvocation {
+            interpreter: &interp,
+            script: &script,
+            env: &env,
+        });
 
         match result {
-            Ok(status) if status.success() => {
+            Ok(exit) if exit.success() => {
                 if spec.phase == HookPhase::Setup {
                     state.mark_done(&spec.name);
                     *state_dirty = true;
                 }
                 HookResult::Ok
             }
-            Ok(status) => HookResult::Failed(format!("exit code {}", status.code().unwrap_or(-1))),
+            Ok(exit) => HookResult::Failed(format!("exit code {}", exit.code.unwrap_or(-1))),
             Err(e) => HookResult::Failed(e.to_string()),
         }
+    }
+
+    fn load_state(&self) -> Result<HookState> {
+        self.store
+            .load()
+            .with_context(|| format!("loading hook state for {}", self.state_dir.display()))
+    }
+
+    fn save_state(&self, state: &HookState) -> Result<()> {
+        self.store
+            .save(state)
+            .with_context(|| format!("saving hook state for {}", self.state_dir.display()))
     }
 
     /// Run a single hook with its own load/save cycle.
@@ -133,14 +162,11 @@ impl HookRunner {
     /// Prefer [`HookRunner::run_phase`] when running multiple hooks to avoid
     /// repeated state I/O.
     pub fn run_hook(&self, spec: &HookSpec) -> Result<HookResult> {
-        let mut state = HookState::load(&self.state_dir)
-            .with_context(|| format!("loading hook state from {}", self.state_dir.display()))?;
+        let mut state = self.load_state()?;
         let mut state_dirty = false;
         let result = self.run_hook_with_state(spec, &mut state, &mut state_dirty);
         if state_dirty {
-            state
-                .save(&self.state_dir)
-                .with_context(|| format!("saving hook state into {}", self.state_dir.display()))?;
+            self.save_state(&state)?;
         }
         Ok(result)
     }
@@ -160,6 +186,80 @@ mod tests {
     use super::*;
     use notcore::HookPhase;
 
+    use crate::adapters::InMemoryStateStore;
+    use crate::ports::{ScriptExit, ScriptInvocation, ScriptRunner};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::io;
+    use std::rc::Rc;
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Recorded {
+        interpreter: String,
+        script: PathBuf,
+        env: Vec<(String, String)>,
+    }
+
+    /// Records every invocation and replays scripted outcomes (default: exit 0).
+    #[derive(Clone, Default)]
+    struct FakeRunner {
+        calls: Rc<RefCell<Vec<Recorded>>>,
+        outcomes: Rc<RefCell<VecDeque<io::Result<ScriptExit>>>>,
+    }
+
+    impl FakeRunner {
+        fn exits(self, code: i32) -> Self {
+            self.outcomes
+                .borrow_mut()
+                .push_back(Ok(ScriptExit { code: Some(code) }));
+            self
+        }
+
+        fn fails_to_spawn(self, msg: &str) -> Self {
+            self.outcomes.borrow_mut().push_back(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                msg.to_string(),
+            )));
+            self
+        }
+
+        fn calls(&self) -> Vec<Recorded> {
+            self.calls.borrow().clone()
+        }
+    }
+
+    impl ScriptRunner for FakeRunner {
+        fn run(&self, invocation: &ScriptInvocation<'_>) -> io::Result<ScriptExit> {
+            self.calls.borrow_mut().push(Recorded {
+                interpreter: invocation.interpreter.to_string(),
+                script: invocation.script.to_path_buf(),
+                env: invocation.env.to_vec(),
+            });
+            self.outcomes
+                .borrow_mut()
+                .pop_front()
+                .unwrap_or(Ok(ScriptExit { code: Some(0) }))
+        }
+    }
+
+    fn runner_with(fake: &FakeRunner, store: &InMemoryStateStore, force: bool) -> HookRunner {
+        let runner = HookRunner::with_ports(
+            PathBuf::from("/dots"),
+            Box::new(fake.clone()),
+            Box::new(store.clone()),
+        );
+        if force { runner.forced() } else { runner }
+    }
+
+    fn named(name: &str, script: &str, phase: HookPhase) -> HookSpec {
+        HookSpec {
+            name: name.into(),
+            script: script.into(),
+            phase,
+            interpreter: None,
+        }
+    }
+
     fn spec(script: &str, interpreter: Option<&str>) -> HookSpec {
         HookSpec {
             name: "t".into(),
@@ -170,10 +270,203 @@ mod tests {
     }
 
     #[test]
+    fn setup_hook_runs_once_then_is_skipped() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+        let hooks = [named("a", "a.nu", HookPhase::Setup)];
+
+        runner
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("first run");
+        let report = runner
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("second run");
+
+        assert_eq!(fake.calls().len(), 1);
+        assert!(store.is_done("a"));
+        assert!(!report.has_failures());
+    }
+
+    #[test]
+    fn force_reruns_completed_setup_hook() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let hooks = [named("a", "a.nu", HookPhase::Setup)];
+
+        runner_with(&fake, &store, false)
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("first run");
+        runner_with(&fake, &store, true)
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("forced run");
+
+        assert_eq!(fake.calls().len(), 2);
+    }
+
+    #[test]
+    fn dot_hook_always_runs_and_never_touches_state() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+        let hooks = [named("d", "d.nu", HookPhase::Dot)];
+
+        runner
+            .run_phase(&hooks, &HookPhase::Dot)
+            .expect("first run");
+        runner
+            .run_phase(&hooks, &HookPhase::Dot)
+            .expect("second run");
+
+        assert_eq!(fake.calls().len(), 2);
+        assert_eq!(store.saves(), 0);
+        assert!(!store.is_done("d"));
+    }
+
+    #[test]
+    fn failed_setup_hook_is_not_marked_done() {
+        let (fake, store) = (
+            FakeRunner::default().exits(3),
+            InMemoryStateStore::default(),
+        );
+        let runner = runner_with(&fake, &store, false);
+
+        let result = runner
+            .run_hook(&named("a", "a.nu", HookPhase::Setup))
+            .expect("state io");
+
+        assert_eq!(result, HookResult::Failed("exit code 3".into()));
+        assert!(!store.is_done("a"));
+        assert_eq!(store.saves(), 0);
+    }
+
+    #[test]
+    fn spawn_error_is_reported_as_failure() {
+        let fake = FakeRunner::default().fails_to_spawn("no such interpreter");
+        let store = InMemoryStateStore::default();
+        let runner = runner_with(&fake, &store, false);
+
+        let result = runner
+            .run_hook(&named("a", "a.nu", HookPhase::Setup))
+            .expect("state io");
+
+        assert_eq!(result, HookResult::Failed("no such interpreter".into()));
+    }
+
+    #[test]
+    fn unresolvable_interpreter_fails_without_running_anything() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+
+        let result = runner
+            .run_hook(&named("a", "a.xyz", HookPhase::Setup))
+            .expect("state io");
+
+        assert!(matches!(result, HookResult::Failed(_)));
+        assert!(fake.calls().is_empty());
+    }
+
+    /// Regression: state is loaded once and saved once per phase, not per hook.
+    #[test]
+    fn run_phase_batches_state_io() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+        let hooks = [
+            named("a", "a.nu", HookPhase::Setup),
+            named("b", "b.nu", HookPhase::Setup),
+            named("c", "c.nu", HookPhase::Setup),
+        ];
+
+        runner.run_phase(&hooks, &HookPhase::Setup).expect("run");
+
+        assert_eq!(store.loads(), 1);
+        assert_eq!(store.saves(), 1);
+    }
+
+    #[test]
+    fn run_phase_does_not_save_when_nothing_completed() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+        let hooks = [named("a", "a.nu", HookPhase::Setup)];
+
+        runner
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("first run");
+        let saves_after_first = store.saves();
+        runner
+            .run_phase(&hooks, &HookPhase::Setup)
+            .expect("second run");
+
+        assert_eq!(saves_after_first, 1);
+        assert_eq!(store.saves(), 1);
+    }
+
+    #[test]
+    fn run_phase_only_runs_hooks_of_the_requested_phase() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+        let hooks = [
+            named("a", "a.nu", HookPhase::Setup),
+            named("d", "d.nu", HookPhase::Dot),
+        ];
+
+        runner.run_phase(&hooks, &HookPhase::Dot).expect("run");
+
+        let calls = fake.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].script, PathBuf::from("/dots/d.nu"));
+    }
+
+    /// Regression: hooks find the checkout through NOTFILES_DIR.
+    #[test]
+    fn hooks_receive_notfiles_dir_and_extra_env() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner =
+            runner_with(&fake, &store, false).with_env(vec![("NOTSTRAP_YES".into(), "1".into())]);
+
+        runner
+            .run_hook(&named("a", "a.nu", HookPhase::Dot))
+            .expect("state io");
+
+        let env = &fake.calls()[0].env;
+        assert!(env.contains(&("NOTFILES_DIR".into(), "/dots".into())));
+        assert!(env.contains(&("NOTSTRAP_YES".into(), "1".into())));
+    }
+
+    #[test]
+    fn relative_script_resolves_from_state_dir_and_absolute_is_untouched() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+
+        runner
+            .run_hook(&named("r", "hooks/r.nu", HookPhase::Dot))
+            .expect("state io");
+        runner
+            .run_hook(&named("x", "/abs/x.nu", HookPhase::Dot))
+            .expect("state io");
+
+        let calls = fake.calls();
+        assert_eq!(calls[0].script, PathBuf::from("/dots/hooks/r.nu"));
+        assert_eq!(calls[1].script, PathBuf::from("/abs/x.nu"));
+    }
+
+    #[test]
+    fn rs_hooks_run_through_rust_script() {
+        let (fake, store) = (FakeRunner::default(), InMemoryStateStore::default());
+        let runner = runner_with(&fake, &store, false);
+
+        runner
+            .run_hook(&named("a", "a.rs", HookPhase::Dot))
+            .expect("state io");
+
+        assert_eq!(fake.calls()[0].interpreter, "rust-script");
+    }
+
+    #[test]
     fn infers_interpreter_from_extension() {
-        assert_eq!(resolve_interpreter(&spec("a.nu", None)).unwrap(), "nu");
         assert_eq!(
-            resolve_interpreter(&spec("a.rs", None)).unwrap(),
+            resolve_interpreter(&spec("a.nu", None)).expect("nu is known"),
+            "nu"
+        );
+        assert_eq!(
+            resolve_interpreter(&spec("a.rs", None)).expect("rs is known"),
             "rust-script"
         );
     }
@@ -181,7 +474,7 @@ mod tests {
     #[test]
     fn explicit_interpreter_wins() {
         assert_eq!(
-            resolve_interpreter(&spec("a.rs", Some("custom"))).unwrap(),
+            resolve_interpreter(&spec("a.rs", Some("custom"))).expect("explicit interpreter"),
             "custom"
         );
     }
