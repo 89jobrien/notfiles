@@ -19,6 +19,7 @@ rand             = "0.8"
 rpassword        = { workspace = true }
 scrypt           = "0.11"
 serde            = { workspace = true }
+serde_json       = { workspace = true }
 sha2             = "0.10"
 thiserror        = { workspace = true }
 toml             = { workspace = true }
