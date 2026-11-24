@@ -79,12 +79,14 @@ items:
   priority: P1
   status: done
   title: Uncommitted changes
-  description: |-
-    Resolved: the tree was clean at the end of the 2026-11-21 session apart from the .ctx session reports.
+  description: 'Resolved: the tree was clean at the end of the 2026-11-21 session apart from the .ctx session reports.'
   files: []
   completed: 2026-11-21
   extra: []
 log:
+- date: '20260606.135918'
+  summary: done=13 running=0 pending=0 blocked=0
+  commits: []
 - date: 2026-11-21
   summary: SOLID ports (nothooks, notnet, notstrap git, notfiles detect), conformance and property tests, fuzz crate, expect() cleanup, Python removed, notstrap secrets without unsafe set_var
   commits:
@@ -105,9 +107,6 @@ log:
   commits:
   - 6427d18
   - 25624c9
-- date: '20260606.135918'
-  summary: done=13 running=0 pending=0 blocked=0
-  commits: []
 - date: 2026-04-17
   summary: Added notnet crate with YubikeySource and threaded Tailscale into notstrap; design spec complete
   commits: []
